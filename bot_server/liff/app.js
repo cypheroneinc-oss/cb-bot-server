@@ -1,117 +1,132 @@
-// ===== 設定: ここに LIFF_ID を入れる（index.html の <meta name="liff-id"> でもOK） =====
-const LIFF_ID_FALLBACK = "2008019437-Jxwm33XM";
+// ===== 設定: LIFF ID（Vercelの環境変数から差し込むなら script 等で渡してOK）=====
+const LIFF_ID = '2008019437-Jxwm33XM'; // 例: window.__LIFF_ID || 'xxxx'
 
-// 小ユーティリティ
+// UIヘルパ
 const $ = (sel) => document.querySelector(sel);
-const getMeta = (name) =>
-  document.querySelector(`meta[name="${name}"]`)?.getAttribute("content") || "";
 
-// 回答の読み取り（input[name="q1"~"q8"] の選択値を配列で返す）
-function readAnswers() {
-  const answers = [];
-  for (let i = 1; i <= 8; i++) {
-    const checked = document.querySelector(`input[name="q${i}"]:checked`);
-    if (!checked) throw new Error(`Q${i} が未回答です`);
-    answers.push(checked.value);
-  }
-  return answers;
+// 日本語表示だが、value はスコアロジックが期待するトークンに統一
+//（scorer.js が参照する語彙: Intuition / Logic / High / Low / Care / Speed / 成果 / 仲間 / 安心 / 明るい / 自由 など）
+const QUESTIONS = {
+  q1: [
+    { label: '直感型', value: 'Intuition' },
+    { label: '論理型', value: 'Logic' },
+  ],
+  q2: [
+    { label: '高い（攻める）', value: 'High' },
+    { label: '低い（堅実）', value: 'Low' },
+  ],
+  q3: [
+    { label: '思いやり重視', value: 'Care' },
+    { label: '成果重視', value: '成果' }, // scorer.js が '成果' を見にいく想定
+  ],
+  q4: [
+    { label: 'スピード最優先', value: 'Speed' },
+    { label: '周囲への配慮', value: 'Care' },
+    { label: '結果へのこだわり', value: '成果' },
+  ],
+  q5: [
+    { label: '直感寄り', value: 'Intuition' },
+    { label: '論理寄り', value: 'Logic' },
+  ],
+  q6: [
+    { label: '仲間・一体感', value: '仲間' },
+    { label: '安心・安定', value: '安心' },
+  ],
+  q7: [
+    { label: '明るい・ポジティブ', value: '明るい' },
+    { label: '落ち着き・誠実', value: 'まっとう' },
+  ],
+  q8: [
+    { label: '自由・裁量', value: '自由' },
+    { label: 'サポート・調和', value: 'Care' },
+  ],
+};
+
+// セレクトを動的に描画
+function renderSelect(name) {
+  const sel = document.getElementById(name);
+  sel.innerHTML = '';
+  (QUESTIONS[name] || []).forEach(opt => {
+    const o = document.createElement('option');
+    o.value = opt.value;
+    o.textContent = opt.label;
+    sel.appendChild(o);
+  });
 }
 
-// 画面メッセージ
-function showStatus(msg, isError = false) {
-  const el = $("#status");
-  el.textContent = msg;
-  el.style.color = isError ? "tomato" : "inherit";
-}
-
-// ============ エントリ ============
-window.addEventListener("load", init);
-
+// LIFF 初期化
 async function init() {
   try {
-    // 1) LIFF 初期化
-    const liffId = getMeta("liff-id") || LIFF_ID_FALLBACK;
-    if (!liffId || /ここにLIFF_IDを入れる/.test(liffId)) {
-      showStatus("LIFF_ID が未設定です。index.html の <meta name=\"liff-id\"> か app.js を修正してください。", true);
-      return;
-    }
-    showStatus("LIFF 初期化中…");
-    await liff.init({ liffId });
+    $('#status').textContent = 'LIFF 初期化…';
+    await liff.init({ liffId: LIFF_ID });
 
-    // 2) ログイン（外ブラウザ想定の保険）
+    // ブラウザ直開き時は LINE ログインへ誘導（開発中の利便用）
     if (!liff.isInClient() && !liff.isLoggedIn()) {
-      showStatus("ログインへリダイレクトします…");
-      liff.login();
-      return;
+      $('#status').innerHTML = 'ログインへリダイレクトします…';
+      return liff.login();
     }
 
-    // 3) プロフィール取得＆表示
-    const profile = await liff.getProfile();
-    $("#displayName").textContent = profile.displayName || "";
-    $("#userId").textContent = profile.userId || "";
-    $("#inClient").textContent = String(liff.isInClient());
-    $("#profile").style.display = "block";
-    showStatus("準備OK");
+    // 質問項目の描画
+    ['q1','q2','q3','q4','q5','q6','q7','q8'].forEach(renderSelect);
 
-    // 4) 送信ボタン
-    $("#sendBtn")?.addEventListener("click", async () => {
+    // プロフィール
+    const prof = await liff.getProfile().catch(() => null);
+    const userId = prof?.userId || '';
+    const name = prof?.displayName || '';
+
+    // 要素が無い場合でも落ちないようにガード
+    const userIdEl = $('#userId');
+    if (userIdEl) userIdEl.textContent = userId;
+    const nameEl = $('#displayName');
+    if (nameEl) nameEl.textContent = name;
+
+    $('#status').innerHTML = '<span class="ok">LIFF 準備OK</span>';
+
+    // 送信
+    $('#form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('#submitBtn').disabled = true;
+
+      const answers = {
+        q1: $('#q1').value, q2: $('#q2').value, q3: $('#q3').value, q4: $('#q4').value,
+        q5: $('#q5').value, q6: $('#q6').value, q7: $('#q7').value, q8: $('#q8').value,
+      };
+
       try {
-        showStatus("送信中…");
-        const answers = readAnswers();
-
-        // サーバ（Vercel）へ POST
-        const res = await fetch("/api/answer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            line_user_id: profile.userId,
-            answers, // ["A","B",...]
-          }),
+        const res = await fetch('/api/answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ line_user_id: userId, answers }),
         });
 
-        if (!res.ok) {
-          const t = await res.text();
-          throw new Error(`/api/answer 失敗 (${res.status}) ${t}`);
-        }
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || 'API error');
 
-        const data = await res.json(); // { result_type, title, body, fit, cta? }
-        // 画面に反映
-        $("#resultType").textContent = data.result_type || "-";
-        $("#resultTitle").textContent = data.title || "";
-        $("#resultBody").textContent = data.body || "";
-        $("#resultFit").textContent = data.fit || "";
-        $("#result").style.display = "block";
-        showStatus("送信完了");
+        // 画面表示
+        const box = $('#result');
+        box.style.display = 'block';
+        box.innerHTML = `
+          <div class="card">
+            <div><b>診断タイプ:</b> ${json.result_type}</div>
+            <div style="margin-top:8px"><b>${json.title}</b></div>
+            <div style="margin-top:4px">${json.body}</div>
+            <div style="margin-top:8px;font-size:12px;color:#666">
+              ※ この結果はC by meのスコアリングロジックで算出されています
+            </div>
+          </div>
+        `;
 
-        // 5) 可能ならトークへ結果を送信（chat_message.write を付けている場合）
-        try {
-          if (liff.isApiAvailable("shareTargetPicker")) {
-            // シェアターゲットピッカー（任意）
-            // await liff.shareTargetPicker([{ type: "text", text: `診断結果: ${data.title}\n${data.body}` }]);
-          } else if (liff.isInClient()) {
-            // トークへリプライ（LIFF内のみ）
-            await liff.sendMessages([
-              { type: "text", text: `診断結果: ${data.title}\n${data.body}` },
-            ]);
-          }
-        } catch (e) {
-          // 権限が無い・ユーザーが拒否などは無視
-          console.warn("sendMessages/shareTargetPicker error:", e);
-        }
+        // LINEミニアプリ内なら自動で閉じる等も可
+        // if (liff.isInClient()) setTimeout(() => liff.closeWindow(), 1200);
       } catch (err) {
-        console.error(err);
-        showStatus(err.message || String(err), true);
-        alert(err.message || String(err));
+        $('#status').innerHTML = `<span class="warn">${err.message}</span>`;
+      } finally {
+        $('#submitBtn').disabled = false;
       }
     });
-
-    // 6) 閉じるボタン（任意）
-    $("#closeBtn")?.addEventListener("click", () => {
-      if (liff.isInClient()) liff.closeWindow();
-      else window.close();
-    });
   } catch (e) {
-    console.error(e);
-    showStatus(e.message || String(e), true);
+    $('#status').innerHTML = `<span class="warn">初期化に失敗: ${e.message}</span>`;
   }
 }
+
+document.addEventListener('DOMContentLoaded', init);
