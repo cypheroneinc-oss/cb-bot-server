@@ -1,128 +1,97 @@
+<!-- bot_server/liff/index.html -->
 <!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>超速診断　</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>秒速診断　</title>
   <link rel="preconnect" href="https://static.line-scdn.net">
   <style>
-    body{font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Hiragino Sans","Noto Sans JP","Yu Gothic UI","YuGothic",Meiryo,sans-serif;line-height:1.6;margin:0;background:#0b0b0c;color:#eaeaea}
-    .wrap{max-width:720px;margin:0 auto;padding:20px}
-    .card{background:#141416;border:1px solid #2a2b2f;border-radius:14px;padding:18px 16px;margin:14px 0}
-    h1{font-size:22px;margin:10px 0 4px}
-    h2{font-size:18px;margin:18px 0 8px}
-    .q{margin:14px 0}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
-    .opt{background:#1a1b1f;border:1px solid #2a2b2f;border-radius:10px;padding:10px 12px;flex:1;min-width:220px;cursor:pointer}
-    .opt input{margin-right:8px}
-    .muted{color:#9aa0a6;font-size:12px}
-    button{width:100%;padding:12px 14px;border-radius:12px;background:#3b82f6;border:0;color:#fff;font-size:16px}
-    button:disabled{opacity:.5}
-    .ok{color:#86efac}
-    .err{color:#fca5a5}
-    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#1f2937;margin-right:6px;margin-bottom:6px;font-size:12px}
-    .result{white-space:pre-wrap}
-    .badge{font-size:12px;background:#1f2937;border:1px solid #374151;border-radius:999px;padding:3px 8px;margin-left:6px}
+    body { font-family: system-ui,-apple-system,Segoe UI,Roboto; margin: 0; padding: 16px; color:#eaeaea; background:#0b0b0b;}
+    .card{ background:#171717; border-radius:14px; padding:16px; margin:12px 0;}
+    h1{ font-size:20px; margin:8px 0 4px;}
+    h2{ font-size:16px; margin:16px 0 8px;}
+    label.block{ display:block; padding:12px 14px; border:1px solid #2a2a2a; border-radius:12px; margin:10px 0;}
+    button{ width:100%; padding:14px 18px; font-size:16px; border:0; border-radius:12px; background:#3b82f6; color:#fff;}
+    small{ color:#9aa0a6;}
+    .muted{ color:#9aa0a6; font-size:12px; }
+    .ok{ color:#22c55e; }
+    .list{ margin:8px 0 0 18px; }
   </style>
 </head>
 <body>
-<div class="wrap">
   <div class="card">
-    <h1>超速診断 <span id="status" class="badge">初期化中…</span></h1>
-    <div class="muted">ユーザーID: <span id="userId">-</span></div>
+    <h1>秒速診断　</h1>
+    <div id="status" class="muted">LIFF 初期化中…</div>
+    <div style="display:none" id="profile">
+      <div>こんにちは、<b id="displayName"></b> さん</div>
+      <div class="muted">userId: <span id="userId"></span></div>
+    </div>
   </div>
 
-  <form id="form" class="card">
-    <h2>サクッと答えてみてください！</h2>
+  <form class="card" id="form">
+    <h2>1. 宿題・課題の進めかた</h2>
+    <div class="muted">Q: 何かに取りかかるとき、近いのは？</div>
+    <label class="block"><input type="radio" name="q1" value="A"> A. とりあえず始めて、やりながら直す</label>
+    <label class="block"><input type="radio" name="q1" value="B"> B. まず全体を整理してから始める</label>
 
-    <!-- 1 -->
-    <div class="q">
-      <div><strong>1. 課題・宿題の進め方</strong><br>Q: 何かに取りかかるとき、近いのは？</div>
-      <div class="row">
-        <label class="opt"><input type="radio" name="q1" value="A">A. とりあえず始めて、やりながら直す</label>
-        <label class="opt"><input type="radio" name="q1" value="B">B. まず全体を整理してから始める</label>
-      </div>
-    </div>
+    <h2>2. 判断の決め手</h2>
+    <div class="muted">Q: 悩んだとき、より大事にするのは？</div>
+    <label class="block"><input type="radio" name="q2" value="A"> A. なんとなくの直感やフィーリング</label>
+    <label class="block"><input type="radio" name="q2" value="B"> B. 理由やデータなどの根拠</label>
 
-    <!-- 2 -->
-    <div class="q">
-      <div><strong>2. 判断の決め手</strong><br>Q: 悩んだとき、より大事にするのは？</div>
-      <div class="row">
-        <label class="opt"><input type="radio" name="q2" value="A">A. なんとなくの直感やフィーリング</label>
-        <label class="opt"><input type="radio" name="q2" value="B">B. 理由やデータなどの根拠</label>
-      </div>
-    </div>
+    <h2>3. やる気が出る理由（複数OK）</h2>
+    <div class="muted">「よし、がんばろう！」と思えるのは？</div>
+    <label class="block"><input type="checkbox" name="q3" value="成果"> ① 成果を出したとき（達成感）</label>
+    <label class="block"><input type="checkbox" name="q3" value="承認"> ② 認められたり褒められたとき（承認）</label>
+    <label class="block"><input type="checkbox" name="q3" value="貢献"> ③ 誰かの役に立ったとき（貢献）</label>
+    <label class="block"><input type="checkbox" name="q3" value="安心"> ④ 安心できる環境があるとき（安心）</label>
+    <label class="block"><input type="checkbox" name="q3" value="探究"> ⑤ 新しいことを知れたとき（探究）</label>
+    <label class="block"><input type="checkbox" name="q3" value="自由"> ⑥ 自分のやり方で自由にできるとき（自由）</label>
+    <label class="block"><input type="checkbox" name="q3" value="仲間"> ⑦ 仲間と一緒に動けるとき（仲間）</label>
+    <label class="block"><input type="checkbox" name="q3" value="成長"> ⑧ 成長している実感があるとき（成長）</label>
 
-    <!-- 3 -->
-    <div class="q">
-      <div><strong>3. やる気が出る理由</strong><br>Q: 「よし、がんばろう！」と思えるのは？（<u>最大3つ／順位は選択順</u>）</div>
-      <div id="moti" class="row">
-        <label class="opt"><input type="checkbox" value="成果">① 成果を出したとき（達成）</label>
-        <label class="opt"><input type="checkbox" value="承認">② 認められたり褒められたとき（承認）</label>
-        <label class="opt"><input type="checkbox" value="貢献">③ 誰かの役に立ったとき（貢献）</label>
-        <label class="opt"><input type="checkbox" value="安心">④ 安心できる環境があるとき（安心）</label>
-        <label class="opt"><input type="checkbox" value="探究">⑤ 新しいことを知れたとき（探究）</label>
-        <label class="opt"><input type="checkbox" value="自由">⑥ 自分のやり方で自由にできるとき（自由）</label>
-        <label class="opt"><input type="checkbox" value="仲間">⑦ 仲間と一緒に動けるとき（仲間）</label>
-        <label class="opt"><input type="checkbox" value="成長">⑧ 成長している実感があるとき（成長）</label>
-      </div>
-      <div class="muted">選択順 = 優先度（先に選ぶほど上位）</div>
-      <div class="muted">選択中: <span id="moti-picked">0</span> 件</div>
-    </div>
+    <h2>4. 苦手な環境</h2>
+    <div class="muted">Q: どちらの方がイヤ？</div>
+    <label class="block"><input type="radio" name="q4" value="A"> A. ずっと細かく指示される</label>
+    <label class="block"><input type="radio" name="q4" value="B"> B. ほったらかしで丸投げされる</label>
 
-    <!-- 4 -->
-    <div class="q">
-      <div><strong>4. 苦手な環境</strong><br>Q: どちらの方がイヤ？</div>
-      <div class="row">
-        <label class="opt"><input type="radio" name="q4" value="A">A. ずっと細かく指示される</label>
-        <label class="opt"><input type="radio" name="q4" value="B">B. ほったらかしで丸投げされる</label>
-      </div>
-    </div>
+    <h2>5. 感情の出し方</h2>
+    <div class="muted">Q: 気持ちが盛り上がったとき、近いのは？</div>
+    <label class="block"><input type="radio" name="q5" value="A"> A. 顔や言葉にすぐ出る</label>
+    <label class="block"><input type="radio" name="q5" value="B"> B. 外には出ないけど心の中で燃える</label>
 
-    <!-- 5 -->
-    <div class="q">
-      <div><strong>5. 感情の出し方</strong><br>Q: 気持ちが盛り上がったとき、近いのは？</div>
-      <div class="row">
-        <label class="opt"><input type="radio" name="q5" value="A">A. 顔や言葉にすぐ出る</label>
-        <label class="opt"><input type="radio" name="q5" value="B">B. 外には出ないけど心の中で燃える</label>
-      </div>
-    </div>
+    <h2>6. 安心できるチーム</h2>
+    <div class="muted">Q: 一緒にいてラクなのは？</div>
+    <label class="block"><input type="radio" name="q6" value="A"> A. 何でもハッキリ言えるチーム</label>
+    <label class="block"><input type="radio" name="q6" value="B"> B. 空気を大事にして、和やかなチーム</label>
 
-    <!-- 6 -->
-    <div class="q">
-      <div><strong>6. 安心できるチーム</strong><br>Q: 一緒にいてラクなのは？</div>
-      <div class="row">
-        <label class="opt"><input type="radio" name="q6" value="A">A. 何でもハッキリ言えるチーム</label>
-        <label class="opt"><input type="radio" name="q6" value="B">B. 空気を大事にして、和やかなチーム</label>
-      </div>
-    </div>
+    <h2>7. チームでの役割</h2>
+    <div class="muted">Q: 自然に多いのは？</div>
+    <label class="block"><input type="radio" name="q7" value="A"> A. みんなを引っ張るリーダー役</label>
+    <label class="block"><input type="radio" name="q7" value="B"> B. サポートして支える役</label>
 
-    <!-- 7 -->
-    <div class="q">
-      <div><strong>7. チームでの役割</strong><br>Q: 自然に多いのは？</div>
-      <div class="row">
-        <label class="opt"><input type="radio" name="q7" value="A">A. みんなを引っ張るリーダー役</label>
-        <label class="opt"><input type="radio" name="q7" value="B">B. サポートして支える役</label>
-      </div>
-    </div>
+    <h2>8. 働き方の理想</h2>
+    <div class="muted">Q: 理想に近いのは？</div>
+    <label class="block"><input type="radio" name="q8" value="A"> A. 一つのことをじっくり極める</label>
+    <label class="block"><input type="radio" name="q8" value="B"> B. いろんなことに同時にチャレンジする</label>
 
-    <!-- 8 -->
-    <div class="q">
-      <div><strong>8. 働き方の理想</strong><br>Q: 理想に近いのは？</div>
-      <div class="row">
-        <label class="opt"><input type="radio" name="q8" value="A">A. 一つのことをじっくり極める</label>
-        <label class="opt"><input type="radio" name="q8" value="B">B. いろんなことに同時にチャレンジする</label>
-      </div>
-    </div>
-
-    <button id="submit" type="submit" disabled>結果を取得</button>
-    <div class="muted" style="margin-top:8px">※このページは <code>/liff/index.html</code> にあります。</div>
+    <button type="submit" id="submitBtn">結果を取得</button>
+    <div class="muted">※このページは /liff/index.html にあります。</div>
   </form>
 
-  <div id="out" class="card result" style="display:none"></div>
-</div>
+  <div id="result" class="card" style="display:none">
+    <h2>【タイプ】<span id="typeTitle"></span></h2>
+    <div id="typeBody" class="list"></div>
+    <h2>【合う働き方】</h2>
+    <div id="fit"></div>
+    <h2>【向いている職種の例】</h2>
+    <ul id="jobs"></ul>
+    <h2>【アドバイス】</h2>
+    <ul id="tips"></ul>
+  </div>
 
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="./app.js"></script>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
