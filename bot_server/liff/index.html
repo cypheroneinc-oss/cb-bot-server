@@ -2,74 +2,127 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>6秒診断（LIFF）</title>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://static.line-scdn.net">
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#f6f7f8;margin:0;padding:16px}
-    .card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,.06);max-width:720px;margin:0 auto}
-    h1{font-size:20px;margin:0 0 8px}
-    .note{color:#666;font-size:12px;margin-top:16px}
-    .row{margin:12px 0}
-    label{display:block;font-weight:600;margin-bottom:6px}
-    select,button{width:100%;font-size:16px;border:1px solid #e3e5e8;border-radius:10px;padding:12px;background:#fff}
-    button{background:#1565c0;color:#fff;border:none;font-weight:700;cursor:pointer}
-    button:disabled{opacity:.6;cursor:not-allowed}
-    .meta{font-size:12px;color:#444;margin:4px 0 12px}
-    .ok{color:#2e7d32}.warn{color:#c62828}
+    body{font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Hiragino Sans","Noto Sans JP","Yu Gothic UI","YuGothic",Meiryo,sans-serif;line-height:1.6;margin:0;background:#0b0b0c;color:#eaeaea}
+    .wrap{max-width:720px;margin:0 auto;padding:20px}
+    .card{background:#141416;border:1px solid #2a2b2f;border-radius:14px;padding:18px 16px;margin:14px 0}
+    h1{font-size:22px;margin:10px 0 4px}
+    h2{font-size:18px;margin:18px 0 8px}
+    .q{margin:14px 0}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .opt{background:#1a1b1f;border:1px solid #2a2b2f;border-radius:10px;padding:10px 12px;flex:1;min-width:220px;cursor:pointer}
+    .opt input{margin-right:8px}
+    .muted{color:#9aa0a6;font-size:12px}
+    button{width:100%;padding:12px 14px;border-radius:12px;background:#3b82f6;border:0;color:#fff;font-size:16px}
+    button:disabled{opacity:.5}
+    .ok{color:#86efac}
+    .err{color:#fca5a5}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#1f2937;margin-right:6px;margin-bottom:6px;font-size:12px}
+    .result{white-space:pre-wrap}
+    .badge{font-size:12px;background:#1f2937;border:1px solid #374151;border-radius:999px;padding:3px 8px;margin-left:6px}
   </style>
 </head>
 <body>
+<div class="wrap">
   <div class="card">
-    <h1>6秒診断（トーク内 LIFF）</h1>
-    <div id="status" class="meta">初期化中…</div>
-    <div class="meta">ユーザーID: <span id="userId">-</span> / 表示名: <span id="displayName">-</span></div>
-
-    <form id="form">
-      <div class="row">
-        <label for="q1">Q1: 思考タイプ</label>
-        <select id="q1" name="q1"></select>
-      </div>
-      <div class="row">
-        <label for="q2">Q2: 目標への向き合い方</label>
-        <select id="q2" name="q2"></select>
-      </div>
-      <div class="row">
-        <label for="q3">Q3: 対人スタイル</label>
-        <select id="q3" name="q3"></select>
-      </div>
-      <div class="row">
-        <label for="q4">Q4: 重視する働き方</label>
-        <select id="q4" name="q4"></select>
-      </div>
-      <div class="row">
-        <label for="q5">Q5: 直感・論理のどちら寄り？</label>
-        <select id="q5" name="q5"></select>
-      </div>
-      <div class="row">
-        <label for="q6">Q6: 求める雰囲気</label>
-        <select id="q6" name="q6"></select>
-      </div>
-      <div class="row">
-        <label for="q7">Q7: 自分のカラー</label>
-        <select id="q7" name="q7"></select>
-      </div>
-      <div class="row">
-        <label for="q8">Q8: 大切にしたい価値観</label>
-        <select id="q8" name="q8"></select>
-      </div>
-
-      <div class="row">
-        <button id="submitBtn" type="submit">結果を取得</button>
-      </div>
-    </form>
-
-    <div id="result" class="row" style="display:none"></div>
-
-    <p class="note">※ このページは <code>/liff/index.html</code> にあります（UIは自由に差し替えOK）。</p>
+    <h1>6秒診断（トーク内 LIFF） <span id="status" class="badge">初期化中…</span></h1>
+    <div class="muted">ユーザーID: <span id="userId">-</span></div>
   </div>
 
-  <script src="./app.js"></script>
+  <form id="form" class="card">
+    <h2>簡易質問</h2>
+
+    <!-- 1 -->
+    <div class="q">
+      <div><strong>1. 仕事の進め方のスタンス</strong><br>Q: 何かに取りかかるとき、近いのは？</div>
+      <div class="row">
+        <label class="opt"><input type="radio" name="q1" value="A">A. とりあえず始めて、やりながら直す</label>
+        <label class="opt"><input type="radio" name="q1" value="B">B. まず全体を整理してから始める</label>
+      </div>
+    </div>
+
+    <!-- 2 -->
+    <div class="q">
+      <div><strong>2. 判断の決め手</strong><br>Q: 悩んだとき、より大事にするのは？</div>
+      <div class="row">
+        <label class="opt"><input type="radio" name="q2" value="A">A. なんとなくの直感やフィーリング</label>
+        <label class="opt"><input type="radio" name="q2" value="B">B. 理由やデータなどの根拠</label>
+      </div>
+    </div>
+
+    <!-- 3 -->
+    <div class="q">
+      <div><strong>3. やる気が出る理由</strong><br>Q: 「よし、がんばろう！」と思えるのは？（<u>最大3つ／順位は選択順</u>）</div>
+      <div id="moti" class="row">
+        <label class="opt"><input type="checkbox" value="成果">① 成果を出したとき（達成）</label>
+        <label class="opt"><input type="checkbox" value="承認">② 認められたり褒められたとき（承認）</label>
+        <label class="opt"><input type="checkbox" value="貢献">③ 誰かの役に立ったとき（貢献）</label>
+        <label class="opt"><input type="checkbox" value="安心">④ 安心できる環境があるとき（安心）</label>
+        <label class="opt"><input type="checkbox" value="探究">⑤ 新しいことを知れたとき（探究）</label>
+        <label class="opt"><input type="checkbox" value="自由">⑥ 自分のやり方で自由にできるとき（自由）</label>
+        <label class="opt"><input type="checkbox" value="仲間">⑦ 仲間と一緒に動けるとき（仲間）</label>
+        <label class="opt"><input type="checkbox" value="成長">⑧ 成長している実感があるとき（成長）</label>
+      </div>
+      <div class="muted">選択順 = 優先度（先に選ぶほど上位）</div>
+      <div class="muted">選択中: <span id="moti-picked">0</span> 件</div>
+    </div>
+
+    <!-- 4 -->
+    <div class="q">
+      <div><strong>4. 苦手な環境</strong><br>Q: どちらの方がイヤ？</div>
+      <div class="row">
+        <label class="opt"><input type="radio" name="q4" value="A">A. ずっと細かく指示される</label>
+        <label class="opt"><input type="radio" name="q4" value="B">B. ほったらかしで丸投げされる</label>
+      </div>
+    </div>
+
+    <!-- 5 -->
+    <div class="q">
+      <div><strong>5. 感情の出し方</strong><br>Q: 気持ちが盛り上がったとき、近いのは？</div>
+      <div class="row">
+        <label class="opt"><input type="radio" name="q5" value="A">A. 顔や言葉にすぐ出る</label>
+        <label class="opt"><input type="radio" name="q5" value="B">B. 外には出ないけど心の中で燃える</label>
+      </div>
+    </div>
+
+    <!-- 6 -->
+    <div class="q">
+      <div><strong>6. 安心できるチーム</strong><br>Q: 一緒にいてラクなのは？</div>
+      <div class="row">
+        <label class="opt"><input type="radio" name="q6" value="A">A. 何でもハッキリ言えるチーム</label>
+        <label class="opt"><input type="radio" name="q6" value="B">B. 空気を大事にして、和やかなチーム</label>
+      </div>
+    </div>
+
+    <!-- 7 -->
+    <div class="q">
+      <div><strong>7. チームでの役割</strong><br>Q: 自然に多いのは？</div>
+      <div class="row">
+        <label class="opt"><input type="radio" name="q7" value="A">A. みんなを引っ張るリーダー役</label>
+        <label class="opt"><input type="radio" name="q7" value="B">B. サポートして支える役</label>
+      </div>
+    </div>
+
+    <!-- 8 -->
+    <div class="q">
+      <div><strong>8. 働き方の理想</strong><br>Q: 理想に近いのは？</div>
+      <div class="row">
+        <label class="opt"><input type="radio" name="q8" value="A">A. 一つのことをじっくり極める</label>
+        <label class="opt"><input type="radio" name="q8" value="B">B. いろんなことに同時にチャレンジする</label>
+      </div>
+    </div>
+
+    <button id="submit" type="submit" disabled>結果を取得</button>
+    <div class="muted" style="margin-top:8px">※このページは <code>/liff/index.html</code> にあります。</div>
+  </form>
+
+  <div id="out" class="card result" style="display:none"></div>
+</div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="./app.js"></script>
 </body>
 </html>
