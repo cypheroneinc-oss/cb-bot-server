@@ -1,32 +1,29 @@
-import { supabase } from '../lib/supabase.js';
-import { scoreToType } from '../lib/scorer.js';
+import { createClient } from "@supabase/supabase-js";
 
-export default async function handler(req, res){
-  if (req.method !== 'POST') return res.status(405).end();
-  try {
-    const origin = req.headers.origin;
-    const allow = (process.env.ALLOW_ORIGINS || '').split(',').map(s=>s.trim());
-    if (allow.length && origin && !allow.includes(origin)) {
-      return res.status(403).json({ error: 'forbidden origin' });
-    }
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-    const { line_user_id, answers } = req.body || {};
-    if (!line_user_id || !answers) {
-      return res.status(400).json({ error: 'bad request' });
-    }
+export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).end();
 
-    const result = scoreToType(answers);
+  const { userId, answers } = req.body;
 
-    // 保存（jsonb）
-    const { error } = await supabase
-      .from('responses')
-      .insert({ line_user_id, answers, result_type: result.result_type });
+  // 簡易ロジック（例：直感型 vs 論理型）
+  let type = "バランスタイプ";
+  let message = "自分らしく働ける道を探していこう！";
 
-    if (error) return res.status(500).json({ error: error.message });
-
-    // LIFF へ返却（レンダリング用に必要十分の情報を返す）
-    return res.status(200).json(result);
-  } catch (e) {
-    return res.status(500).json({ error: e?.message || String(e) });
+  if (answers[0] === "とりあえず始めて直す" && answers[1] === "直感・フィーリング") {
+    type = "チャレンジャー";
+    message = "動きながら学ぶタイプ！新しい挑戦や企画職が向いてるよ。";
+  } else if (answers[0] === "整理してから始める" && answers[1] === "データや理由") {
+    type = "プランナー";
+    message = "しっかり準備して進めるタイプ！企画職や分析職にピッタリ。";
   }
+
+  // Supabaseに保存
+  await supabase.from("responses").insert([
+    { user_id: userId, answers, result_type: type, result_message: message }
+  ]);
+
+  // ユーザーに返す
+  res.status(200).json({ type, message });
 }
