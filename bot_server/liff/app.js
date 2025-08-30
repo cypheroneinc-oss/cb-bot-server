@@ -1,156 +1,178 @@
-// ===== LIFF 初期化 =====
-const LIFF_ID = '2008019437-Jxwm33XM'; // ※後で空でもOK（webhook経由で起動なら未使用）
-// すでに Vercel 環境変数から読み替える仕組みがあるなら上書き不要
-
+<!-- これは JS ファイルです。拡張子は .js で保存 -->
+<script>
+/**
+ * 必要スクリプトの読み込み順（index.html 内）：
+ *  1) https://static.line-scdn.net/liff/edge/2/sdk.js
+ *  2) /liff/questions.js
+ *  3) /liff/results.js
+ *  4) /liff/app.js（このファイル）
+ */
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-async function init() {
-  try {
-    $("#status").textContent = "LIFF 初期化中…";
-    await liff.init({ liffId: LIFF_ID });
+// Vercel の環境変数から埋め込むなら、ビルド時に置換 or data-* で受け取る
+const LIFF_ID = window.LIFF_ID || ""; // index.htmlで window.LIFF_ID にセットしてもOK
+const API_BASE = location.origin;     // 同一ドメインの /api/answer にPOST
 
-    // ログイン誘導（ブラウザ直開き時の保険）
-    if (!liff.isInClient() && !liff.isLoggedIn()) {
-      $("#status").innerHTML = "ログインへリダイレクトします…";
-      return liff.login();
+async function initLiff() {
+  $("#status").textContent = "LIFFの準備中…";
+  await liff.init({ liffId: LIFF_ID });
+  if (!liff.isLoggedIn()) {
+    $("#status").textContent = "ログインします…";
+    return liff.login();
+  }
+  const prof = await liff.getProfile();
+  $("#status").innerHTML = `こんにちは、<b>${prof.displayName}</b> さん！`;
+  $("#userId").textContent = prof.userId || "";
+
+  renderForm();
+}
+
+function renderForm() {
+  const wrap = $("#form");
+  wrap.innerHTML = "";
+
+  window.QUESTIONS.forEach((q) => {
+    const section = document.createElement("section");
+    section.className = "q-section";
+
+    section.innerHTML = `
+      <h3 class="q-title">${q.title}</h3>
+      <p class="q-question">Q: ${q.question}</p>
+      <div class="q-options" data-q="${q.id}" data-type="${q.type}"></div>
+    `;
+    wrap.appendChild(section);
+
+    const box = section.querySelector(".q-options");
+
+    if (q.type === "AB") {
+      q.options.forEach((op) => {
+        const id = `${q.id}_${op.value}`;
+        box.insertAdjacentHTML(
+          "beforeend",
+          `
+          <label class="opt">
+            <input type="radio" name="${q.id}" value="${op.value}" />
+            <span>${op.label}</span>
+          </label>
+          `
+        );
+      });
+    } else if (q.type === "MULTI") {
+      q.options.forEach((op) => {
+        const id = `${q.id}_${op.value}`;
+        box.insertAdjacentHTML(
+          "beforeend",
+          `
+          <label class="opt">
+            <input type="checkbox" name="${q.id}" value="${op.value}" />
+            <span>${op.label}</span>
+          </label>
+          `
+        );
+      });
     }
+  });
 
-    // プロフィール表示（任意）
-    const prof = await liff.getProfile().catch(() => null);
-    if (prof) {
-      $("#displayName").textContent = prof.displayName || "-";
-      $("#userId").textContent = prof.userId || "-";
-      $("#profile").style.display = "block";
-    }
-    $("#status").textContent = "";
-
-    // ボタンで採点
-    $("#submitBtn").addEventListener("click", onSubmit);
-  } catch (e) {
-    $("#status").textContent = `LIFF初期化エラー: ${e?.message || e}`;
-  }
+  $("#submit").disabled = false;
+  $("#submit").addEventListener("click", onSubmit);
 }
 
-function getRadio(name) {
-  const el = document.querySelector(`input[name="${name}"]:checked`);
-  return el ? el.value : null;
-}
-function getMotives() {
-  return Array.from(document.querySelectorAll('input[name="motive"]:checked')).map(el => el.value);
-}
+function collectAnswers() {
+  const getAB = (qid) => {
+    const el = $(`input[name="${qid}"]:checked`);
+    return el ? el.value : null;
+    };
+  const getMulti = (qid) =>
+    $$(`input[name="${qid}"]:checked`).map((x) => x.value);
 
-// ---- ロジック ----
-//
-// 軸1：行動(=q1 A) or 計画(=q1 B)
-// 軸2：直感(=q2 A) or 根拠(=q2 B)
-// 4タイプに割り当て
-const TYPE_MAP = {
-  AA: { // 行動 × 直感
-    type: "チャレンジャー（行動×直感）",
-    work: "新しい挑戦・スピード重視の環境。裁量があって動ける現場が◎",
-    jobs: ["PdM/事業開発","スタートアップ総合職","企画営業","マーケ（グロース）"],
-    advice: "走りながら考える長所は武器。要所の根拠づけ/共有を意識すると周囲の信頼が跳ね上がる。"
-  },
-  AB: { // 行動 × 根拠
-    type: "オペレーター（行動×根拠）",
-    work: "目標とKPIが明確で、改善を高速に回す環境。役割と期待が定義されていると力を発揮。",
-    jobs: ["内勤営業/CS","広告運用","データドリブンなマーケ","業務改善/オペ設計"],
-    advice: "事前段取りと実行の両輪が強み。過度な完璧主義に注意し、80点で回し学習を。"
-  },
-  BA: { // 計画 × 直感
-    type: "クリエイター（計画×直感）",
-    work: "ある程度の自由度と探究余地。0→1の着想を形にしつつ、丁寧に磨ける場。",
-    jobs: ["UX/UIデザイン","編集/コンテンツ制作","リサーチ/インサイト","プロトタイピング"],
-    advice: "発想を企画書・モックで見せると周囲が動く。締切とマイルストーンの見える化を。"
-  },
-  BB: { // 計画 × 根拠
-    type: "プランナー（計画×根拠）",
-    work: "全体像を描き、段階的に積む環境。品質・安全・正確性が重要な領域との相性良。",
-    jobs: ["PM/PMO","経営企画","バックオフィス（法務/財務）","品質/リスク管理"],
-    advice: "精密さが強み。過度な慎重さで機会を逃さないよう、実験枠を持つとバランス良。"
-  }
-};
-
-function decideType(q1, q2) {
-  const k1 = q1 === 'A' ? 'A' : 'B';
-  const k2 = q2 === 'A' ? 'A' : 'B';
-  return TYPE_MAP[k1 + k2];
+  return {
+    q1: getAB("q1"),
+    q2: getAB("q2"),
+    q3: getMulti("q3"),
+    q4: getAB("q4"),
+    q5: getAB("q5"),
+    q6: getAB("q6"),
+    q7: getAB("q7"),
+    q8: getAB("q8"),
+  };
 }
 
-function buildWorkstyleHints({ q4, q5, q6, q7, q8, motives }) {
-  const pills = [];
-
-  // 苦手
-  if (q4 === 'A') pills.push("細かい指示より裁量がある方が捗る");
-  if (q4 === 'B') pills.push("完全放任より伴走や定期合意があると安心");
-
-  // 感情
-  if (q5 === 'A') pills.push("オープンに感情共有できる文化が◎");
-  if (q5 === 'B') pills.push("落ち着いて集中できる環境が◎");
-
-  // チーム
-  if (q6 === 'A') pills.push("率直に意見を交わせるチームが合う");
-  if (q6 === 'B') pills.push("和やかで空気を大切にするチームが合う");
-
-  // 役割
-  if (q7 === 'A') pills.push("リード/推進の役割が向く");
-  if (q7 === 'B') pills.push("支援/潤滑油の役割が向く");
-
-  // 働き方
-  if (q8 === 'A') pills.push("スペシャリスト志向が合う");
-  if (q8 === 'B') pills.push("ゼネラリスト志向が合う");
-
-  // モチベ
-  if (motives && motives.length) {
-    pills.push("モチベ源: " + motives.slice(0, 4).join("・"));
-  }
-
-  return pills.map(p => `<span class="pill">${p}</span>`).join(" ");
-}
-
-function suggestJobs(base, q7, q8) {
-  // ベースタイプ + 志向で微調整
-  let list = [...base.jobs];
-  if (q7 === 'A') list.unshift("プロジェクト推進/チームリード");
-  if (q7 === 'B') list.unshift("アシスタント/コーディネーター");
-  if (q8 === 'A') list.push("専門職（スペシャリスト系）");
-  if (q8 === 'B') list.push("横断/企画系（ゼネラリスト）");
-  return Array.from(new Set(list)).slice(0, 6).join("、");
+function validate(answers) {
+  const miss = [];
+  ["q1","q2","q4","q5","q6","q7","q8"].forEach(k => { if(!answers[k]) miss.push(k); });
+  if ((answers.q3||[]).length === 0) miss.push("q3");
+  return miss;
 }
 
 async function onSubmit() {
-  // 入力取得
-  const q1 = getRadio('q1');
-  const q2 = getRadio('q2');
-  const motives = getMotives();
-  const q4 = getRadio('q4');
-  const q5 = getRadio('q5');
-  const q6 = getRadio('q6');
-  const q7 = getRadio('q7');
-  const q8 = getRadio('q8');
-
-  // 必須チェック
-  if (!q1 || !q2 || !q4 || !q5 || !q6 || !q7 || !q8) {
-    alert('未回答の設問があります');
+  $("#submit").disabled = true;
+  const answers = collectAnswers();
+  const miss = validate(answers);
+  if (miss.length) {
+    alert("未回答があります: " + miss.join(", "));
+    $("#submit").disabled = false;
     return;
   }
 
-  // タイプ決定
-  const base = decideType(q1, q2);
-  const workHints = buildWorkstyleHints({ q4, q5, q6, q7, q8, motives });
-  const jobs = suggestJobs(base, q7, q8);
+  // 診断を作る（results.js）
+  const result = window.buildDiagnosis(answers);
 
-  // 表示
-  $("#typeText").textContent = base.type;
-  $("#fitWorkstyle").innerHTML = workHints || "-";
-  $("#fitJobs").textContent = jobs;
-  $("#advice").textContent = base.advice;
+  // 画面に表示
+  renderResult(result);
 
-  $("#resultBox").style.display = "block";
-
-  // （任意）サーバに保存したい場合はここでPOST
-  // await fetch('/api/answer', { method:'POST', headers:{'content-type':'application/json'},
-  //   body: JSON.stringify({ q1,q2,q4,q5,q6,q7,q8, motives }) });
+  // 保存（Vercelの /api/answer へ。サーバ側で Supabase 保存＆集計）
+  try {
+    const profile = await liff.getProfile();
+    await fetch(`${API_BASE}/api/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: profile.userId,
+        answers,
+        result,
+        source: "liff-v2",
+      })
+    });
+  } catch (e) {
+    console.warn("保存に失敗しました（後で再送されることがあります）", e);
+  } finally {
+    $("#submit").disabled = false;
+  }
 }
 
-init();
+function renderChipList(arr) {
+  if (!arr || !arr.length) return "<span>-</span>";
+  return `<ul class="chips">${arr.map(t => `<li>${t}</li>`).join("")}</ul>`;
+}
+
+function renderResult(r) {
+  $("#result").innerHTML = `
+    <div class="card">
+      <h3>【タイプ】${r.typeTitle}</h3>
+      <p>${r.typeDesc}</p>
+
+      <h4>【合う働き方】</h4>
+      <ul>
+        <li>進め方：${r.style}</li>
+        <li>決め方：${r.decision}</li>
+        <li>チーム：${r.team}</li>
+        <li>役割：${r.role}</li>
+        <li>理想：${r.ideal}</li>
+      </ul>
+
+      <h4>【やる気スイッチ】</h4>
+      ${renderChipList(r.motivation)}
+
+      <h4>【向いている職種の例】</h4>
+      ${renderChipList(r.goodJobs)}
+
+      <h4>【アドバイス】</h4>
+      ${renderChipList(r.advice)}
+    </div>
+  `;
+}
+
+// 起動
+document.addEventListener("DOMContentLoaded", initLiff);
+</script>
