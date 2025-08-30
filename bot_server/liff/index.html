@@ -1,83 +1,77 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>6秒診断（LIFF）</title>
-
-  <!-- シンプルなダークUI -->
+  <meta charset="UTF-8" />
+  <title>C by me｜かんたん診断</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    :root{--bg:#0b0b0f;--card:#15151c;--text:#e9ebee;--muted:#a7adbb;--accent:#5bbcff;--ok:#2ecc71;--ng:#ff6b6b}
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN","Noto Sans JP","Helvetica Neue",Arial,"Meiryo",sans-serif}
-    .wrap{max-width:720px;margin:0 auto;padding:20px}
-    .title{font-weight:700;letter-spacing:.06em;text-align:center;margin:8px 0 18px}
-    .card{background:var(--card);border-radius:16px;padding:18px;box-shadow:0 8px 24px rgba(0,0,0,.3);margin:18px 0}
-    .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#20202a;color:var(--muted);font-size:12px;margin-left:8px}
-    .q{margin:14px 0 8px;font-weight:700}
-    .choice{display:block;background:#1b1b26;border:1px solid #2a2a37;border-radius:12px;padding:14px 14px;margin:10px 0;cursor:pointer}
-    .choice input{margin-right:10px}
-    .subtle{color:var(--muted);font-size:13px}
-    .btn{display:block;width:100%;padding:14px 16px;margin-top:14px;border:0;border-radius:12px;background:var(--accent);color:#06121c;font-weight:800;letter-spacing:.05em;cursor:pointer}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    .grid{display:grid;gap:10px}
-    .pill{display:inline-block;border:1px dashed #2f3543;border-radius:999px;padding:8px 12px;margin:6px 6px 0 0;cursor:pointer}
-    .pill input{margin-right:8px}
-    .ok{color:var(--ok)} .ng{color:var(--ng)}
-    .h{font-size:18px;font-weight:800;margin:0 0 10px}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
-    .row .btn{flex:1}
+    body { font-family: "Noto Sans JP", sans-serif; padding: 20px; }
+    .question { margin-bottom: 20px; }
+    .result { margin-top: 30px; font-weight: bold; font-size: 18px; }
+    button { margin-top: 10px; padding: 8px 12px; }
   </style>
-
-  <!-- LIFF SDK -->
-  <script src="https://static.line-scdn.net/liff/edge/versions/2.22.4/sdk.js"></script>
 </head>
 <body>
-  <div class="wrap">
-    <div class="title">秒速診断 <span class="badge">トーク内</span></div>
+  <h2>📝 自分に合った働き方を診断！</h2>
+  <form id="quizForm"></form>
+  <button type="button" onclick="submitAnswers()">診断する</button>
+  <div id="result" class="result"></div>
 
-    <!-- ステータス / プロフィール -->
-    <div class="card">
-      <div id="status" class="subtle">読み込み中…</div>
-      <div id="profile" style="display:none;margin-top:8px">
-        <div><span class="subtle">ようこそ</span> <strong id="displayName">-</strong> さん</div>
-        <div class="subtle mono">userId: <span id="userId">-</span></div>
-      </div>
-    </div>
+  <script>
+    const questions = [
+      { q: "仕事の進め方は？", a: ["とりあえず始めて直す", "整理してから始める"] },
+      { q: "判断の決め手は？", a: ["直感・フィーリング", "データや理由"] },
+      { q: "やる気が出る理由は？", a: ["成果達成", "承認", "貢献", "安心", "探究", "自由", "仲間", "成長"], multi: true },
+      { q: "苦手な環境は？", a: ["細かく指示される", "丸投げされる"] },
+      { q: "感情の出し方は？", a: ["すぐ顔や言葉に出る", "外には出さないけど心で燃える"] },
+      { q: "安心できるチームは？", a: ["何でもハッキリ言える", "空気を大事に和やか"] },
+      { q: "チームでの役割は？", a: ["リーダー", "サポート"] },
+      { q: "働き方の理想は？", a: ["一つを極める", "色々挑戦する"] }
+    ];
 
-    <!-- 診断フォーム（JSが中身を描画） -->
-    <form id="quizForm" class="card">
-      <div class="h">質問</div>
-      <div id="questions"></div>
-      <button id="submitBtn" type="button" class="btn">結果を見る</button>
-      <div class="subtle" style="margin-top:6px">※ これは体験版です。文言やデザインは自由に変えられます。</div>
-    </form>
+    // 質問をレンダリング
+    const form = document.getElementById("quizForm");
+    questions.forEach((q, i) => {
+      const div = document.createElement("div");
+      div.className = "question";
+      div.innerHTML = `<p>${i+1}. ${q.q}</p>`;
+      q.a.forEach(opt => {
+        if (q.multi) {
+          div.innerHTML += `<label><input type="checkbox" name="q${i}" value="${opt}"> ${opt}</label><br>`;
+        } else {
+          div.innerHTML += `<label><input type="radio" name="q${i}" value="${opt}"> ${opt}</label><br>`;
+        }
+      });
+      form.appendChild(div);
+    });
 
-    <!-- 結果カード -->
-    <div id="resultCard" class="card" style="display:none">
-      <div class="h">あなたのタイプ</div>
-      <div id="typeLabel" style="font-size:20px;font-weight:900;margin:2px 0 8px">-</div>
+    async function submitAnswers() {
+      const answers = [];
+      questions.forEach((q, i) => {
+        if (q.multi) {
+          const selected = [...document.querySelectorAll(`input[name=q${i}]:checked`)].map(el => el.value);
+          answers.push(selected);
+        } else {
+          const selected = document.querySelector(`input[name=q${i}]:checked`);
+          answers.push(selected ? selected.value : null);
+        }
+      });
 
-      <div class="h">合う働き方</div>
-      <div id="workStyleLabel">-</div>
+      // LIFFからユーザー情報取得
+      await liff.init({ liffId: "<YOUR_LIFF_ID>" });
+      const profile = await liff.getProfile();
 
-      <div class="h" style="margin-top:14px">向いている職種の例</div>
-      <ul id="jobsLabel" style="padding-left:18px;margin:8px 0"></ul>
+      // サーバに送信
+      const res = await fetch("/api/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: profile.userId, answers })
+      });
+      const data = await res.json();
 
-      <div class="h" style="margin-top:14px">ひとことアドバイス</div>
-      <div id="adviceLabel">-</div>
-
-      <div class="row" style="margin-top:16px">
-        <button id="sendToChatBtn" type="button" class="btn">結果をトークに送る</button>
-        <button id="downloadBtn" type="button" class="btn" style="background:#98f7a0">CSVで保存</button>
-      </div>
-      <div id="saveStatus" class="subtle" style="margin-top:6px"></div>
-    </div>
-
-    <div class="subtle" style="text-align:center;margin:24px 0">このページは <span class="mono">/liff/index.html</span> です</div>
-  </div>
-
-  <!-- 画面ロジック -->
-  <script src="./app.js"></script>
+      // 結果をユーザーに表示
+      document.getElementById("result").innerText = `✨ あなたのタイプ：${data.type}\n${data.message}`;
+    }
+  </script>
 </body>
 </html>
