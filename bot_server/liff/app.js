@@ -1,132 +1,119 @@
-// ===== 設定: LIFF ID（Vercelの環境変数から差し込むなら script 等で渡してOK）=====
-const LIFF_ID = '2008019437-Jxwm33XM'; // 例: window.__LIFF_ID || 'xxxx'
+// ===== 設定：あなたの LIFF ID を入れる（サーバ側の環境変数とは別口） =====
+const LIFF_ID = '2008019437-Jxwm33XM';
 
-// UIヘルパ
 const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-// 日本語表示だが、value はスコアロジックが期待するトークンに統一
-//（scorer.js が参照する語彙: Intuition / Logic / High / Low / Care / Speed / 成果 / 仲間 / 安心 / 明るい / 自由 など）
-const QUESTIONS = {
-  q1: [
-    { label: '直感型', value: 'Intuition' },
-    { label: '論理型', value: 'Logic' },
-  ],
-  q2: [
-    { label: '高い（攻める）', value: 'High' },
-    { label: '低い（堅実）', value: 'Low' },
-  ],
-  q3: [
-    { label: '思いやり重視', value: 'Care' },
-    { label: '成果重視', value: '成果' }, // scorer.js が '成果' を見にいく想定
-  ],
-  q4: [
-    { label: 'スピード最優先', value: 'Speed' },
-    { label: '周囲への配慮', value: 'Care' },
-    { label: '結果へのこだわり', value: '成果' },
-  ],
-  q5: [
-    { label: '直感寄り', value: 'Intuition' },
-    { label: '論理寄り', value: 'Logic' },
-  ],
-  q6: [
-    { label: '仲間・一体感', value: '仲間' },
-    { label: '安心・安定', value: '安心' },
-  ],
-  q7: [
-    { label: '明るい・ポジティブ', value: '明るい' },
-    { label: '落ち着き・誠実', value: 'まっとう' },
-  ],
-  q8: [
-    { label: '自由・裁量', value: '自由' },
-    { label: 'サポート・調和', value: 'Care' },
-  ],
-};
+const picked = []; // 動機の選択順を記録（最大3件）
 
-// セレクトを動的に描画
-function renderSelect(name) {
-  const sel = document.getElementById(name);
-  sel.innerHTML = '';
-  (QUESTIONS[name] || []).forEach(opt => {
-    const o = document.createElement('option');
-    o.value = opt.value;
-    o.textContent = opt.label;
-    sel.appendChild(o);
+function toggleSubmit() {
+  const filled =
+    ['q1','q2','q4','q5','q6','q7','q8'].every(n => $(`input[name="${n}"]:checked`)) &&
+    picked.length >= 1;
+  $('#submit').disabled = !filled;
+}
+
+function setupMotivationPicker() {
+  $$('#moti input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const v = cb.value;
+      const i = picked.indexOf(v);
+      if (cb.checked) {
+        if (picked.length >= 3) { cb.checked = false; return; }
+        if (i === -1) picked.push(v);
+      } else {
+        if (i >= 0) picked.splice(i,1);
+      }
+      $('#moti-picked').textContent = String(picked.length);
+      toggleSubmit();
+    });
   });
 }
 
-// LIFF 初期化
 async function init() {
   try {
     $('#status').textContent = 'LIFF 初期化…';
     await liff.init({ liffId: LIFF_ID });
 
-    // ブラウザ直開き時は LINE ログインへ誘導（開発中の利便用）
+    // アプリ外（ブラウザ）で開かれたらログインへ
     if (!liff.isInClient() && !liff.isLoggedIn()) {
-      $('#status').innerHTML = 'ログインへリダイレクトします…';
+      $('#status').textContent = 'ログインへリダイレクト…';
       return liff.login();
     }
 
-    // 質問項目の描画
-    ['q1','q2','q3','q4','q5','q6','q7','q8'].forEach(renderSelect);
+    const prof = await liff.getProfile();
+    $('#userId').textContent = prof.userId || '';
+    $('#status').innerHTML = '<span class="ok">準備OK</span>';
 
-    // プロフィール
-    const prof = await liff.getProfile().catch(() => null);
-    const userId = prof?.userId || '';
-    const name = prof?.displayName || '';
-
-    // 要素が無い場合でも落ちないようにガード
-    const userIdEl = $('#userId');
-    if (userIdEl) userIdEl.textContent = userId;
-    const nameEl = $('#displayName');
-    if (nameEl) nameEl.textContent = name;
-
-    $('#status').innerHTML = '<span class="ok">LIFF 準備OK</span>';
+    setupMotivationPicker();
+    $$('input[type="radio"]').forEach(r => r.addEventListener('change', toggleSubmit));
+    toggleSubmit();
 
     // 送信
     $('#form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      $('#submitBtn').disabled = true;
+      $('#submit').disabled = true;
+
+      const get = (n) => ($(`input[name="${n}"]:checked`)||{}).value || null;
 
       const answers = {
-        q1: $('#q1').value, q2: $('#q2').value, q3: $('#q3').value, q4: $('#q4').value,
-        q5: $('#q5').value, q6: $('#q6').value, q7: $('#q7').value, q8: $('#q8').value,
+        q1: get('q1'),
+        q2: get('q2'),
+        q3: picked.slice(0,3),        // 選択順＝優先順位
+        q4: get('q4'),
+        q5: get('q5'),
+        q6: get('q6'),
+        q7: get('q7'),
+        q8: get('q8'),
+      };
+
+      const payload = {
+        line_user_id: prof.userId,
+        answers
       };
 
       try {
         const res = await fetch('/api/answer', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ line_user_id: userId, answers }),
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload)
         });
+        const data = await res.json();
 
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || 'API error');
+        const moti = (data.motivations||[]).map(s=>`#${s}`).join(' ');
+        const prefs = [
+          `苦手: ${data.env_prefer}`,
+          `感情: ${data.emotion}`,
+          `チーム: ${data.team}`,
+          `役割: ${data.role}`,
+          `働き方: ${data.work_style}`
+        ].join('\n');
 
-        // 画面表示
-        const box = $('#result');
-        box.style.display = 'block';
-        box.innerHTML = `
-          <div class="card">
-            <div><b>診断タイプ:</b> ${json.result_type}</div>
-            <div style="margin-top:8px"><b>${json.title}</b></div>
-            <div style="margin-top:4px">${json.body}</div>
-            <div style="margin-top:8px;font-size:12px;color:#666">
-              ※ この結果はC by meのスコアリングロジックで算出されています
-            </div>
-          </div>
-        `;
+        $('#out').style.display = 'block';
+        $('#out').innerHTML =
+`【タイプ】${data.title}
+${data.body}
 
-        // LINEミニアプリ内なら自動で閉じる等も可
-        // if (liff.isInClient()) setTimeout(() => liff.closeWindow(), 1200);
+【あなたのモチベーション上位】
+${moti}
+
+【相性のいい働き方】
+${data.fit}
+
+—— 補足 —
+${prefs}
+`;
       } catch (err) {
-        $('#status').innerHTML = `<span class="warn">${err.message}</span>`;
+        $('#out').style.display = 'block';
+        $('#out').innerHTML = `<span class="err">エラー: ${err?.message || err}</span>`;
       } finally {
-        $('#submitBtn').disabled = false;
+        $('#submit').disabled = false;
       }
     });
+
   } catch (e) {
-    $('#status').innerHTML = `<span class="warn">初期化に失敗: ${e.message}</span>`;
+    $('#status').innerHTML = `<span class="err">初期化失敗: ${e?.message||e}</span>`;
   }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+init();
