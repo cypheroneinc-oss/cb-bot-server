@@ -1,157 +1,65 @@
 /* =========================
-   C by me｜かんたん診断（LIFF）
-   - 回答送信→/api/answer
-   - 結果カード表示 & 共有（LINE / Web Share）
-   - Q1,2,4–8 を JS で自動描画（←修正ポイント）
+   C Lab｜かんたん診断（LIFF）
+   - index.html の質問テキストに完全対応
+   - 回答送信→ /api/answer
+   - 結果カード + 共有（LINE / Web Share）
    - 「当たってるかも？」は私生活寄りのバーナム文
    ========================= */
 
-// ★ あなたの LIFF ID を入れてください（LINE DevelopersのLIFF ID）
+// ★ あなたの LIFF ID を入れてください（LINE Developers の LIFF ID）
 const LIFF_ID = '2008019437-Jxwm33XM';
 
-// ====== ヘルパ ======
-const $ = (sel, p = document) => p.querySelector(sel);
+// ===== ヘルパ =====
+const $  = (sel, p = document) => p.querySelector(sel);
 const $$ = (sel, p = document) => Array.from(p.querySelectorAll(sel));
-function escapeHtml(s) {
-  return String(s || '').replace(/[&<>"']/g, m => (
-    { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]
-  ));
-}
 
-// ====== AB設問の定義（Q1,2,4–8）=====
-const AB_QUESTIONS = [
-  {
-    name: 'q1',
-    title: '1. 仕事の進め方は？',
-    note: 'Q: 何から始める？',
-    A: 'とりあえず始めて直す',
-    B: '整理してから始める'
-  },
-  {
-    name: 'q2',
-    title: '2. 判断の決め手は？',
-    note: 'Q: 迷ったらどっち？',
-    A: '直感・フィーリング',
-    B: 'データや理由'
-  },
-  {
-    name: 'q4',
-    title: '4. 苦手な環境は？',
-    note: 'Q: イヤなのはどっち？',
-    A: '細かく指示される',
-    B: '丸投げされる'
-  },
-  {
-    name: 'q5',
-    title: '5. 感情の出し方は？',
-    note: 'Q: 気持ちが盛り上がると？',
-    A: 'すぐ顔や言葉に出る',
-    B: '外には出さないけど心で燃える'
-  },
-  {
-    name: 'q6',
-    title: '6. 安心できるチームは？',
-    note: 'Q: いっしょにいてラク？',
-    A: '何でもハッキリ言える',
-    B: '空気を大事にして和やか'
-  },
-  {
-    name: 'q7',
-    title: '7. チームでの役割は？',
-    note: 'Q: 自然に多いのは？',
-    A: 'みんなを引っ張るリーダー役',
-    B: 'サポートして支える役'
-  },
-  {
-    name: 'q8',
-    title: '8. 働き方の理想は？',
-    note: 'Q: 近いのは？',
-    A: '一つのことをじっくり極める',
-    B: 'いろんなことに同時にチャレンジする'
-  }
-];
-
-// === AB設問の描画（←追加） ===
-function renderQuestions() {
-  // 置き場所を柔軟に探す（あれば #q-ab、無ければ #questions、それも無ければ作る）
-  let box = $('#q-ab') || $('#questions');
-  if (!box) {
-    const mot = $('[data-role="motivation"]') || $('#motivation') || $('#result') || $('main');
-    box = document.createElement('div');
-    box.id = 'q-ab';
-    (mot?.parentNode || document.body).insertBefore(box, mot || null);
-  }
-
-  // すでに中身があるなら何もしない（重複生成を防ぐ）
-  if (box.children.length) return;
-
-  const frag = document.createDocumentFragment();
-  AB_QUESTIONS.forEach(q => {
-    const wrap = document.createElement('div');
-    wrap.className = 'q-block';
-    wrap.innerHTML = `
-      <h4 class="q-title">${escapeHtml(q.title)}</h4>
-      <p class="q-note">${escapeHtml(q.note)}</p>
-      <label class="opt">
-        <input type="radio" name="${q.name}" value="A">
-        <span>A. ${escapeHtml(q.A)}</span>
-      </label>
-      <label class="opt">
-        <input type="radio" name="${q.name}" value="B">
-        <span>B. ${escapeHtml(q.B)}</span>
-      </label>
-    `;
-    frag.appendChild(wrap);
-  });
-  box.appendChild(frag);
-}
-
-// フォーム値の取得
 function valRadio(name) {
   const v = $(`input[name="${name}"]:checked`);
   return v ? v.value : null;
 }
 function valsCheckedOrdered(name) {
-  // チェック順（dataset.order）で並べ替えて最大3件
-  const boxes = $$(`input[name="${name}"]:checked`)
-    .sort((a, b) => (Number(a.dataset.order || 9e9) - Number(b.dataset.order || 9e9)));
-  return boxes.slice(0, 3).map(b => b.value);
+  // hidden の checkbox(name="q3") を data-order 昇順で取得（最大3）
+  return $$(`input[name="${name}"]:checked`)
+    .sort((a, b) => Number(a.dataset.order || 9e9) - Number(b.dataset.order || 9e9))
+    .slice(0, 3)
+    .map(b => b.value);
 }
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, (m) =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])
+  );
+}
+const genderJa = (g) => g === 'male' ? '男性' : g === 'female' ? '女性' : g === 'other' ? 'その他' : '—';
 
-// ====== LIFF init ======
+// ===== LIFF init =====
 async function initLIFF() {
   $('#status') && ($('#status').textContent = 'LIFF 初期化中…');
   await liff.init({ liffId: LIFF_ID });
 
-  // まず AB 質問を描画（←重要）
-  renderQuestions();
-
-  // LINE外のブラウザはログインさせる（開発時の直叩き用）
+  // LINE 外ブラウザならログイン（開発直叩き用）
   if (!liff.isInClient() && !liff.isLoggedIn()) {
-    $('#status') && ($('#status').textContent = 'ログインへリダイレクトします…');
+    $('#status').textContent = 'ログインへリダイレクトします…';
     return liff.login();
   }
 
   const prof = await liff.getProfile();
-  $('#displayName') && ($('#displayName').textContent = prof.displayName || '');
-  $('#userId') && ($('#userId').textContent = prof.userId || '');
-
-  // モチベ多選の“選択順”トラッキング
-  setupMotivationOrder();
+  $('#status').textContent = '読み込み完了';
 
   // 実行ボタン
-  $('#run') && $('#run').addEventListener('click', async () => {
+  $('#run')?.addEventListener('click', async () => {
     const answers = collectAnswers();
-    // 簡易バリデーション
-    const required = ['q1','q2','q4','q5','q6','q7','q8'];
-    for (const k of required) {
-      if (!answers[k]) {
-        alert('未回答の設問があります。');
-        return;
-      }
+
+    // 必須チェック
+    const requiredAB = ['q1','q2','q4','q5','q6','q7','q8'];
+    for (const k of requiredAB) {
+      if (!answers[k]) { alert('未回答の設問があります。'); return; }
     }
     if (!answers.q3.length) {
-      alert('「やる気スイッチ」を1つ以上選んでください。');
+      alert('「やる気が出る理由」を1つ以上選んでください。');
+      return;
+    }
+    if (!answers.gender || !answers.age) {
+      alert('性別と年齢を入力してください。');
       return;
     }
 
@@ -159,59 +67,31 @@ async function initLIFF() {
     renderResultCard(result, prof, answers);
     await sendAnswer(prof, answers, result);
   });
-
-  // 共有ボタン
-  $('#share-line') && $('#share-line').addEventListener('click', shareOnLINE);
-  $('#share-system') && $('#share-system').addEventListener('click', shareSystem);
-
-  $('#status') && ($('#status').textContent = '読み込み完了');
 }
 
-// “やる気スイッチ”のチェック順を記録
-function setupMotivationOrder() {
-  let order = 1;
-  $$('input[name="q3"]').forEach(box => {
-    box.addEventListener('change', () => {
-      if (box.checked) {
-        // 3つまで
-        const current = $$('input[name="q3"]:checked');
-        if (current.length > 3) {
-          box.checked = false;
-          return alert('選べるのは最大3つまでです。');
-        }
-        // 初めてチェックされたら順番を付与
-        if (!box.dataset.order) {
-          box.dataset.order = String(order++);
-        }
-      } else {
-        // 外したら順番をクリア
-        box.dataset.order = '';
-      }
-    });
-  });
-}
-
-// ====== 回答収集 ======
+// ===== 回答収集 =====
 function collectAnswers() {
+  // プロフィール
+  const age    = $('#age')?.value || '';
+  const gender = $('#gender')?.value || '';
+  const mbti   = $('#mbti')?.value || '';
+
   return {
-    // A/B 設問
-    q1: valRadio('q1'), // 仕事の進め方
-    q2: valRadio('q2'), // 判断の決め手
-    q4: valRadio('q4'), // 苦手な環境
-    q5: valRadio('q5'), // 感情の出し方
-    q6: valRadio('q6'), // 安心できるチーム
-    q7: valRadio('q7'), // チームでの役割
-    q8: valRadio('q8'), // 働き方の理想
-    // 多選（最大3／順序あり）
+    // A/B 設問（radio）
+    q1: valRadio('q1'),
+    q2: valRadio('q2'),
+    q4: valRadio('q4'),
+    q5: valRadio('q5'),
+    q6: valRadio('q6'),
+    q7: valRadio('q7'),
+    q8: valRadio('q8'),
+    // 多選（最大3／順位あり）… index.html 内 script が hidden checkbox に同期済み
     q3: valsCheckedOrdered('q3'),
-    // プロフィール（プルダウン）
-    age: ($('#age') && $('#age').value) || '',
-    gender: ($('#gender') && $('#gender').value) || '',
-    mbti: ($('#mbti') && $('#mbti').value) || ''
+    age, gender, mbti
   };
 }
 
-// ====== 診断ロジック ======
+// ===== 診断ロジック =====
 function buildResult(ans) {
   // スコア：チャレンジ vs 計画
   let sChallenge = 0, sPlan = 0;
@@ -285,7 +165,7 @@ function buildResult(ans) {
   };
 }
 
-// ====== 「当たってるかも？」（私生活寄りのバーナム効果） ======
+// ===== 「当たってるかも？」（私生活寄りのバーナム効果） =====
 function barnumComments(ans, typeRaw) {
   const out = [];
   const push = (t) => { if (t && !out.includes(t) && out.length < 3) out.push(t); };
@@ -320,23 +200,25 @@ function barnumComments(ans, typeRaw) {
   return out.slice(0, 3);
 }
 
-// ====== 結果カード描画 ======
+// ===== 結果カード描画 =====
 function renderResultCard(result, prof, ans) {
   const wrap = $('#result');
   if (!wrap) return;
 
-  const mot = result.motivationTop3
+  const mot = (result.motivationTop3 || [])
     .map((m, i) => `${i + 1}位：${m}`).join(' / ');
 
   const meta = [
     ans.age ? `年齢:${ans.age}` : '',
-    ans.gender ? `性別:${ans.gender}` : '',
+    ans.gender ? `性別:${genderJa(ans.gender)}` : '',
     ans.mbti ? `MBTI:${ans.mbti}` : ''
   ].filter(Boolean).join(' / ');
 
+  const jobsList = (result.jobs || []).map(j => `<li>${escapeHtml(j)}</li>`).join('');
+
   wrap.innerHTML = `
   <div class="card">
-    <h3 class="ttl">【タイプ】 ${result.typeTitle}</h3>
+    <h3 class="ttl">【タイプ】 ${escapeHtml(result.typeTitle)}</h3>
     <p class="lead">${escapeHtml(result.tagline)}</p>
 
     <h4>【当たってるかも？ポイント】</h4>
@@ -348,7 +230,7 @@ function renderResultCard(result, prof, ans) {
     <p>${escapeHtml(result.style)}</p>
 
     <h4>【向いている職種の例】</h4>
-    <p>${escapeHtml(result.jobs)}</p>
+    <ul class="dots">${jobsList}</ul>
 
     <h4>【あなたのやる気スイッチ（順位）】</h4>
     <p>${mot || '—'}</p>
@@ -356,7 +238,7 @@ function renderResultCard(result, prof, ans) {
     <h4>【アドバイス】</h4>
     <p>${escapeHtml(result.advice)}</p>
 
-    <div class="meta">送信: 成功 / ${meta || '—'}</div>
+    <div class="meta">${meta || '—'}</div>
 
     <div class="share">
       <button id="share-line" class="btn sub">LINEで送る</button>
@@ -365,11 +247,11 @@ function renderResultCard(result, prof, ans) {
   </div>`;
 
   // 再バインド
-  $('#share-line') && $('#share-line').addEventListener('click', shareOnLINE);
-  $('#share-system') && $('#share-system').addEventListener('click', shareSystem);
+  $('#share-line')?.addEventListener('click', shareOnLINE);
+  $('#share-system')?.addEventListener('click', shareSystem);
 }
 
-// ====== サーバ送信 ======
+// ===== サーバ送信 =====
 async function sendAnswer(profile, answers, result) {
   try {
     const res = await fetch('/api/answer', {
@@ -391,7 +273,7 @@ async function sendAnswer(profile, answers, result) {
   }
 }
 
-// ====== 共有 ======
+// ===== 共有 =====
 async function shareOnLINE() {
   try {
     const text = buildShareTextFromCard();
@@ -409,9 +291,7 @@ async function shareOnLINE() {
 async function shareSystem() {
   const text = buildShareTextFromCard();
   if (navigator.share) {
-    try {
-      await navigator.share({ text });
-    } catch (_) {}
+    try { await navigator.share({ text }); } catch (_) {}
   } else {
     await navigator.clipboard.writeText(text);
     alert('本文をコピーしました。お好みのアプリに貼り付けてください。');
@@ -425,7 +305,7 @@ function buildShareTextFromCard() {
   return `C by me｜かんたん診断\n${title}\n${lines.join('\n')}\n#Cbyme`;
 }
 
-// ====== 起動 ======
+// ===== 起動 =====
 document.addEventListener('DOMContentLoaded', () => {
-  try { initLIFF(); } catch (e) { console.error(e); }
+  initLIFF().catch(e => console.error(e));
 });
