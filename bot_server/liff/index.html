@@ -2,88 +2,123 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>C by me｜かんたん診断</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>C by me | かんたん診断</title>
+  <link rel="preconnect" href="https://static.line-scdn.net">
   <style>
-    :root{
-      --bg:#0d0f12; --card:#161a20; --ink:#e6e9ef; --ink2:#b6beca; --brand:#4da3ff; --muted:#2a3039; --ok:#25d366; --warn:#ffcc66;
-      --radius:16px;
-    }
-    html,body{height:100%;}
-    body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Sans","Noto Sans JP","Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji",sans-serif;}
-    .wrap{max-width:720px;margin:0 auto;padding:20px 16px 40px;}
-    .header{display:flex;align-items:center;gap:12px;margin:8px 0 16px;}
-    .logo{font-weight:700;font-size:20px;letter-spacing:.02em}
-    .sub{color:var(--ink2);font-size:12px}
-    .tabs{display:flex;gap:8px;margin:8px 0 16px;}
-    .tab{padding:6px 10px;border-radius:999px;background:var(--muted);color:var(--ink2);font-size:12px}
-    .tab.active{background:var(--brand);color:#001630;font-weight:700}
-    .card{background:var(--card);border-radius:var(--radius);padding:16px 14px;box-shadow:0 4px 20px rgba(0,0,0,.25);margin:12px 0;}
-    .title{font-size:18px;font-weight:700;margin:2px 0 8px}
-    .row{display:flex;gap:8px;flex-wrap:wrap}
-    .pill{display:flex;align-items:center;gap:8px;padding:14px;border-radius:12px;background:#0f1318;border:1px solid #222832;cursor:pointer;transition:.15s}
-    .pill input{accent-color:var(--brand);width:18px;height:18px}
-    .pill:hover{border-color:#33404f}
-    .q{margin:14px 0 6px;color:var(--ink2);font-size:13px}
-    .hint{color:var(--ink2);font-size:12px;margin-top:6px}
-    .btn{display:block;width:100%;text-align:center;border:none;border-radius:12px;padding:14px 16px;background:var(--brand);color:#001630;font-weight:800;font-size:16px;cursor:pointer;transition:.15s}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
-    .grid{display:grid;grid-template-columns:1fr;gap:10px}
-    .progress{height:6px;background:#0f1318;border-radius:999px;overflow:hidden;margin:6px 0 2px}
-    .bar{height:100%;background:linear-gradient(90deg,#4da3ff,#77d0ff);width:0%}
-    .result-title{font-size:16px;font-weight:800;margin:0 0 6px}
-    .result-kv{display:flex;gap:10px;align-items:center;margin:6px 0 12px}
-    .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#0f1318;border:1px solid #273140;color:var(--ink2);font-size:12px}
-    .list{margin:6px 0 0;padding-left:1.1em}
-    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;color:#c9e6ff}
-    footer{margin-top:16px;color:var(--ink2);font-size:12px;text-align:center}
+    :root{--bg:#0b0d10;--card:#141820;--ink:#e6eef9;--ink2:#9fb3cd;--pri:#2d7dff;--ok:#36d399;--err:#ff5c77}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN","Noto Sans JP","Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji",sans-serif}
+    .wrap{max-width:760px;margin:auto;padding:20px 16px 56px}
+    h1{font-size:18px;margin:4px 0 16px;color:var(--ink2)}
+    .tabs{display:flex;gap:8px;margin-bottom:12px}
+    .tab{padding:6px 10px;border-radius:999px;background:#0f131a;color:var(--ink2);font-size:12px}
+    .card{background:var(--card);border:1px solid #1d2330;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 6px 22px rgba(0,0,0,.22)}
+    .title{font-weight:700;margin:0 0 10px}
+    .muted{color:var(--ink2);font-size:13px}
+    fieldset{border:0;margin:0;padding:0}
+    legend{font-weight:700;margin-bottom:8px}
+    .grid{display:grid;gap:12px}
+    .row{display:grid;gap:10px}
+    @media(min-width:560px){.row{grid-template-columns:1fr 1fr}}
+    label.opt{display:flex;align-items:center;gap:10px;background:#0f141d;border:1px solid #212938;border-radius:12px;padding:12px}
+    label.opt input{width:18px;height:18px}
+    select,button{appearance:none}
+    select{width:100%;padding:12px;border-radius:12px;border:1px solid #243045;background:#0f141d;color:var(--ink)}
+    button.btn{width:100%;padding:14px 16px;border:0;border-radius:12px;background:var(--pri);color:#fff;font-weight:700;font-size:16px}
+    button.btn:disabled{opacity:.55}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#0f141d;border:1px solid #243045;color:var(--ink2);font-size:12px}
+    .ok{color:var(--ok)} .err{color:var(--err)}
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--ink2)}
+    .result h3{margin:0 0 4px} .result p{margin:0 0 8px}
+    .result ul{margin:6px 0 12px;padding-left:18px}
+    .small{font-size:12px;color:var(--ink2)}
   </style>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 </head>
 <body>
-  <div class="wrap">
-    <div class="header">
-      <div class="logo">C by me｜かんたん診断</div>
-      <div class="sub">cb-bot-server-v7rg.vercel.app</div>
-    </div>
-
-    <div class="tabs">
-      <div class="tab active">トーク内</div>
-      <div class="tab">秒速診断</div>
-    </div>
-
-    <div class="card">
-      <div class="title">読込み中…</div>
-      <div class="progress"><div class="bar" id="bar" style="width:10%"></div></div>
-      <div class="hint">LINEで本人確認中です。数秒お待ちください。</div>
-    </div>
-
-    <form id="form" class="card" style="display:none">
-      <div class="title">質問</div>
-      <div id="qs" class="grid"></div>
-      <div class="hint">※複数選択の設問はチェックボックスになっています。</div>
-      <button type="submit" id="submit" class="btn" style="margin-top:12px">結果を見る</button>
-    </form>
-
-    <section id="result" class="card" style="display:none">
-      <div class="result-title">診断結果</div>
-      <div class="result-kv">
-        <span class="badge" id="typeBadge"></span>
-        <span class="badge" id="workBadge"></span>
-      </div>
-      <div id="summary"></div>
-      <div class="q">向いている職種の例</div>
-      <ul id="jobs" class="list"></ul>
-      <div class="q">アドバイス</div>
-      <ul id="advs" class="list"></ul>
-
-      <div class="q">送信ログ（運営向け）</div>
-      <pre id="log" class="mono" style="white-space:pre-wrap;background:#0f1318;border:1px solid #273140;border-radius:12px;padding:10px;overflow:auto"></pre>
-    </section>
-
-    <footer>このページは <span class="mono">/liff/index.html</span> にあります。</footer>
+<div class="wrap">
+  <h1>🧭 自分に合った働き方を診断！</h1>
+  <div class="tabs">
+    <span class="tab">秒速診断</span><span class="tab">トーク内</span>
   </div>
 
-  <script src="./app.js" defer></script>
+  <!-- ステータス -->
+  <div class="card"><div id="status" class="muted">読み込み中…</div></div>
+
+  <!-- かんたんプロフィール（任意） -->
+  <div class="card">
+    <p class="title">かんたんプロフィール <span class="pill">任意</span></p>
+    <div class="grid">
+      <div>
+        <label class="muted">性別（自認）</label>
+        <select id="gender">
+          <option value="">選ばない</option>
+          <option value="male">男性</option>
+          <option value="female">女性</option>
+          <option value="other">その他</option>
+          <option value="na">答えない</option>
+        </select>
+      </div>
+      <div>
+        <label class="muted">年齢帯</label>
+        <select id="age">
+          <option value="">選ばない</option>
+          <option value="u15">〜15</option>
+          <option value="16-18">16–18</option>
+          <option value="19-22">19–22</option>
+          <option value="23-25">23–25</option>
+          <option value="26-29">26–29</option>
+          <option value="30-34">30–34</option>
+          <option value="35-39">35–39</option>
+          <option value="40-49">40–49</option>
+          <option value="50p">50+</option>
+        </select>
+      </div>
+      <div class="row">
+        <div style="grid-column:1/-1">
+          <label class="muted">MBTI</label>
+          <select id="mbti">
+            <option value="">わからない / 未回答</option>
+            <option>ISTJ</option><option>ISFJ</option><option>INFJ</option><option>INTJ</option>
+            <option>ISTP</option><option>ISFP</option><option>INFP</option><option>INTP</option>
+            <option>ESTP</option><option>ESFP</option><option>ENFP</option><option>ENTP</option>
+            <option>ESTJ</option><option>ESFJ</option><option>ENFJ</option><option>ENTJ</option>
+          </select>
+        </div>
+      </div>
+      <p class="small">※ 入力しなくても診断できます。回答は匿名ID（LINEの userId）と一緒に記録されます。</p>
+    </div>
+  </div>
+
+  <!-- 設問 -->
+  <form id="form" class="card">
+    <p class="title">質問</p>
+    <div id="qwrap" class="grid"></div>
+    <button id="submit" class="btn" type="submit">結果を見る</button>
+    <p class="small">※ このページは <code class="mono">/liff/index.html</code> にあります。</p>
+  </form>
+
+  <!-- 結果 -->
+  <div id="resultCard" class="card result" style="display:none">
+    <h3>【タイプ】<span id="r-type">-</span></h3>
+    <p id="r-why" class="muted"></p>
+
+    <h3>【コメント】</h3>
+    <ul id="r-barnum"></ul>
+
+    <h3>【合う働き方】</h3>
+    <p id="r-fit"></p>
+
+    <h3>【向いている職種の例】</h3>
+    <p id="r-jobs"></p>
+
+    <h3>【アドバイス】</h3>
+    <p id="r-adv"></p>
+
+    <div class="small mono" id="r-meta"></div>
+  </div>
+</div>
+
+<script src="./app.js"></script>
 </body>
 </html>
