@@ -1,77 +1,98 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>C by me｜かんたん診断</title>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>秒速診断（LIFF）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <style>
-    body { font-family: "Noto Sans JP", sans-serif; padding: 20px; }
-    .question { margin-bottom: 20px; }
-    .result { margin-top: 30px; font-weight: bold; font-size: 18px; }
-    button { margin-top: 10px; padding: 8px 12px; }
+    :root{
+      --bg:#0e0f12; --card:#1a1c22; --muted:#8f95a3; --text:#e7ebf2; --accent:#2f81f7; --ok:#23c55e; --danger:#ef4444;
+      --radius:16px;
+    }
+    *{box-sizing:border-box;}
+    html,body{height:100%;}
+    body{
+      margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+      -webkit-font-smoothing:antialiased; line-height:1.5;
+    }
+    .wrap{max-width:680px; margin:0 auto; padding:24px 16px 40px;}
+    .topbar{display:flex; gap:8px; align-items:center; justify-content:center; margin-bottom:12px; opacity:.9;}
+    .badge{background:#22252d; color:#b2b8c6; padding:4px 10px; border-radius:999px; font-size:12px;}
+    .title{font-size:22px; font-weight:800; text-align:center; margin:6px 0 2px;}
+    .sub{font-size:12px; color:var(--muted); text-align:center; margin-bottom:18px;}
+    .status{background:var(--card); border:1px solid #2a2f3a; padding:12px 14px; border-radius:var(--radius); margin-bottom:14px; font-size:13px;}
+    .grid{display:grid; gap:14px;}
+    .card{background:var(--card); border:1px solid #2a2f3a; border-radius:var(--radius); padding:16px;}
+    .card h3{margin:0 0 10px; font-size:16px;}
+    .q-caption{font-size:12px; color:var(--muted); margin:-2px 0 8px;}
+    .opt{
+      display:flex; align-items:center; gap:10px; padding:12px; border:1px solid #333948; border-radius:12px; margin:8px 0; cursor:pointer;
+      transition:border-color .15s, background .15s;
+    }
+    .opt:hover{border-color:#3f475a;}
+    .opt input{appearance:none; width:18px; height:18px; border-radius:50%; border:2px solid #55607a; display:inline-block; position:relative;}
+    .opt input:checked{border-color:var(--accent); background:radial-gradient(circle at center,var(--accent) 0 45%, transparent 46%);}
+    .opt span{font-size:15px;}
+    .opt.small{padding:10px;}
+    .opt.small input{border-radius:4px;}
+    .cta{
+      position:sticky; bottom:12px; margin-top:6px; display:flex; gap:10px; z-index:5;
+      background:linear-gradient(180deg, transparent, rgba(14,15,18,.6) 30%, var(--bg) 90%);
+      padding-top:8px;
+    }
+    .btn{
+      flex:1; background:var(--accent); color:#fff; border:none; border-radius:14px; padding:16px; font-weight:800; font-size:16px; cursor:pointer;
+      box-shadow:0 8px 20px rgba(47,129,247,.25); transition:transform .05s ease;
+    }
+    .btn:active{transform:translateY(1px);}
+    .hint{font-size:11px; color:var(--muted); margin-top:6px;}
+    .result{background:var(--card); border:1px solid #2a2f3a; border-radius:var(--radius); padding:16px;}
+    .result h4{margin:0 0 8px; font-size:15px;}
+    .pill{display:inline-flex; align-items:center; gap:6px; background:#222834; color:#cfe0ff; padding:6px 10px; border-radius:999px; font-size:12px; margin:2px 6px 2px 0;}
+    .ok{color:#a7f3d0;} .err{color:#fecaca;}
+    .hide{display:none;}
+    .row{display:flex; gap:10px; flex-wrap:wrap;}
+    .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:20px; background:#202534; color:#e6f3ff; border:1px solid #2a3142; border-radius:12px; padding:10px 14px; font-size:12px; opacity:0; pointer-events:none; transition:opacity .2s, bottom .2s;}
+    .toast.show{opacity:1; bottom:28px;}
   </style>
 </head>
 <body>
-  <h2>📝 自分に合った働き方を診断！</h2>
-  <form id="quizForm"></form>
-  <button type="button" onclick="submitAnswers()">診断する</button>
-  <div id="result" class="result"></div>
+  <div class="wrap">
+    <div class="topbar">
+      <span class="badge">秒速診断</span>
+      <span class="badge">トーク内</span>
+    </div>
+    <div class="title">6秒診断（LIFF）</div>
+    <div class="sub" id="who">読み込み中…</div>
 
-  <script>
-    const questions = [
-      { q: "仕事の進め方は？", a: ["とりあえず始めて直す", "整理してから始める"] },
-      { q: "判断の決め手は？", a: ["直感・フィーリング", "データや理由"] },
-      { q: "やる気が出る理由は？", a: ["成果達成", "承認", "貢献", "安心", "探究", "自由", "仲間", "成長"], multi: true },
-      { q: "苦手な環境は？", a: ["細かく指示される", "丸投げされる"] },
-      { q: "感情の出し方は？", a: ["すぐ顔や言葉に出る", "外には出さないけど心で燃える"] },
-      { q: "安心できるチームは？", a: ["何でもハッキリ言える", "空気を大事に和やか"] },
-      { q: "チームでの役割は？", a: ["リーダー", "サポート"] },
-      { q: "働き方の理想は？", a: ["一つを極める", "色々挑戦する"] }
-    ];
+    <div class="status" id="status">LIFF初期化中…</div>
 
-    // 質問をレンダリング
-    const form = document.getElementById("quizForm");
-    questions.forEach((q, i) => {
-      const div = document.createElement("div");
-      div.className = "question";
-      div.innerHTML = `<p>${i+1}. ${q.q}</p>`;
-      q.a.forEach(opt => {
-        if (q.multi) {
-          div.innerHTML += `<label><input type="checkbox" name="q${i}" value="${opt}"> ${opt}</label><br>`;
-        } else {
-          div.innerHTML += `<label><input type="radio" name="q${i}" value="${opt}"> ${opt}</label><br>`;
-        }
-      });
-      form.appendChild(div);
-    });
+    <div class="grid" id="formArea"><!-- JSで質問を描画 --></div>
 
-    async function submitAnswers() {
-      const answers = [];
-      questions.forEach((q, i) => {
-        if (q.multi) {
-          const selected = [...document.querySelectorAll(`input[name=q${i}]:checked`)].map(el => el.value);
-          answers.push(selected);
-        } else {
-          const selected = document.querySelector(`input[name=q${i}]:checked`);
-          answers.push(selected ? selected.value : null);
-        }
-      });
+    <div class="cta">
+      <button class="btn" id="submitBtn">結果を見る</button>
+    </div>
+    <div class="hint">※このページは /liff/index.html です。文言やデザインは自由に変えられます。</div>
 
-      // LIFFからユーザー情報取得
-      await liff.init({ liffId: "<YOUR_LIFF_ID>" });
-      const profile = await liff.getProfile();
+    <div class="result hide" id="resultBox">
+      <h4>【タイプ】 <span id="typeName">-</span></h4>
+      <div class="row" id="typeTags"></div>
+      <h4>【合う働き方】</h4>
+      <div class="row" id="fitWays"></div>
+      <h4>【向いている職種の例】</h4>
+      <div class="row" id="roles"></div>
+      <h4>【ひとことアドバイス】</h4>
+      <div id="advice"></div>
+    </div>
+  </div>
 
-      // サーバに送信
-      const res = await fetch("/api/answer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: profile.userId, answers })
-      });
-      const data = await res.json();
+  <div class="toast" id="toast"></div>
 
-      // 結果をユーザーに表示
-      document.getElementById("result").innerText = `✨ あなたのタイプ：${data.type}\n${data.message}`;
-    }
-  </script>
+  <!-- LINE LIFF SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
