@@ -1,5 +1,5 @@
 // ===== 設定：ここに LIFF ID を入れる =====
-const LIFF_ID = 'ここにLIFF_IDを入れる';
+const LIFF_ID = '2008019437-Jxwm33XM';
 
 // ===== ラベル（スクショの文言に合わせたい場合はここだけ直せばOK） =====
 const Q = [
