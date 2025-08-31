@@ -1,29 +1,42 @@
-import { createClient } from "@supabase/supabase-js";
+// /bot_server/api/answer.js
+import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE
+);
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end();
+  if (req.method !== 'POST') return res.status(405).json({ ok:false, error:'Method Not Allowed' });
 
-  const { userId, answers } = req.body;
+  try {
+    const { line, demographics, answers, result, barnum, meta } = req.body || {};
 
-  // 簡易ロジック（例：直感型 vs 論理型）
-  let type = "バランスタイプ";
-  let message = "自分らしく働ける道を探していこう！";
+    // 最低限のバリデーション
+    if (!line?.userId || !answers || !result) {
+      return res.status(400).json({ ok:false, error:'invalid payload' });
+    }
 
-  if (answers[0] === "とりあえず始めて直す" && answers[1] === "直感・フィーリング") {
-    type = "チャレンジャー";
-    message = "動きながら学ぶタイプ！新しい挑戦や企画職が向いてるよ。";
-  } else if (answers[0] === "整理してから始める" && answers[1] === "データや理由") {
-    type = "プランナー";
-    message = "しっかり準備して進めるタイプ！企画職や分析職にピッタリ。";
+    const payload = {
+      line,           // {userId, displayName, pictureUrl, ...}
+      demographics,   // {gender, age, mbti}
+      answers,        // 各設問の回答（q1..q8, q3は配列）
+      result,         // {type, why, fit, jobs, adv}
+      barnum: barnum ?? null, // ["～タイプ", ...]
+      meta:   meta   ?? null  // {ts, ua, v, ...}
+    };
+
+    const { data, error } = await supabase
+      .from('responses')
+      .insert(payload)
+      .select('id, created_at')
+      .single();
+
+    if (error) throw error;
+
+    res.status(200).json({ ok:true, id:data.id, created_at:data.created_at });
+  } catch (e) {
+    console.error('[answer] insert error:', e);
+    res.status(500).json({ ok:false, error:String(e.message || e) });
   }
-
-  // Supabaseに保存
-  await supabase.from("responses").insert([
-    { user_id: userId, answers, result_type: type, result_message: message }
-  ]);
-
-  // ユーザーに返す
-  res.status(200).json({ type, message });
 }
