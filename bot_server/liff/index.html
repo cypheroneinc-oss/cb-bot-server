@@ -15,8 +15,6 @@
     .card{background:var(--card);border:1px solid #1d2330;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 6px 22px rgba(0,0,0,.22)}
     .title{font-weight:700;margin:0 0 10px}
     .muted{color:var(--ink2);font-size:13px}
-    fieldset{border:0;margin:0;padding:0}
-    legend{font-weight:700;margin-bottom:8px}
     .grid{display:grid;gap:12px}
     .row{display:grid;gap:10px}
     @media(min-width:560px){.row{grid-template-columns:1fr 1fr}}
@@ -45,40 +43,31 @@
   <!-- ステータス -->
   <div class="card"><div id="status" class="muted">読み込み中…</div></div>
 
-  <!-- かんたんプロフィール（任意） -->
+  <!-- プロフィール（必須化：年齢・性別） -->
   <div class="card">
-    <p class="title">かんたんプロフィール <span class="pill">任意</span></p>
+    <p class="title">プロフィール</p>
     <div class="grid">
       <div>
         <label class="muted">性別（自認）</label>
-        <select id="gender">
-          <option value="">選ばない</option>
+        <select id="gender" required>
+          <option value="" disabled selected>選択してください</option>
           <option value="male">男性</option>
           <option value="female">女性</option>
           <option value="other">その他</option>
-          <option value="na">答えない</option>
         </select>
       </div>
       <div>
-        <label class="muted">年齢帯</label>
-        <select id="age">
-          <option value="">選ばない</option>
-          <option value="u15">〜15</option>
-          <option value="16-18">16–18</option>
-          <option value="19-22">19–22</option>
-          <option value="23-25">23–25</option>
-          <option value="26-29">26–29</option>
-          <option value="30-34">30–34</option>
-          <option value="35-39">35–39</option>
-          <option value="40-49">40–49</option>
-          <option value="50p">50+</option>
+        <label class="muted">年齢</label>
+        <select id="age" required>
+          <option value="" disabled selected>選択してください</option>
+          <!-- 12〜35 は app.js で自動挿入 -->
         </select>
       </div>
-      <div class="row">
+      <div class="row" style="grid-column:1/-1">
         <div style="grid-column:1/-1">
-          <label class="muted">MBTI</label>
+          <label class="muted">MBTI（任意）</label>
           <select id="mbti">
-            <option value="">わからない / 未回答</option>
+            <option value="">未回答</option>
             <option>ISTJ</option><option>ISFJ</option><option>INFJ</option><option>INTJ</option>
             <option>ISTP</option><option>ISFP</option><option>INFP</option><option>INTP</option>
             <option>ESTP</option><option>ESFP</option><option>ENFP</option><option>ENTP</option>
@@ -86,7 +75,6 @@
           </select>
         </div>
       </div>
-      <p class="small">※ 入力しなくても診断できます。回答は匿名ID（LINEの userId）と一緒に記録されます。</p>
     </div>
   </div>
 
@@ -94,6 +82,32 @@
   <form id="form" class="card">
     <p class="title">質問</p>
     <div id="qwrap" class="grid"></div>
+
+    <div class="card" style="background:#0f141d;border:1px dashed #2a3850">
+      <p class="title" style="margin-bottom:8px">モチベーション（最大3つ／順位つき）</p>
+      <div class="grid">
+        <div>
+          <label class="muted">第1位</label>
+          <select id="m1">
+            <option value="">選択してください</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted">第2位（任意）</label>
+          <select id="m2">
+            <option value="">未選択</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted">第3位（任意）</label>
+          <select id="m3">
+            <option value="">未選択</option>
+          </select>
+        </div>
+      </div>
+      <p class="small">※ 同じ項目は重複できません。選ばない場合は「未選択」のままでOK。</p>
+    </div>
+
     <button id="submit" class="btn" type="submit">結果を見る</button>
     <p class="small">※ このページは <code class="mono">/liff/index.html</code> にあります。</p>
   </form>
@@ -103,7 +117,7 @@
     <h3>【タイプ】<span id="r-type">-</span></h3>
     <p id="r-why" class="muted"></p>
 
-    <h3>【コメント】</h3>
+    <h3>【当たってるかも？ポイント】</h3>
     <ul id="r-barnum"></ul>
 
     <h3>【合う働き方】</h3>
@@ -111,6 +125,9 @@
 
     <h3>【向いている職種の例】</h3>
     <p id="r-jobs"></p>
+
+    <h3>【あなたのやる気スイッチ（順位）】</h3>
+    <p id="r-motiv"></p>
 
     <h3>【アドバイス】</h3>
     <p id="r-adv"></p>
