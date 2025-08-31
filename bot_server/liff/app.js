@@ -1,269 +1,240 @@
-/* ===== セットアップ =====
- * 必要ならここを直接 LIFF_ID に置き換え（例: '2000-xxxx'）
- * ※Vercelで静的ファイルからenvを参照できないため、直書きが確実です
- */
-const LIFF_ID = '2008019437-Jxwm33XM';
+// ===== 設定：ここに LIFF ID を入れる =====
+const LIFF_ID = 'ここにLIFF_IDを入れる';
 
-// API エンドポイント（そのままでOK）
-const API_ANSWER = '/api/answer';
-
-// ヘルパ
+// ------------- ヘルパ -------------
 const $ = (s) => document.querySelector(s);
-const el = (t, attrs = {}, ...children) => {
-  const n = document.createElement(t);
-  Object.entries(attrs).forEach(([k, v]) => {
-    if (k === 'class') n.className = v;
-    else if (k === 'for') n.htmlFor = v;
-    else if (k.startsWith('on') && typeof v === 'function') n.addEventListener(k.slice(2), v);
-    else if (k === 'text') n.textContent = v;
-    else n.setAttribute(k, v);
-  });
-  for (const c of children) n.append(c);
+const el = (tag, attrs={}, html='') => {
+  const n = document.createElement(tag);
+  Object.entries(attrs).forEach(([k,v]) => n.setAttribute(k,v));
+  if (html) n.innerHTML = html;
   return n;
 };
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-// 設問データ（日本語やさしめ＆キャッチー）
+// ------------- 設問定義（A/B×8問）-------------
 const QUESTIONS = [
-  {
-    id: 'q1', title: '1. 仕事の進め方', prompt: '近いのは？', type: 'single',
-    options: [
-      { id:'A', label:'A. とりあえず始めて直す' },
-      { id:'B', label:'B. まず整理してから始める' },
-    ]
-  },
-  {
-    id: 'q2', title: '2. 判断の決め手', prompt: 'より大事にするのは？', type: 'single',
-    options: [
-      { id:'A', label:'A. 直感・フィーリング' },
-      { id:'B', label:'B. データや理由' },
-    ]
-  },
-  {
-    id: 'q3', title: '3. やる気スイッチ', prompt: '当てはまるものにチェック（複数OK）', type: 'multi',
-    options: [
-      { id:'1', label:'成果達成' }, { id:'2', label:'承認' }, { id:'3', label:'貢献' }, { id:'4', label:'安心' },
-      { id:'5', label:'探究' }, { id:'6', label:'自由' }, { id:'7', label:'仲間' }, { id:'8', label:'成長' },
-    ]
-  },
-  {
-    id: 'q4', title: '4. 苦手な環境', prompt: 'どちらがイヤ？', type: 'single',
-    options: [
-      { id:'A', label:'A. ずっと細かく指示される' },
-      { id:'B', label:'B. ほったらかしで丸投げ' },
-    ]
-  },
-  {
-    id: 'q5', title: '5. 感情の出し方', prompt: '近いのは？', type: 'single',
-    options: [
-      { id:'A', label:'A. 顔や言葉にすぐ出る' },
-      { id:'B', label:'B. 外には出ないけど心で燃える' },
-    ]
-  },
-  {
-    id: 'q6', title: '6. 安心できるチーム', prompt: 'ラクなのは？', type: 'single',
-    options: [
-      { id:'A', label:'A. 何でもハッキリ言える' },
-      { id:'B', label:'B. 空気を大事にして和やか' },
-    ]
-  },
-  {
-    id: 'q7', title: '7. 役割', prompt: '自然に多いのは？', type: 'single',
-    options: [
-      { id:'A', label:'A. みんなを引っ張るリーダー' },
-      { id:'B', label:'B. サポートして支える' },
-    ]
-  },
-  {
-    id: 'q8', title: '8. 働き方の理想', prompt: '理想に近いのは？', type: 'single',
-    options: [
-      { id:'A', label:'A. 一つのことをじっくり極める' },
-      { id:'B', label:'B. いろんなことに同時にチャレンジ' },
-    ]
-  },
+  { key:'q1', title:'1. 仕事の進め方は？', a:'とりあえず始めて直す', b:'整理してから始める' },
+  { key:'q2', title:'2. 判断の決め手は？', a:'直感・フィーリング', b:'データや理由' },
+  { key:'q3', title:'3. やる気が出る理由は？（1つ選択）',
+    a:'成果達成/承認/貢献/安心/探究/自由/仲間/成長', b:'（Aから1つ選択）', multi:true },
+  { key:'q4', title:'4. 苦手な環境は？', a:'細かく指示される', b:'丸投げされる' },
+  { key:'q5', title:'5. 感情の出し方は？', a:'すぐ顔や言葉に出る', b:'外には出ないが心で燃える' },
+  { key:'q6', title:'6. 安心できるチームは？', a:'何でもハッキリ言える', b:'空気を大事に和やか' },
+  { key:'q7', title:'7. チームでの役割は？', a:'リーダー', b:'サポート' },
+  { key:'q8', title:'8. 働き方の理想は？', a:'一つを極める', b:'色々挑戦する' },
 ];
 
-// 診断ロジック（子どもにもわかる言葉）
-function scoreAndExplain(ans) {
-  // 野生（直感・スピード） vs 計画（整理・根拠）
-  let wild = 0, plan = 0;
-  if (ans.q1 === 'A') wild++; else if (ans.q1 === 'B') plan++;
-  if (ans.q2 === 'A') wild++; else if (ans.q2 === 'B') plan++;
-  if (ans.q4 === 'A') plan++; else if (ans.q4 === 'B') wild++;
-  if (ans.q8 === 'A') plan++; else if (ans.q8 === 'B') wild++;
-
-  const type =
-    wild > plan ? 'ひらめきスプリンター' :
-    plan > wild ? 'じっくりプランナー' : 'ミックス型バランサー';
-
-  const workStyle =
-    wild > plan ? 'まず動いて、失敗から学ぶスタイル' :
-    plan > wild ? '準備して、すき間なく進めるスタイル' :
-    '状況に合わせて切り替えるスタイル';
-
-  // モチベーション上位（最大3件）
-  const motives = (ans.q3 || []).slice(0, 3).map(id => ({
-    '1':'成果が出たとき','2':'ほめられたとき','3':'誰かの役に立てたとき','4':'安心できるとき',
-    '5':'新しい発見があったとき','6':'自分のやり方でできたとき','7':'仲間と一緒のとき','8':'成長を感じたとき'
-  }[id]));
-
-  // 向いている職種の例
-  let jobs;
-  if (type === 'ひらめきスプリンター') {
-    jobs = ['営業','企画','広報','プロダクトマネジメント','起業/新規事業'];
-  } else if (type === 'じっくりプランナー') {
-    jobs = ['エンジニア','データ分析','経理/法務','品質管理','編集/ドキュメント'];
-  } else {
-    jobs = ['カスタマーサクセス','プロジェクト進行','人事/採用','マーケティング','ディレクション'];
-  }
-
-  // アドバイス
-  const adv = [];
-  if (type === 'ひらめきスプリンター') {
-    adv.push('やることを3つだけにしぼると超はかどる。');
-    adv.push('思いつきをメモ→2分で検証、のくり返しが最強。');
-  } else if (type === 'じっくりプランナー') {
-    adv.push('完璧にする前に小さく出してみよう。');
-    adv.push('やる順番をカード化→毎日少しずつ更新でOK。');
-  } else {
-    adv.push('切り替え上手を武器に、役割を2つまでにしぼる。');
-    adv.push('困ったら「目的→手順→担当」の順で整える。');
-  }
-
-  return { type, workStyle, motives, jobs, adv };
-}
-
-// UI生成
-function renderQuestions(container) {
-  container.innerHTML = '';
+// ------------- 画面生成 -------------
+function renderQuestions() {
+  const wrap = $('#qwrap'); wrap.innerHTML = '';
   QUESTIONS.forEach((q, idx) => {
-    const sec = el('section', { class: 'card' });
-    sec.append(
-      el('div', { class: 'title', text: `${q.title}` }),
-      el('div', { class: 'q', text: `Q: ${q.prompt}` })
-    );
+    const sec = el('section');
+    sec.append(el('div', {class:'muted'}, `Q${idx+1}: ${q.title}`));
 
-    const row = el('div', { class: 'grid' });
-    q.options.forEach(opt => {
-      const inputId = `${q.id}_${opt.id}`;
-      const input = el('input', {
-        type: q.type === 'multi' ? 'checkbox' : 'radio',
-        name: q.id, id: inputId, value: opt.id
+    if (q.multi) {
+      const opts = ['成果達成','承認','貢献','安心','探究','自由','仲間','成長'];
+      const g = el('div', {class:'grid'});
+      opts.forEach((t, i) => {
+        const id = `${q.key}-${i}`;
+        const lab = el('label', {class:'opt', for:id});
+        lab.append(el('input',{type:'checkbox',id,value:t}));
+        lab.append(document.createTextNode(t));
+        g.append(lab);
       });
-      const label = el('label', { class: 'pill', for: inputId });
-      label.append(input, el('span', { text: opt.label }));
-      row.append(label);
-    });
-    sec.append(row);
-    container.append(sec);
-  });
-}
-
-// 回答の読み取りとバリデーション
-function collectAnswers() {
-  const out = {};
-  for (const q of QUESTIONS) {
-    if (q.type === 'single') {
-      const checked = document.querySelector(`input[name="${q.id}"]:checked`);
-      if (!checked) return { error: `${q.title} を選んでください` };
-      out[q.id] = checked.value;
+      sec.append(g);
     } else {
-      const arr = [...document.querySelectorAll(`input[name="${q.id}"]:checked`)].map(i => i.value);
-      out[q.id] = arr;
+      const idA = `${q.key}-a`, idB = `${q.key}-b`;
+      const la = el('label',{class:'opt',for:idA});
+      la.append(el('input',{type:'radio',name:q.key,id:idA,value:'A'}));
+      la.append(document.createTextNode(`A. ${q.a}`));
+      const lb = el('label',{class:'opt',for:idB});
+      lb.append(el('input',{type:'radio',name:q.key,id:idB,value:'B'}));
+      lb.append(document.createTextNode(`B. ${q.b}`));
+      sec.append(la, lb);
     }
-  }
-  return { data: out };
-}
-
-// API送信
-async function postAnswers(payload) {
-  const res = await fetch(API_ANSWER, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(payload)
+    wrap.append(sec);
   });
-  if (!res.ok) throw new Error(`POST ${res.status}`);
-  return res.json().catch(()=> ({}));
 }
 
-// 画面更新
-function showResult(r, logObj) {
-  $('#typeBadge').textContent = `タイプ：${r.type}`;
-  $('#workBadge').textContent = `合う働き方：${r.workStyle}`;
-  $('#summary').textContent = r.motives.length ? `あなたのやる気スイッチ：${r.motives.join('・')}` : 'やる気スイッチ：未選択';
-  $('#jobs').innerHTML = r.jobs.map(j=>`<li>${j}</li>`).join('');
-  $('#advs').innerHTML = r.adv.map(a=>`<li>${a}</li>`).join('');
-  $('#log').textContent = JSON.stringify(logObj, null, 2);
-  $('#result').style.display = '';
+// ------------- 集計ロジック（やさしい日本語の結果文） -------------
+function scoreAndExplain(ans) {
+  // A/Bの比率でタイプを出す（シンプル）
+  const abKeys = ['q1','q2','q4','q5','q6','q7','q8'];
+  let a=0,b=0;
+  abKeys.forEach(k => (ans[k]==='A'? a++ : b++));
+
+  const type = a>b ? 'チャレンジ先行タイプ' : (a<b ? '計画ていねいタイプ' : 'バランスよしタイプ');
+
+  const why =
+    type==='チャレンジ先行タイプ'
+      ? '思い立ったらすぐ動ける。まずやってみて、直しながら前へ進むのが得意。'
+      : type==='計画ていねいタイプ'
+      ? '準備や段取りを大切にできる。じっくり考えて、ムダなく進めるのが得意。'
+      : '直感も計画もどちらも使える。状況に合わせて切り替えられるのが強み。';
+
+  const fit =
+    type==='チャレンジ先行タイプ'
+      ? 'スピード感のある現場／小さく試して改善していく働き方'
+      : type==='計画ていねいタイプ'
+      ? '要件整理や計画・検証が大事な働き方／丁寧なコミュニケーション'
+      : '状況に応じて実行も調整もできる役回り';
+
+  const jobs =
+    type==='チャレンジ先行タイプ'
+      ? '企画、セールス、PdM、成長フェーズのスタートアップ'
+      : type==='計画ていねいタイプ'
+      ? 'バックオフィス、品質保証、データ分析、ドキュメンテーション'
+      : 'カスタマーサクセス、進行管理、コンサル、コーディネーター';
+
+  const adv =
+    type==='チャレンジ先行タイプ'
+      ? '走り出しは強み。あとで「なぜそうしたか」を一言メモに残すと説得力UP。'
+      : type==='計画ていねいタイプ'
+      ? '最初の一歩が重くなりがち。小さく始めて早めにフィードバックをもらうと◎。'
+      : '得意なほうに寄りすぎないよう、意識してもう一方の視点も使おう。';
+
+  return { type, why, fit, jobs, adv };
 }
 
-// 初期化
-(async function init(){
-  try{
-    $('#bar').style.width = '25%';
-    await liff.init({ liffId: LIFF_ID });
-    $('#bar').style.width = '45%';
+// ------------- バーナム効果コメント -------------
+// できるだけ多くの人に当てはまる“当たってる感”の短文を、回答から3つ抽出。
+function barnumComments(ans, type) {
+  const picks = [];
 
-    // LIFF内で未ログイン→ログインへ
-    if (!liff.isLoggedIn()) {
-      $('#bar').style.width = '55%';
-      return liff.login();
+  // 選択肢から拾う
+  const m = new Set(ans.q3 || []);
+  if (m.has('承認')) picks.push('がんばりを見てくれる人がいると、実力が一気に出るタイプ。');
+  if (m.has('自由')) picks.push('自由度があると集中できるけど、締切があるとさらに加速する。');
+  if (m.has('仲間')) picks.push('一人でも進められるけど、仲間と動くとやる気が長続きする。');
+  if (m.has('成長')) picks.push('昨日より成長できた実感があると、次も自然と動ける。');
+  if (m.has('安心')) picks.push('土台が安心だと、新しい挑戦にも踏み出しやすい。');
+  if (m.has('探究')) picks.push('答えが出るまで深掘りしたくなる探究心を持っている。');
+  if (m.has('貢献')) picks.push('「誰かの役に立てた」がやる気のスイッチになりやすい。');
+  if (m.has('成果達成')) picks.push('小さな達成でも積み重ねるほど自信がつくタイプ。');
+
+  // タイプ別に“広く刺さる”一言
+  if (type === 'チャレンジ先行タイプ') {
+    picks.push('思い切りがある一方で、ちゃんと慎重に考える場面もある。');
+  } else if (type === '計画ていねいタイプ') {
+    picks.push('準備は大事。でも動き出すと決めたら意外と行動が速い。');
+  } else {
+    picks.push('状況を見て、直感と計画をうまく切り替えられる。');
+  }
+
+  // 共通の“誰でも思い当たる”補完（重複しないように追加）
+  const commons = [
+    '頼られると断りづらいけど、最後はきちんとやり切る。',
+    '新しいことはワクワクするが、同時に上手くいくか少し不安にもなる。',
+    '周りからは落ち着いて見られがちでも、内側ではちゃんと悩んでから決める。'
+  ];
+  commons.forEach(t => { if (picks.length < 5 && !picks.includes(t)) picks.push(t); });
+
+  // 3つだけ返す（順番は前の方がユーザー固有度が高い）
+  return picks.slice(0, 3);
+}
+
+// ------------- フォーム収集 -------------
+function collectAnswers() {
+  const get = (name) => {
+    const r = document.querySelector(`input[name="${name}"]:checked`);
+    return r ? r.value : null;
+  };
+  const mul = [...document.querySelectorAll('input[type="checkbox"]:checked')].map(i=>i.value);
+
+  return {
+    q1: get('q1'), q2: get('q2'),
+    q3: mul,
+    q4: get('q4'), q5: get('q5'),
+    q6: get('q6'), q7: get('q7'), q8: get('q8'),
+  };
+}
+
+// ------------- LIFF 初期化 & 送信 -------------
+async function init() {
+  $('#status').textContent = 'LIFF 初期化中…';
+  await liff.init({ liffId: LIFF_ID });
+
+  if (!liff.isLoggedIn()) {
+    $('#status').textContent = 'ログインへリダイレクトします…';
+    return liff.login();
+  }
+
+  const prof = await liff.getProfile();
+  const idt  = liff.getDecodedIDToken();
+  $('#status').innerHTML = `ようこそ <b>${prof.displayName}</b> さん！ <span class="pill">${liff.isInClient()?'トーク内':'外部ブラウザ'}</span>`;
+
+  renderQuestions();
+
+  $('#form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('#submit').disabled = true;
+
+    const answers = collectAnswers();
+    const demographics = {
+      gender: $('#gender').value || '',
+      age:    $('#age').value || '',
+      mbti:   $('#mbti').value || '',
+    };
+
+    const missing = ['q1','q2','q4','q5','q6','q7','q8'].filter(k => !answers[k]);
+    if (missing.length) {
+      alert('未回答の質問があります');
+      $('#submit').disabled = false;
+      return;
     }
 
-    const prof = await liff.getProfile();
-    const userId = prof.userId || 'unknown';
-    $('#bar').style.width = '70%';
+    const result = scoreAndExplain(answers);
+    const barnums = barnumComments(answers, result.type);
 
-    // UI表示
-    renderQuestions($('#qs'));
-    $('#bar').style.width = '100%';
-    $('.card .title').textContent = `ようこそ、${prof.displayName} さん`;
-    $('.hint').textContent = '質問に答えて「結果を見る」をタップ！';
-    $('#form').style.display = '';
-
-    // 送信
-    $('#form').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const btn = $('#submit');
-      btn.disabled = true; btn.textContent = '集計中…';
-      await sleep(150);
-
-      const got = collectAnswers();
-      if (got.error) { alert(got.error); btn.disabled=false; btn.textContent='結果を見る'; return; }
-
-      const result = scoreAndExplain(got.data);
-
-      // 運営向けログ（Supabase保存用）: /api/answer へ
+    // 運営側へ送信（/api/answer）
+    try {
       const payload = {
-        line_user_id: userId,
-        answers: got.data,
-        // result_type はシンプルに type を保存
-        result_type: result.type,
+        line: {
+          userId: prof.userId, displayName: prof.displayName,
+          pictureUrl: prof.pictureUrl || null, email: idt?.email || null,
+          inClient: liff.isInClient(), lang: liff.getLanguage()
+        },
+        demographics,
+        answers,
+        result,
+        barnum: barnums,
+        meta: { ts: new Date().toISOString(), ua: navigator.userAgent, v: 'liff-v2-barnum' }
       };
 
-      let apiResp = {};
-      try { apiResp = await postAnswers(payload); }
-      catch(err){ apiResp = { error: String(err) }; }
+      const res = await fetch('/api/answer', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload),
+      });
 
-      showResult(result, { payload, apiResp });
-      btn.disabled = false; btn.textContent = '結果を見る';
+      // 画面に結果表示
+      $('#r-type').textContent = result.type;
+      $('#r-why').textContent  = result.why;
+      $('#r-fit').textContent  = result.fit;
+      $('#r-jobs').textContent = result.jobs;
+      $('#r-adv').textContent  = result.adv;
 
-      // 任意: トークに軽いサマリを戻す（webhookの quickReply と共存OK）
+      $('#r-barnum').innerHTML = barnums.map(t => `<li>${t}</li>`).join('');
+
+      $('#r-meta').textContent =
+        `送信: ${res.ok?'成功':'失敗'}  /  性別:${demographics.gender||'-'}  年齢:${demographics.age||'-'}  MBTI:${demographics.mbti||'-'}`;
+
+      $('#resultCard').style.display = 'block';
+
       if (liff.isInClient()) {
         try {
-          await liff.shareTargetPicker?.([{
+          await liff.sendMessages([{
             type:'text',
-            text:`診断結果：${result.type}\n合う働き方：${result.workStyle}\n職種例：${result.jobs.slice(0,3).join(' / ')}`
-          }]).catch(()=>{});
-        } catch {}
+            text:`診断結果: ${result.type}\n当たってるかも: ・${barnums.join('\n・')}\n合う働き方: ${result.fit}\n職種例: ${result.jobs}`
+          }]);
+        } catch (_) {}
       }
+    } catch (err) {
+      console.error(err);
+      alert('送信に失敗しました。電波状況をご確認ください。');
+    } finally {
+      $('#submit').disabled = false;
+    }
+  });
+}
 
-      // 結果カードをスクロールイン
-      $('#result').scrollIntoView({behavior:'smooth',block:'start'});
-    });
-
-  }catch(e){
-    console.error(e);
-    alert('読み込みに失敗しました。時間をおいて再度お試しください。');
-  }
-})();
+document.addEventListener('DOMContentLoaded', init);
