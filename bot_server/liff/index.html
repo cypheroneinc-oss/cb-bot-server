@@ -1,131 +1,309 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>C Lab</title>
-  <link rel="preconnect" href="https://static.line-scdn.net">
-  <style>
-    :root{--bg:#0b0d10;--card:#141820;--ink:#e6eef9;--ink2:#9fb3cd;--pri:#2d7dff;--ok:#36d399;--err:#ff5c77}
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Hiragino Kaku Gothic ProN","Noto Sans JP","Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji",sans-serif}
-    .wrap{max-width:760px;margin:auto;padding:20px 16px 72px}
-    h1{font-size:18px;margin:4px 0 16px;color:var(--ink2)}
-    .tabs{display:flex;gap:8px;margin-bottom:12px}
-    .tab{padding:6px 10px;border-radius:999px;background:#0f131a;color:var(--ink2);font-size:12px}
-    .card{background:var(--card);border:1px solid #1d2330;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 6px 22px rgba(0,0,0,.22)}
-    .title{font-weight:700;margin:0 0 10px}
-    .muted{color:var(--ink2);font-size:13px}
-    .grid{display:grid;gap:12px}
-    .row{display:grid;gap:10px}
-    @media(min-width:560px){.row{grid-template-columns:1fr 1fr}}
-    label.opt{display:flex;align-items:center;gap:10px;background:#0f141d;border:1px solid #212938;border-radius:12px;padding:12px}
-    label.opt input{width:18px;height:18px}
-    select,button{appearance:none}
-    select{width:100%;padding:12px;border-radius:12px;border:1px solid #243045;background:#0f141d;color:var(--ink)}
-    button.btn{width:100%;padding:14px 16px;border:0;border-radius:12px;background:var(--pri);color:#fff;font-weight:700;font-size:16px}
-    button.btn:disabled{opacity:.55}
-    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#0f141d;border:1px solid #243045;color:var(--ink2);font-size:12px}
-    .ok{color:var(--ok)} .err{color:var(--err)}
-    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--ink2)}
-    .result h3{margin:0 0 4px} .result p{margin:0 0 8px}
-    .result ul{margin:6px 0 12px;padding-left:18px}
-    .small{font-size:12px;color:var(--ink2)}
-    .shareBtns{display:grid;gap:10px}
-    @media(min-width:560px){.shareBtns{grid-template-columns:1fr 1fr}}
-    .sbtn{display:flex;align-items:center;gap:10px;justify-content:center;padding:12px;border-radius:12px;border:1px solid #243045;background:#0f141d;color:var(--ink);text-decoration:none}
-    .sbtn:hover{filter:brightness(1.08)}
-  </style>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>C Lab｜かんたん診断（LIFF）</title>
+<style>
+/* ===== Clean Dark UI (cards + choices) ===== */
+:root{
+  --bg:#0b1020; --card:#101826; --border:#1f2a3a;
+  --text:#e6edf5; --sub:#9fb0c6; --accent:#3b82f6; --accent2:#22d3ee;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;}
+.wrap{max-width:720px;margin:0 auto;padding:18px 14px 28px;}
+h1{font-size:20px;margin:6px 2px 14px;text-align:center;letter-spacing:.03em}
+.status{font-size:13px;color:var(--sub);text-align:center;margin:0 0 10px}
+.section{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px;margin:16px 0;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+.section h2{font-size:20px;margin:0 0 10px}
+.section h3{font-size:18px;margin:0 0 6px}
+.section .qsub{color:var(--sub);font-size:14px;margin:0 0 12px}
+.row{display:flex;flex-direction:column;gap:12px}
+.field{display:flex;flex-direction:column;gap:8px}
+label.cap{font-size:14px;color:var(--sub)}
+select,input[type="text"]{width:100%;height:44px;border-radius:12px;border:1px solid var(--border);
+  background:rgba(255,255,255,.02);color:var(--text);padding:0 12px;outline:none}
+select:focus,input[type="text"]:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(34,211,238,.12)}
+.choices{display:flex;flex-direction:column;gap:12px}
+.choice{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--border);border-radius:14px;
+  background:rgba(255,255,255,.02);transition:all .15s ease}
+.choice:hover{border-color:var(--accent2);background:rgba(34,211,238,.06)}
+.choice input[type="radio"]{appearance:none;width:20px;height:20px;border-radius:50%;border:2px solid var(--sub);position:relative;flex:0 0 auto;outline:none}
+.choice input[type="radio"]:checked{border-color:var(--accent)}
+.choice input[type="radio"]:checked::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--accent)}
+.choice .label{font-size:16px;line-height:1.4}
+.btn{width:100%;height:50px;border:none;border-radius:14px;font-size:16px;font-weight:700;letter-spacing:.03em}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:active{transform:translateY(1px);opacity:.95}
+#result .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px;margin-top:18px}
+#result .ttl{font-size:18px;margin:0 0 8px}
+#result h4{font-size:16px;margin:14px 0 6px}
+#result .lead{color:var(--sub)}
+#result .dots{padding-left:18px;margin:8px 0}
+#result .meta{color:var(--sub);font-size:12px;margin-top:10px}
+#result .share{display:flex;gap:10px;margin-top:10px}
+#result .btn.sub{flex:1;height:44px;background:rgba(255,255,255,.03);color:var(--text);border:1px solid var(--border);border-radius:12px}
+.note{color:var(--sub);font-size:12px;margin:8px 2px 0}
+</style>
 </head>
 <body>
-<div class="wrap">
-  <h1>🧭 自分に合った働き方を診断！</h1>
-  <div class="tabs"><span class="tab">秒速診断</span><span class="tab">トーク内</span></div>
+  <div class="wrap">
+    <h1>C Lab｜かんたん診断</h1>
+    <div id="status" class="status">読み込み中…</div>
 
-  <div class="card"><div id="status" class="muted">読み込み中…</div></div>
-
-  <!-- プロフィール -->
-  <div class="card">
-    <p class="title">プロフィール</p>
-    <div class="grid">
-      <div>
-        <label class="muted">性別（自認）</label>
-        <select id="gender" required>
-          <option value="" disabled selected>選択してください</option>
-          <option value="male">男性</option>
-          <option value="female">女性</option>
-          <option value="other">その他</option>
-        </select>
-      </div>
-      <div>
-        <label class="muted">年齢</label>
-        <select id="age" required>
-          <option value="" disabled selected>選択してください</option>
-        </select>
-      </div>
-      <div class="row" style="grid-column:1/-1">
-        <div style="grid-column:1/-1">
-          <label class="muted">MBTI（任意）</label>
+    <!-- プロフィール -->
+    <section class="section" id="profile">
+      <h2>プロフィール</h2>
+      <div class="row">
+        <div class="field">
+          <label class="cap">性別（自認）</label>
+          <select id="gender" required>
+            <option value="" selected>選択してください</option>
+            <option value="male">男性</option>
+            <option value="female">女性</option>
+            <option value="other">その他</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="cap">年齢</label>
+          <select id="age" required>
+            <option value="" selected>選択してください</option>
+            <!-- 12〜35 は下のJSで自動挿入 -->
+          </select>
+        </div>
+        <div class="field">
+          <label class="cap">MBTI（任意）</label>
           <select id="mbti">
-            <option value="">未回答</option>
-            <option>ISTJ</option><option>ISFJ</option><option>INFJ</option><option>INTJ</option>
-            <option>ISTP</option><option>ISFP</option><option>INFP</option><option>INTP</option>
-            <option>ESTP</option><option>ESFP</option><option>ENFP</option><option>ENTP</option>
-            <option>ESTJ</option><option>ESFJ</option><option>ENFJ</option><option>ENTJ</option>
+            <option value="" selected>未回答</option>
+            <option>INTJ</option><option>INTP</option><option>ENTJ</option><option>ENTP</option>
+            <option>INFJ</option><option>INFP</option><option>ENFJ</option><option>ENFP</option>
+            <option>ISTJ</option><option>ISFJ</option><option>ESTJ</option><option>ESFJ</option>
+            <option>ISTP</option><option>ISFP</option><option>ESTP</option><option>ESFP</option>
           </select>
         </div>
       </div>
-    </div>
-  </div>
+    </section>
 
-  <!-- 設問 -->
-  <form id="form" class="card">
-    <p class="title">質問</p>
-    <div id="qwrap" class="grid"></div>
-
-    <div class="card" style="background:#0f141d;border:1px dashed #2a3850">
-      <p class="title" style="margin-bottom:8px">モチベーション（最大3つ／順位つき）</p>
-      <div class="grid">
-        <div><label class="muted">第1位</label><select id="m1"><option value="">選択してください</option></select></div>
-        <div><label class="muted">第2位（任意）</label><select id="m2"><option value="">未選択</option></select></div>
-        <div><label class="muted">第3位（任意）</label><select id="m3"><option value="">未選択</option></select></div>
+    <!-- Q1 -->
+    <section class="section">
+      <h3>1. 仕事の進め方のスタンス</h3>
+      <p class="qsub">Q: 何かに取りかかるとき、近いのは？</p>
+      <div class="choices">
+        <label class="choice">
+          <input type="radio" name="q1" value="A">
+          <span class="label">A. とりあえず始めて、やりながら直す</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="q1" value="B">
+          <span class="label">B. まず全体を整理してから始める</span>
+        </label>
       </div>
-      <p class="small">※ 同じ項目は重複できません。選ばない場合は「未選択」のままでOK。</p>
-    </div>
+    </section>
 
-    <button id="submit" class="btn" type="submit">結果を見る</button>
-    <p class="small">※ このページは <code class="mono">/liff/index.html</code> にあります。</p>
-  </form>
+    <!-- Q2 -->
+    <section class="section">
+      <h3>2. 判断の決め手</h3>
+      <p class="qsub">Q: 悩んだとき、より大事にするのは？</p>
+      <div class="choices">
+        <label class="choice">
+          <input type="radio" name="q2" value="A">
+          <span class="label">A. なんとなくの直感やフィーリング</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="q2" value="B">
+          <span class="label">B. 理由やデータなどの根拠</span>
+        </label>
+      </div>
+    </section>
 
-  <!-- 結果 -->
-  <div id="resultCard" class="card result" style="display:none">
-    <h3>【タイプ】<span id="r-type">-</span></h3>
-    <p id="r-why" class="muted"></p>
+    <!-- Q3（モチベーション：プルダウン×3） -->
+    <section class="section">
+      <h3>3. やる気が出る理由</h3>
+      <p class="qsub">Q: 「よし、がんばろう！」と思えるのは？（複数OK／できれば順位付け）</p>
+      <div class="row">
+        <div class="field">
+          <label class="cap">第1位</label>
+          <select id="mot1">
+            <option value="" selected>未選択</option>
+            <option value="達成">成果を出したとき（達成感）</option>
+            <option value="承認">認められたり褒められたとき（承認）</option>
+            <option value="貢献">誰かの役に立ったとき（貢献）</option>
+            <option value="安心">安心できる環境があるとき（安心）</option>
+            <option value="探究">新しいことを知れたとき（探究）</option>
+            <option value="自由">自分のやり方で自由にできるとき（自由）</option>
+            <option value="仲間">仲間と一緒に動けるとき（仲間）</option>
+            <option value="成長">成長している実感があるとき（成長）</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="cap">第2位（任意）</label>
+          <select id="mot2">
+            <option value="" selected>未選択</option>
+            <option value="達成">成果を出したとき（達成感）</option>
+            <option value="承認">認められたり褒められたとき（承認）</option>
+            <option value="貢献">誰かの役に立ったとき（貢献）</option>
+            <option value="安心">安心できる環境があるとき（安心）</option>
+            <option value="探究">新しいことを知れたとき（探究）</option>
+            <option value="自由">自分のやり方で自由にできるとき（自由）</option>
+            <option value="仲間">仲間と一緒に動けるとき（仲間）</option>
+            <option value="成長">成長している実感があるとき（成長）</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="cap">第3位（任意）</label>
+          <select id="mot3">
+            <option value="" selected>未選択</option>
+            <option value="達成">成果を出したとき（達成感）</option>
+            <option value="承認">認められたり褒められたとき（承認）</option>
+            <option value="貢献">誰かの役に立ったとき（貢献）</option>
+            <option value="安心">安心できる環境があるとき（安心）</option>
+            <option value="探究">新しいことを知れたとき（探究）</option>
+            <option value="自由">自分のやり方で自由にできるとき（自由）</option>
+            <option value="仲間">仲間と一緒に動けるとき（仲間）</option>
+            <option value="成長">成長している実感があるとき（成長）</option>
+          </select>
+        </div>
+      </div>
+      <p class="note">※ 同じ項目は重複できません。選ばない場合は「未選択」のままでOK。</p>
 
-    <h3>【当たってるかも？ポイント】</h3>
-    <ul id="r-barnum"></ul>
+      <!-- app.js が読む hidden チェックボックス（自動同期） -->
+      <div id="q3-hidden" style="display:none">
+        <input type="checkbox" name="q3" value="達成">
+        <input type="checkbox" name="q3" value="承認">
+        <input type="checkbox" name="q3" value="貢献">
+        <input type="checkbox" name="q3" value="安心">
+        <input type="checkbox" name="q3" value="探究">
+        <input type="checkbox" name="q3" value="自由">
+        <input type="checkbox" name="q3" value="仲間">
+        <input type="checkbox" name="q3" value="成長">
+      </div>
+    </section>
 
-    <h3>【合う働き方】</h3><p id="r-fit"></p>
-    <h3>【向いている職種の例】</h3><p id="r-jobs"></p>
-    <h3>【あなたのやる気スイッチ（順位）】</h3><p id="r-motiv"></p>
-    <h3>【アドバイス】</h3><p id="r-adv"></p>
-    <div class="small mono" id="r-meta"></div>
+    <!-- Q4 -->
+    <section class="section">
+      <h3>4. 苦手な環境</h3>
+      <p class="qsub">Q: どちらの方がイヤ？</p>
+      <div class="choices">
+        <label class="choice">
+          <input type="radio" name="q4" value="A">
+          <span class="label">A. ずっと細かく指示される</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="q4" value="B">
+          <span class="label">B. ほったらかしで丸投げされる</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Q5 -->
+    <section class="section">
+      <h3>5. 感情の出し方</h3>
+      <p class="qsub">Q: 気持ちが盛り上がったとき、近いのは？</p>
+      <div class="choices">
+        <label class="choice">
+          <input type="radio" name="q5" value="A">
+          <span class="label">A. 顔や言葉にすぐ出る</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="q5" value="B">
+          <span class="label">B. 外には出ないけど心の中で燃える</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Q6 -->
+    <section class="section">
+      <h3>6. 安心できるチーム</h3>
+      <p class="qsub">Q: 一緒にいてラクなのは？</p>
+      <div class="choices">
+        <label class="choice">
+          <input type="radio" name="q6" value="A">
+          <span class="label">A. 何でもハッキリ言えるチーム</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="q6" value="B">
+          <span class="label">B. 空気を大事にして、和やかなチーム</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Q7 -->
+    <section class="section">
+      <h3>7. チームでの役割</h3>
+      <p class="qsub">Q: 自然に多いのは？</p>
+      <div class="choices">
+        <label class="choice">
+          <input type="radio" name="q7" value="A">
+          <span class="label">A. みんなを引っ張るリーダー役</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="q7" value="B">
+          <span class="label">B. サポートして支える役</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Q8 -->
+    <section class="section">
+      <h3>8. 働き方の理想</h3>
+      <p class="qsub">Q: 理想に近いのは？</p>
+      <div class="choices">
+        <label class="choice">
+          <input type="radio" name="q8" value="A">
+          <span class="label">A. 一つのことをじっくり極める</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="q8" value="B">
+          <span class="label">B. いろんなことに同時にチャレンジする</span>
+        </label>
+      </div>
+    </section>
+
+    <button id="run" class="btn primary">結果を見る</button>
+
+    <div id="result"></div>
+    <p class="note">※ このページは /liff/index.html にあります。</p>
   </div>
 
-  <!-- シェア -->
-  <div id="shareCard" class="card" style="display:none">
-    <p class="title">ワンタッチでシェア</p>
-    <div class="shareBtns">
-      <button id="share-line" class="sbtn">LINEの友だちに送る 💬</button>
-      <button id="share-native" class="sbtn">共有メニューを開く 📤（Instagram / TikTok など）</button>
-      <button id="share-x" class="sbtn">X に投稿する 🐦</button>
-      <button id="share-threads" class="sbtn">Threads に投稿する 🧵</button>
-      <button id="share-copy" class="sbtn">テキストをコピー 📋</button>
-    </div>
-    <p class="small" style="margin-top:10px">※ Instagram / TikTok は公式のWeb投稿口が弱いので、上の「共有メニュー」か「コピー」から投稿するのが確実です。</p>
-  </div>
-</div>
+  <!-- モチベ（プルダウン）→ hidden checkbox へ同期（app.js互換） + 年齢自動生成 -->
+  <script>
+    (function(){
+      // 年齢 12〜35 を自動挿入
+      const ageSel = document.getElementById('age');
+      for(let a=12;a<=35;a++){ const o=document.createElement('option'); o.value=a; o.textContent=a; ageSel.appendChild(o); }
 
-<script src="./app.js"></script>
+      const s1 = document.getElementById('mot1');
+      const s2 = document.getElementById('mot2');
+      const s3 = document.getElementById('mot3');
+      const hidden = document.querySelectorAll('#q3-hidden input[name="q3"]');
+
+      function dedupeSelects(){
+        const picked = new Set([s1.value,s2.value,s3.value].filter(Boolean));
+        [s1,s2,s3].forEach(sel=>{
+          Array.from(sel.options).forEach(op=>{
+            if(!op.value) return;
+            op.disabled = picked.has(op.value) && sel.value !== op.value;
+          });
+        });
+      }
+      function syncToHidden(){
+        hidden.forEach(cb=>{cb.checked=false;cb.dataset.order='';});
+        const vals=[s1.value,s2.value,s3.value].filter(Boolean);
+        let order=1;
+        vals.forEach(v=>{
+          const cb=[...hidden].find(c=>c.value===v);
+          if(cb){cb.checked=true;cb.dataset.order=String(order++);}
+        });
+      }
+      [s1,s2,s3].forEach(sel=>sel.addEventListener('change',()=>{dedupeSelects();syncToHidden();}));
+      dedupeSelects();syncToHidden();
+    })();
+  </script>
+
+  <!-- LIFF SDK & App -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="/liff/app.js"></script>
 </body>
 </html>
