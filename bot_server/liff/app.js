@@ -1,9 +1,8 @@
 /* =========================
    C by me｜かんたん診断（LIFF）
-   - 既存UIそのまま
    - 回答送信→/api/answer
-   - 結果表示カード
-   - 共有（LINE / Web Share）
+   - 結果カード表示 & 共有（LINE / Web Share）
+   - Q1,2,4–8 を JS で自動描画（←修正ポイント）
    - 「当たってるかも？」は私生活寄りのバーナム文
    ========================= */
 
@@ -13,6 +12,99 @@ const LIFF_ID = '2008019437-Jxwm33XM';
 // ====== ヘルパ ======
 const $ = (sel, p = document) => p.querySelector(sel);
 const $$ = (sel, p = document) => Array.from(p.querySelectorAll(sel));
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, m => (
+    { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]
+  ));
+}
+
+// ====== AB設問の定義（Q1,2,4–8）=====
+const AB_QUESTIONS = [
+  {
+    name: 'q1',
+    title: '1. 仕事の進め方は？',
+    note: 'Q: 何から始める？',
+    A: 'とりあえず始めて直す',
+    B: '整理してから始める'
+  },
+  {
+    name: 'q2',
+    title: '2. 判断の決め手は？',
+    note: 'Q: 迷ったらどっち？',
+    A: '直感・フィーリング',
+    B: 'データや理由'
+  },
+  {
+    name: 'q4',
+    title: '4. 苦手な環境は？',
+    note: 'Q: イヤなのはどっち？',
+    A: '細かく指示される',
+    B: '丸投げされる'
+  },
+  {
+    name: 'q5',
+    title: '5. 感情の出し方は？',
+    note: 'Q: 気持ちが盛り上がると？',
+    A: 'すぐ顔や言葉に出る',
+    B: '外には出さないけど心で燃える'
+  },
+  {
+    name: 'q6',
+    title: '6. 安心できるチームは？',
+    note: 'Q: いっしょにいてラク？',
+    A: '何でもハッキリ言える',
+    B: '空気を大事にして和やか'
+  },
+  {
+    name: 'q7',
+    title: '7. チームでの役割は？',
+    note: 'Q: 自然に多いのは？',
+    A: 'みんなを引っ張るリーダー役',
+    B: 'サポートして支える役'
+  },
+  {
+    name: 'q8',
+    title: '8. 働き方の理想は？',
+    note: 'Q: 近いのは？',
+    A: '一つのことをじっくり極める',
+    B: 'いろんなことに同時にチャレンジする'
+  }
+];
+
+// === AB設問の描画（←追加） ===
+function renderQuestions() {
+  // 置き場所を柔軟に探す（あれば #q-ab、無ければ #questions、それも無ければ作る）
+  let box = $('#q-ab') || $('#questions');
+  if (!box) {
+    const mot = $('[data-role="motivation"]') || $('#motivation') || $('#result') || $('main');
+    box = document.createElement('div');
+    box.id = 'q-ab';
+    (mot?.parentNode || document.body).insertBefore(box, mot || null);
+  }
+
+  // すでに中身があるなら何もしない（重複生成を防ぐ）
+  if (box.children.length) return;
+
+  const frag = document.createDocumentFragment();
+  AB_QUESTIONS.forEach(q => {
+    const wrap = document.createElement('div');
+    wrap.className = 'q-block';
+    wrap.innerHTML = `
+      <h4 class="q-title">${escapeHtml(q.title)}</h4>
+      <p class="q-note">${escapeHtml(q.note)}</p>
+      <label class="opt">
+        <input type="radio" name="${q.name}" value="A">
+        <span>A. ${escapeHtml(q.A)}</span>
+      </label>
+      <label class="opt">
+        <input type="radio" name="${q.name}" value="B">
+        <span>B. ${escapeHtml(q.B)}</span>
+      </label>
+    `;
+    frag.appendChild(wrap);
+  });
+  box.appendChild(frag);
+}
 
 // フォーム値の取得
 function valRadio(name) {
@@ -30,6 +122,9 @@ function valsCheckedOrdered(name) {
 async function initLIFF() {
   $('#status') && ($('#status').textContent = 'LIFF 初期化中…');
   await liff.init({ liffId: LIFF_ID });
+
+  // まず AB 質問を描画（←重要）
+  renderQuestions();
 
   // LINE外のブラウザはログインさせる（開発時の直叩き用）
   if (!liff.isInClient() && !liff.isLoggedIn()) {
@@ -137,13 +232,13 @@ function buildResult(ans) {
       tagline: '思い立ったらすぐ動ける！まずやってみて、直しながら前へ進むのが得意。',
       style: 'スピード感のある環境／小さく試して改善していく働き方',
       jobs: [
-      '企画・プロデュース（新しい案を形にする）',
-      'セールス／提案（訪問・オンライン）',
-      '広報・SNS運用（発信して人を集める）',
-      'イベント運営・プロモーション',
-      '新サービスづくり（試作・PoC）',
-      '取材・インタビュー（現場で動いて集める）'
-    ],
+        '企画・プロデュース（新しい案を形にする）',
+        'セールス／提案（訪問・オンライン）',
+        '広報・SNS運用（発信して人を集める）',
+        'イベント運営・プロモーション',
+        '新サービスづくり（試作・PoC）',
+        '取材・インタビュー（現場で動いて集める）'
+      ],
       advice: '走り出しは強み。あとで「なぜそうしたか」を一言メモに残すと説得力UP。小さなゴールを細かく刻むと達成感が積み上がる。'
     },
     plan: {
@@ -151,13 +246,13 @@ function buildResult(ans) {
       tagline: '全体像を整理してから進むほうが力を発揮！再現性や安定感が武器。',
       style: '見通しが立つ環境／手順やルールを整えて進める働き方',
       jobs: [
-      '事務・総務（書類／備品／スケジュール管理）',
-      '経理アシスタント（伝票チェック・支払処理）',
-      'データ入力・データ整備',
-      '品質管理・検査（チェックリストで確認）',
-      '資料作成（Excel・PowerPoint）',
-      '在庫／発注管理（コツコツ把握してズレを防ぐ）'
-    ],
+        '事務・総務（書類／備品／スケジュール管理）',
+        '経理アシスタント（伝票チェック・支払処理）',
+        'データ入力・データ整備',
+        '品質管理・検査（チェックリストで確認）',
+        '資料作成（Excel・PowerPoint）',
+        '在庫／発注管理（コツコツ把握してズレを防ぐ）'
+      ],
       advice: '最初に段取りを書き出すと安心感とスピードが両立。区切りごとに振り返りをルーチン化すると成果が伸びる。'
     },
     balance: {
@@ -165,13 +260,13 @@ function buildResult(ans) {
       tagline: '状況を見て攻守を切り替えられるオールラウンダー！',
       style: '変化に強い環境／状況で役割を調整する働き方',
       jobs: [
-      'プロジェクト進行管理（ディレクター／アシスタント）',
-      'カスタマーサポート／ヘルプデスク',
-      '人事・採用アシスタント（面談調整・連絡）',
-      'コミュニティ運営・ファン対応',
-      '学習サポート／塾TA・メンター',
-      'シフト調整・現場リーダー（みんなを支える）'
-    ],
+        'プロジェクト進行管理（ディレクター／アシスタント）',
+        'カスタマーサポート／ヘルプデスク',
+        '人事・採用アシスタント（面談調整・連絡）',
+        'コミュニティ運営・ファン対応',
+        '学習サポート／塾TA・メンター',
+        'シフト調整・現場リーダー（みんなを支える）'
+      ],
       advice: '優先度の基準を1つ決めておくと判断がさらに速くなる。'
     }
   };
@@ -269,15 +364,9 @@ function renderResultCard(result, prof, ans) {
     </div>
   </div>`;
 
-  // 再バインド（上でDOMを入れ替えたため）
+  // 再バインド
   $('#share-line') && $('#share-line').addEventListener('click', shareOnLINE);
   $('#share-system') && $('#share-system').addEventListener('click', shareSystem);
-}
-
-function escapeHtml(s) {
-  return String(s || '').replace(/[&<>"']/g, m => (
-    { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]
-  ));
 }
 
 // ====== サーバ送信 ======
