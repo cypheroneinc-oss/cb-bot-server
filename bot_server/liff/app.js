@@ -2,16 +2,32 @@
    C Lab｜かんたん診断（LIFF）
    - index.html の質問テキストに完全対応
    - 回答送信→ /api/answer
-   - 結果カード + 共有（LINE / Web Share）
+   - 結果カード
+   - 共有（LINE / Instagram / X / Threads）
    - 「当たってるかも？」は私生活寄りのバーナム文
    ========================= */
 
 // ★ あなたの LIFF ID を入れてください（LINE Developers の LIFF ID）
 const LIFF_ID = '2008019437-Jxwm33XM';
 
-
 // 固定シェア画像（/liff/assets/c_lab_share.png を公開配信）
 const SHARE_IMAGE_URL = `${location.origin}/liff/assets/c_lab_share.png?v=1`;
+
+// 共有時に一緒に載せる着地点（友だち追加/診断トップなど）
+const LANDING_URL = location.origin + '/liff/index.html';
+
+// ▼追加：性別セレクト(#gender)から一人称を決める
+function getPronounFromGender() {
+  // #gender の value: male / female / other
+  const g = document.querySelector('#gender')?.value || '';
+  if (g === 'male')   return 'ぼく';
+  if (g === 'female') return 'わたし';
+  return 'わたし'; // その他/未選択のフォールバック
+}
+
+// ▼差し替え：タイプ名と一人称を含む共有文面
+const CAPTION = (title) =>
+  `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は${title}だった！みんなは？👇 #CLab #Cbyme #個性チェック`;
 
 // ===== ヘルパ =====
 const $  = (sel, p = document) => p.querySelector(sel);
@@ -89,7 +105,7 @@ function collectAnswers() {
     q6: valRadio('q6'),
     q7: valRadio('q7'),
     q8: valRadio('q8'),
-    // 多選（最大3／順位あり）… index.html 内 script が hidden checkbox に同期済み
+    // 多選（最大3／順位あり）
     q3: valsCheckedOrdered('q3'),
     age, gender, mbti
   };
@@ -225,34 +241,40 @@ function renderResultCard(result, prof, ans) {
     <h3 class="ttl">【タイプ】 ${escapeHtml(result.typeTitle)}</h3>
     <p class="lead">${escapeHtml(result.tagline)}</p>
 
-    <h4>【当たってるかも？ポイント】</h4>
+    <h4>【「あなた」ってこう✨】</h4>
     <ul class="dots">
       ${result.barnum.map(s => `<li>${escapeHtml(s)}</li>`).join('')}
     </ul>
 
-    <h4>【合う働き方】</h4>
+    <h4>【合う働き方⚡️】</h4>
     <p>${escapeHtml(result.style)}</p>
 
-    <h4>【向いている職種の例】</h4>
+    <h4>【向いている職種の例💼】</h4>
     <ul class="dots">${jobsList}</ul>
 
-    <h4>【あなたのやる気スイッチ（順位）】</h4>
+    <h4>【あなたのやる気スイッチ💡】</h4>
     <p>${mot || '—'}</p>
 
-    <h4>【アドバイス】</h4>
+    <h4>【アドバイス📝】</h4>
     <p>${escapeHtml(result.advice)}</p>
+
+    <h4>今すぐ友達にシェア👇</h4>
 
     <div class="meta">${meta || '—'}</div>
 
     <div class="share">
       <button id="share-line" class="btn sub">LINEで送る</button>
-      <button id="share-system" class="btn sub">他アプリでシェア</button>
+      <button id="share-instagram" class="btn sub">Instagramでシェア</button>
+      <button id="share-x" class="btn sub">Xで投稿</button>
+      <button id="share-threads" class="btn sub">Threadsで投稿</button>
     </div>
   </div>`;
 
   // 再バインド
   $('#share-line')?.addEventListener('click', shareOnLINE);
-  $('#share-system')?.addEventListener('click', shareSystem);
+  $('#share-instagram')?.addEventListener('click', shareToInstagram);
+  $('#share-x')?.addEventListener('click', shareToX);
+  $('#share-threads')?.addEventListener('click', shareToThreads);
 }
 
 // ===== サーバ送信 =====
@@ -277,73 +299,98 @@ async function sendAnswer(profile, answers, result) {
   }
 }
 
-// ===== 共有（固定画像カードを配る版） =====
+/* ===== 共有（固定画像カード＋指定テキスト） ===== */
 
-// LINEに画像カードを直接シェア
+// 結果タイトル（タイプ名）を抜き出し
+function getResultTitle() {
+  return ($('#result .ttl')?.textContent || '').replace('【タイプ】','').trim() || '診断結果';
+}
+
+// 画像を File 化（Web Share の files 添付に使う）
+async function fetchImageAsFile() {
+  const res = await fetch(SHARE_IMAGE_URL, { cache: 'no-store' });
+  const blob = await res.blob();
+  return new File([blob], 'c_lab_share.png', { type: blob.type || 'image/png' });
+}
+
+// 1) LINE：画像＋本文を投げる → ダメなら画像だけ → さらにダメなら外部タブ＋コピー
 async function shareOnLINE() {
-  const img = SHARE_IMAGE_URL;
-  try {
-    if (liff.isApiAvailable('shareTargetPicker')) {
-      await liff.shareTargetPicker([
-        { type: 'text', text: 'C LAB｜10秒診断\nQRから友だち追加して診断しよう👇' },
-        { type: 'image', originalContentUrl: img, previewImageUrl: img }
-      ]);
-    } else {
-      // フォールバック：トークへ直接送信
-      await liff.sendMessages([
-        { type: 'text', text: 'C LAB｜10秒診断（画像をチェック👇）' },
-        { type: 'image', originalContentUrl: img, previewImageUrl: img }
-      ]);
-    }
-    alert('LINEにシェアしました。');
-  } catch (e) {
-    console.warn(e);
-    alert('LINE共有に失敗しました。');
-  }
-}
-
-// そのほかのアプリへ共有（Web Share API → 画像ファイル優先 → URL → コピー）
-async function shareSystem() {
   const imgUrl = SHARE_IMAGE_URL;
+  const text = CAPTION(getResultTitle());
 
-  // 1) ファイル共有（対応端末なら最優先）
-  if (navigator.canShare && navigator.canShare({ files: [new File([], 'x')] })) {
-    try {
-      const res = await fetch(imgUrl, { cache: 'no-cache' });
-      const blob = await res.blob();
-      const file = new File([blob], 'c_lab_share.png', { type: blob.type || 'image/png' });
-      await navigator.share({
-        title: 'C LAB｜10秒診断',
-        text: 'QRから友だち追加して診断しよう👇',
-        files: [file]
-      });
-      return;
-    } catch (e) {
-      console.warn('ファイル共有に失敗 → URL共有へフォールバック', e);
-    }
+  // LINEアプリ外 or API未対応なら画像を開いて本文コピー
+  if (!liff.isInClient() || !liff.isApiAvailable('shareTargetPicker')) {
+    try { await navigator.clipboard.writeText(text); } catch {}
+    await liff.openWindow({ url: imgUrl, external: true });
+    alert('画像を開きました。本文はコピー済みです。LINEで貼り付けて送ってください。');
+    return;
   }
 
-  // 2) URL共有（多くのSNSアプリで受け付ける）
-  if (navigator.share) {
-    try {
-      await navigator.share({
-        title: 'C LAB｜10秒診断',
-        text: 'QRから友だち追加して診断しよう👇',
-        url: imgUrl
-      });
-      return;
-    } catch (_) { /* ユーザーキャンセル等は無視 */ }
-  }
-
-  // 3) 最後の手段：URLをコピー
   try {
-    await navigator.clipboard.writeText(imgUrl);
-    alert('画像のURLをコピーしました。お好みのアプリに貼り付けてください。');
-  } catch {
-    alert(`下のURLを手動でコピーしてください：\n${imgUrl}`);
+    // まず「本文＋画像」の2メッセージを送る
+    await liff.shareTargetPicker([
+      { type: 'text',  text },
+      { type: 'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl }
+    ]);
+    alert('LINEの投稿画面を開きました。送信してください。');
+  } catch (e) {
+    // 一部端末でエラーになる場合は画像だけにフォールバック
+    try {
+      await liff.shareTargetPicker([{ type: 'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl }]);
+      try { await navigator.clipboard.writeText(text); } catch {}
+      alert('画像だけ送ります。本文はコピー済みなので貼り付けてください。');
+    } catch (e2) {
+      // 最終フォールバック
+      try { await navigator.clipboard.writeText(text); } catch {}
+      await liff.openWindow({ url: imgUrl, external: true });
+      alert('共有でエラー。画像を開くので保存→本文を貼り付けて送ってください。');
+    }
   }
 }
 
+// 2) Instagram：Web Share で画像＋本文 → 非対応は画像を開いて本文コピー
+async function shareToInstagram() {
+  const caption = CAPTION(getResultTitle());
+  // Web Share (files) が使えるなら最優先
+  try {
+    const file = await fetchImageAsFile();
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], text: caption, title: 'C Lab' });
+      return;
+    }
+  } catch (_) {}
+  // フォールバック：画像タブ＋本文コピー
+  try { await navigator.clipboard.writeText(caption); } catch {}
+  window.open(SHARE_IMAGE_URL, '_blank');
+  alert('画像を開きました。本文はコピー済みです。Instagramで貼り付けてください。');
+}
+
+// 3) X（旧Twitter）：files 共有できればそれ、不可なら intent（テキスト＋URL）
+async function shareToX() {
+  const text = `${CAPTION(getResultTitle())} ${LANDING_URL}`;
+  try {
+    const file = await fetchImageAsFile();
+    if (navigator.canShare?.({ files: [file], text })) {
+      await navigator.share({ files: [file], text, title: 'C Lab' });
+      return;
+    }
+  } catch (_) {}
+  // intent では画像を添付できないため、テキスト＋URLで投稿画面を開く
+  location.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+}
+
+// 4) Threads：files 共有できればそれ、不可なら intent（テキストのみ）
+async function shareToThreads() {
+  const text = `${CAPTION(getResultTitle())} ${LANDING_URL}`;
+  try {
+    const file = await fetchImageAsFile();
+    if (navigator.canShare?.({ files: [file], text })) {
+      await navigator.share({ files: [file], text, title: 'C Lab' });
+      return;
+    }
+  } catch (_) {}
+  location.href = `https://www.threads.net/intent/post?text=${encodeURIComponent(text)}`;
+}
 
 // ===== 起動 =====
 document.addEventListener('DOMContentLoaded', () => {
