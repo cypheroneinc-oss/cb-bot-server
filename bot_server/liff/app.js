@@ -1,5 +1,5 @@
 /* =========================
-   C Lab｜かんたん診断（LIFF）
+   C Lab｜個性チェック
    - index.html の質問テキストに完全対応
    - 回答送信→ /api/answer
    - 結果カード
@@ -9,6 +9,8 @@
 
 // ★ あなたの LIFF ID を入れてください（LINE Developers の LIFF ID）
 const LIFF_ID = '2008019437-Jxwm33XM';
+// ★ 追加：LINEアプリで開き直すための LIFF URL
+const LIFF_URL = `https://liff.line.me/${LIFF_ID}`;
 
 // 固定シェア画像（/liff/assets/c_lab_share.png を公開配信）
 const SHARE_IMAGE_URL = `${location.origin}/liff/assets/c_lab_share.png?v=1`;
@@ -26,9 +28,9 @@ function getPronounFromGender() {
 
 // ▼共有文面
 const CAPTION_LINE   = (title) =>
-  `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は${title}だった！やってみて！`;
+  `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は『${title}』だった！やってみて！`;
 const CAPTION_OTHERS = (title) =>
-  `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は${title}だった！みんなは？👇 #CLab #Cbyme #個性チェック`;
+  `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は『${title}』だった！みんなは？👇 #CLab #Cbyme #個性チェック`;
 
 // ===== ヘルパ =====
 const $  = (sel, p = document) => p.querySelector(sel);
@@ -56,9 +58,19 @@ async function initLIFF() {
   $('#status') && ($('#status').textContent = 'LIFF 初期化中…');
   await liff.init({ liffId: LIFF_ID });
 
-  if (!liff.isInClient() && !liff.isLoggedIn()) {
-    $('#status').textContent = 'ログインへリダイレクトします…';
-    return liff.login();
+  // ★ LINEアプリ外なら、共有ボタンを「LINEで開き直す」に差し替え
+  if (!liff.isInClient()) {
+    $('#status').textContent = 'LINEアプリで開くと共有できます';
+    const btn = $('#share-line');
+    if (btn) {
+      btn.textContent = 'LINEで開き直す';
+      btn.onclick = () => { location.href = LIFF_URL; };
+    }
+    // Webブラウザでもプロフィール取得のためにログインだけは実施
+    if (!liff.isLoggedIn()) return liff.login();
+  } else {
+    // LINEアプリ内：未ログインなら同意画面へ（chat_message.write の再同意含む）
+    if (!liff.isLoggedIn()) return liff.login();
   }
 
   const prof = await liff.getProfile();
@@ -302,36 +314,34 @@ async function fetchImageAsFile() {
   return new File([blob], 'c_lab_share.png', { type: blob.type || 'image/png' });
 }
 
-// 1) LINE：送信先を選んで「本文＋画像」を送る（フォールバック完備）
+// 1) LINE：送信先を選んで「本文＋画像」を送る（アプリ外ならLIFFを開き直す）
 async function shareOnLINE() {
   const imgUrl = SHARE_IMAGE_URL;
-  const text = CAPTION_LINE(getResultTitle());
+  const text   = CAPTION_LINE(getResultTitle());
 
-  // LINEアプリ外 or API未対応 → 画像を開き本文コピー
-  if (!liff.isInClient() || !liff.isApiAvailable('shareTargetPicker')) {
-    try { await navigator.clipboard.writeText(text); } catch {}
-    await liff.openWindow({ url: imgUrl, external: true });
-    alert('画像を開きました。本文はコピー済みです。LINEで貼り付けて送ってください。');
+  // ★ LINEアプリ外 → LIFFで開き直す（外部サイト遷移はしない）
+  if (!liff.isInClient()) {
+    alert('LINEアプリで開くと、画像と文面をそのまま送れます。');
+    location.href = LIFF_URL;
     return;
   }
 
+  // アプリ内：送信先ピッカーで「本文＋画像」
   try {
+    if (!liff.isApiAvailable('shareTargetPicker')) throw new Error('shareTargetPicker unavailable');
     await liff.shareTargetPicker([
       { type: 'text',  text },
       { type: 'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl }
     ]);
-    alert('LINEの送信先を開きました。送ってください。');
   } catch (e) {
-    // 画像だけにフォールバック
+    console.warn('shareTargetPicker error -> fallback to image only', e);
     try {
       await liff.shareTargetPicker([{ type: 'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl }]);
       try { await navigator.clipboard.writeText(text); } catch {}
       alert('画像だけ送ります。本文はコピー済みなので貼り付けてください。');
     } catch (e2) {
-      // 最終フォールバック
       try { await navigator.clipboard.writeText(text); } catch {}
-      await liff.openWindow({ url: imgUrl, external: true });
-      alert('共有でエラー。画像を開くので保存→本文を貼り付けて送ってください。');
+      alert('共有に失敗しました。トークで本文を貼り付け、画像を添付して送ってください。');
     }
   }
 }
@@ -340,7 +350,7 @@ async function shareOnLINE() {
 async function shareOtherApps() {
   const caption = CAPTION_OTHERS(getResultTitle());
 
-  // Web Share + files が使える端末なら、ここでInstagram/X/Threads等の共有シートが出ます
+  // Web Share + files が使える端末なら、Instagram / X / Threads などをここから共有
   try {
     const file = await fetchImageAsFile();
     if (navigator.canShare?.({ files: [file] })) {
