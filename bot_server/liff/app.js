@@ -3,7 +3,7 @@
    - index.html の質問テキストに完全対応
    - 回答送信→ /api/answer
    - 結果カード
-   - 共有（LINE / Instagram / X / Threads）
+   - 共有（LINE / 他アプリまとめ）
    - 「当たってるかも？」は私生活寄りのバーナム文
    ========================= */
 
@@ -13,20 +13,21 @@ const LIFF_ID = '2008019437-Jxwm33XM';
 // 固定シェア画像（/liff/assets/c_lab_share.png を公開配信）
 const SHARE_IMAGE_URL = `${location.origin}/liff/assets/c_lab_share.png?v=1`;
 
-// 共有時に一緒に載せる着地点（友だち追加/診断トップなど）
+// 共有時に一緒に載せる着地点（必要なら使う）
 const LANDING_URL = location.origin + '/liff/index.html';
 
-// ▼追加：性別セレクト(#gender)から一人称を決める
+// ▼性別セレクト(#gender)から一人称を決める
 function getPronounFromGender() {
-  // #gender の value: male / female / other
   const g = document.querySelector('#gender')?.value || '';
   if (g === 'male')   return 'ぼく';
   if (g === 'female') return 'わたし';
-  return 'わたし'; // その他/未選択のフォールバック
+  return 'わたし';
 }
 
-// ▼差し替え：タイプ名と一人称を含む共有文面
-const CAPTION = (title) =>
+// ▼共有文面
+const CAPTION_LINE   = (title) =>
+  `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は${title}だった！やってみて！`;
+const CAPTION_OTHERS = (title) =>
   `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は${title}だった！みんなは？👇 #CLab #Cbyme #個性チェック`;
 
 // ===== ヘルパ =====
@@ -38,7 +39,6 @@ function valRadio(name) {
   return v ? v.value : null;
 }
 function valsCheckedOrdered(name) {
-  // hidden の checkbox(name="q3") を data-order 昇順で取得（最大3）
   return $$(`input[name="${name}"]:checked`)
     .sort((a, b) => Number(a.dataset.order || 9e9) - Number(b.dataset.order || 9e9))
     .slice(0, 3)
@@ -56,7 +56,6 @@ async function initLIFF() {
   $('#status') && ($('#status').textContent = 'LIFF 初期化中…');
   await liff.init({ liffId: LIFF_ID });
 
-  // LINE 外ブラウザならログイン（開発直叩き用）
   if (!liff.isInClient() && !liff.isLoggedIn()) {
     $('#status').textContent = 'ログインへリダイレクトします…';
     return liff.login();
@@ -65,11 +64,9 @@ async function initLIFF() {
   const prof = await liff.getProfile();
   $('#status').textContent = '読み込み完了';
 
-  // 実行ボタン
   $('#run')?.addEventListener('click', async () => {
     const answers = collectAnswers();
 
-    // 必須チェック
     const requiredAB = ['q1','q2','q4','q5','q6','q7','q8'];
     for (const k of requiredAB) {
       if (!answers[k]) { alert('未回答の設問があります。'); return; }
@@ -91,13 +88,11 @@ async function initLIFF() {
 
 // ===== 回答収集 =====
 function collectAnswers() {
-  // プロフィール
   const age    = $('#age')?.value || '';
   const gender = $('#gender')?.value || '';
   const mbti   = $('#mbti')?.value || '';
 
   return {
-    // A/B 設問（radio）
     q1: valRadio('q1'),
     q2: valRadio('q2'),
     q4: valRadio('q4'),
@@ -105,7 +100,6 @@ function collectAnswers() {
     q6: valRadio('q6'),
     q7: valRadio('q7'),
     q8: valRadio('q8'),
-    // 多選（最大3／順位あり）
     q3: valsCheckedOrdered('q3'),
     age, gender, mbti
   };
@@ -113,7 +107,6 @@ function collectAnswers() {
 
 // ===== 診断ロジック =====
 function buildResult(ans) {
-  // スコア：チャレンジ vs 計画
   let sChallenge = 0, sPlan = 0;
   if (ans.q1 === 'A') sChallenge++; else if (ans.q1 === 'B') sPlan++;
   if (ans.q2 === 'A') sChallenge++; else if (ans.q2 === 'B') sPlan++;
@@ -181,7 +174,7 @@ function buildResult(ans) {
     jobs: picked.jobs,
     advice: picked.advice,
     barnum: barnumComments(ans, picked.title.replace(/💪|🧭|🧩/g, '').trim()),
-    motivationTop3: ans.q3 // 選択順＝順位
+    motivationTop3: ans.q3
   };
 }
 
@@ -263,18 +256,14 @@ function renderResultCard(result, prof, ans) {
     <div class="meta">${meta || '—'}</div>
 
     <div class="share">
-      <button id="share-line" class="btn sub">LINEで送る</button>
-      <button id="share-instagram" class="btn sub">Instagramでシェア</button>
-      <button id="share-x" class="btn sub">Xで投稿</button>
-      <button id="share-threads" class="btn sub">Threadsで投稿</button>
+      <button id="share-line"   class="btn sub">LINEで送る</button>
+      <button id="share-system" class="btn sub">ほかのアプリでシェア</button>
     </div>
   </div>`;
 
-  // 再バインド
+  // 再バインド（↑でDOMを入れ替えたため）
   $('#share-line')?.addEventListener('click', shareOnLINE);
-  $('#share-instagram')?.addEventListener('click', shareToInstagram);
-  $('#share-x')?.addEventListener('click', shareToX);
-  $('#share-threads')?.addEventListener('click', shareToThreads);
+  $('#share-system')?.addEventListener('click', shareOtherApps);
 }
 
 // ===== サーバ送信 =====
@@ -313,12 +302,12 @@ async function fetchImageAsFile() {
   return new File([blob], 'c_lab_share.png', { type: blob.type || 'image/png' });
 }
 
-// 1) LINE：画像＋本文を投げる → ダメなら画像だけ → さらにダメなら外部タブ＋コピー
+// 1) LINE：送信先を選んで「本文＋画像」を送る（フォールバック完備）
 async function shareOnLINE() {
   const imgUrl = SHARE_IMAGE_URL;
-  const text = CAPTION(getResultTitle());
+  const text = CAPTION_LINE(getResultTitle());
 
-  // LINEアプリ外 or API未対応なら画像を開いて本文コピー
+  // LINEアプリ外 or API未対応 → 画像を開き本文コピー
   if (!liff.isInClient() || !liff.isApiAvailable('shareTargetPicker')) {
     try { await navigator.clipboard.writeText(text); } catch {}
     await liff.openWindow({ url: imgUrl, external: true });
@@ -327,14 +316,13 @@ async function shareOnLINE() {
   }
 
   try {
-    // まず「本文＋画像」の2メッセージを送る
     await liff.shareTargetPicker([
       { type: 'text',  text },
       { type: 'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl }
     ]);
-    alert('LINEの投稿画面を開きました。送信してください。');
+    alert('LINEの送信先を開きました。送ってください。');
   } catch (e) {
-    // 一部端末でエラーになる場合は画像だけにフォールバック
+    // 画像だけにフォールバック
     try {
       await liff.shareTargetPicker([{ type: 'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl }]);
       try { await navigator.clipboard.writeText(text); } catch {}
@@ -348,10 +336,11 @@ async function shareOnLINE() {
   }
 }
 
-// 2) Instagram：Web Share で画像＋本文 → 非対応は画像を開いて本文コピー
-async function shareToInstagram() {
-  const caption = CAPTION(getResultTitle());
-  // Web Share (files) が使えるなら最優先
+// 2) ほかのアプリまとめ：Web Share（画像＋本文）→ 画像タブ＋本文コピー
+async function shareOtherApps() {
+  const caption = CAPTION_OTHERS(getResultTitle());
+
+  // Web Share + files が使える端末なら、ここでInstagram/X/Threads等の共有シートが出ます
   try {
     const file = await fetchImageAsFile();
     if (navigator.canShare?.({ files: [file] })) {
@@ -359,37 +348,11 @@ async function shareToInstagram() {
       return;
     }
   } catch (_) {}
-  // フォールバック：画像タブ＋本文コピー
+
+  // フォールバック：画像を別タブで開き、本文をクリップボードへ
   try { await navigator.clipboard.writeText(caption); } catch {}
   window.open(SHARE_IMAGE_URL, '_blank');
-  alert('画像を開きました。本文はコピー済みです。Instagramで貼り付けてください。');
-}
-
-// 3) X（旧Twitter）：files 共有できればそれ、不可なら intent（テキスト＋URL）
-async function shareToX() {
-  const text = `${CAPTION(getResultTitle())} ${LANDING_URL}`;
-  try {
-    const file = await fetchImageAsFile();
-    if (navigator.canShare?.({ files: [file], text })) {
-      await navigator.share({ files: [file], text, title: 'C Lab' });
-      return;
-    }
-  } catch (_) {}
-  // intent では画像を添付できないため、テキスト＋URLで投稿画面を開く
-  location.href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
-}
-
-// 4) Threads：files 共有できればそれ、不可なら intent（テキストのみ）
-async function shareToThreads() {
-  const text = `${CAPTION(getResultTitle())} ${LANDING_URL}`;
-  try {
-    const file = await fetchImageAsFile();
-    if (navigator.canShare?.({ files: [file], text })) {
-      await navigator.share({ files: [file], text, title: 'C Lab' });
-      return;
-    }
-  } catch (_) {}
-  location.href = `https://www.threads.net/intent/post?text=${encodeURIComponent(text)}`;
+  alert('画像を開きました。本文はコピー済みです。お好みのアプリで貼り付けてください。');
 }
 
 // ===== 起動 =====
