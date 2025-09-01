@@ -1,7 +1,7 @@
 /* =========================
    C Lab｜個性チェック
    - index.html の質問テキストに完全対応
-   - 回答送信→ /api/answer
+   - 回答送信→ /api/answer（分析向けv2）
    - 結果カード
    - 共有（LINE / 他アプリまとめ）
    - 「当たってるかも？」は私生活寄りのバーナム文
@@ -94,7 +94,7 @@ async function initLIFF() {
 
     const result = buildResult(answers);
     renderResultCard(result, prof, answers);
-    await sendAnswer(prof, answers, result);
+    await sendAnswer(prof, answers, result); // ← v2 送信
   });
 }
 
@@ -233,12 +233,6 @@ function renderResultCard(result, prof, ans) {
   const mot = (result.motivationTop3 || [])
     .map((m, i) => `${i + 1}位：${m}`).join(' / ');
 
-  const meta = [
-    ans.age ? `年齢:${ans.age}` : '',
-    ans.gender ? `性別:${genderJa(ans.gender)}` : '',
-    ans.mbti ? `MBTI:${ans.mbti}` : ''
-  ].filter(Boolean).join(' / ');
-
   const jobsList = (result.jobs || []).map(j => `<li>${escapeHtml(j)}</li>`).join('');
 
   wrap.innerHTML = `
@@ -276,19 +270,65 @@ function renderResultCard(result, prof, ans) {
   $('#share-system')?.addEventListener('click', shareOtherApps);
 }
 
-// ===== サーバ送信 =====
+/* ========= 分析用：スコア再計算 ========= */
+// 回答から challenge/plan を再計算（分析用に保持）
+function computeScoring(ab) {
+  let challenge = 0, plan = 0;
+  if (ab.q1 === 'A') challenge++; else if (ab.q1 === 'B') plan++;
+  if (ab.q2 === 'A') challenge++; else if (ab.q2 === 'B') plan++;
+  if (ab.q5 === 'A') challenge++; else plan++;
+  if (ab.q6 === 'A') challenge++; else plan++;
+  if (ab.q7 === 'A') challenge++; else plan++;
+  if (ab.q8 === 'B') challenge++; else plan++;
+  const typeKey = (challenge - plan >= 2) ? 'challenge' : (plan - challenge >= 2) ? 'plan' : 'balance';
+  return { challenge, plan, typeKey };
+}
+
+/* ===== サーバ送信（構造化 v2 フォーマット） ===== */
 async function sendAnswer(profile, answers, result) {
+  // A/B 回答だけを取り出して構造化
+  const ab = { q1:answers.q1, q2:answers.q2, q4:answers.q4, q5:answers.q5, q6:answers.q6, q7:answers.q7, q8:answers.q8 };
+  const scoring = computeScoring(ab);
+
+  const payload = {
+    line: {
+      userId: profile.userId,
+      displayName: profile.displayName || null,
+      pictureUrl: profile.pictureUrl || null
+    },
+    demographics: {
+      gender: answers.gender || null,
+      age: answers.age ? Number(answers.age) : null,
+      mbti: answers.mbti || null
+    },
+    answers: {
+      ab,
+      motivation_ordered: answers.q3 || []
+    },
+    scoring, // {challenge, plan, typeKey}
+    result: {
+      typeKey:  result.typeKey,
+      typeTitle: result.typeTitle,
+      tagline:  result.tagline,
+      style:    result.style,
+      jobs:     result.jobs,
+      advice:   result.advice
+    },
+    barnum: result.barnum || [],
+    meta: {
+      ts: new Date().toISOString(),
+      ua: navigator.userAgent,
+      liffId: typeof LIFF_ID !== 'undefined' ? LIFF_ID : null,
+      app: 'c-lab-liff',
+      v: '2025-09'
+    }
+  };
+
   try {
     const res = await fetch('/api/answer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: profile.userId,
-        displayName: profile.displayName,
-        answers,
-        result,
-        ts: new Date().toISOString()
-      }),
+      body: JSON.stringify(payload),
       credentials: 'include',
       mode: 'cors'
     });
