@@ -263,9 +263,7 @@ function renderResultCard(result, prof, ans) {
     <h4>【アドバイス📝】</h4>
     <p>${escapeHtml(result.advice)}</p>
 
-    <h4>今すぐ友達にシェア👇</h4>
-
-    <div class="meta">${meta || '—'}</div>
+    <h4>👇今すぐ友達にシェア👇</h4>
 
     <div class="share">
       <button id="share-line"   class="btn sub">LINEで送る</button>
