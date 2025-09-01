@@ -9,6 +9,10 @@
 // ★ あなたの LIFF ID を入れてください（LINE Developers の LIFF ID）
 const LIFF_ID = '2008019437-Jxwm33XM';
 
+
+// 固定シェア画像（/liff/assets/c_lab_share.png を公開配信）
+const SHARE_IMAGE_URL = `${location.origin}/liff/assets/c_lab_share.png?v=1`;
+
 // ===== ヘルパ =====
 const $  = (sel, p = document) => p.querySelector(sel);
 const $$ = (sel, p = document) => Array.from(p.querySelectorAll(sel));
@@ -273,14 +277,23 @@ async function sendAnswer(profile, answers, result) {
   }
 }
 
-// ===== 共有 =====
+// ===== 共有（固定画像カードを配る版） =====
+
+// LINEに画像カードを直接シェア
 async function shareOnLINE() {
+  const img = SHARE_IMAGE_URL;
   try {
-    const text = buildShareTextFromCard();
     if (liff.isApiAvailable('shareTargetPicker')) {
-      await liff.shareTargetPicker([{ type: 'text', text }]);
+      await liff.shareTargetPicker([
+        { type: 'text', text: 'C LAB｜10秒診断\nQRから友だち追加して診断しよう👇' },
+        { type: 'image', originalContentUrl: img, previewImageUrl: img }
+      ]);
     } else {
-      await liff.sendMessages([{ type: 'text', text }]);
+      // フォールバック：トークへ直接送信
+      await liff.sendMessages([
+        { type: 'text', text: 'C LAB｜10秒診断（画像をチェック👇）' },
+        { type: 'image', originalContentUrl: img, previewImageUrl: img }
+      ]);
     }
     alert('LINEにシェアしました。');
   } catch (e) {
@@ -288,22 +301,49 @@ async function shareOnLINE() {
     alert('LINE共有に失敗しました。');
   }
 }
+
+// そのほかのアプリへ共有（Web Share API → 画像ファイル優先 → URL → コピー）
 async function shareSystem() {
-  const text = buildShareTextFromCard();
+  const imgUrl = SHARE_IMAGE_URL;
+
+  // 1) ファイル共有（対応端末なら最優先）
+  if (navigator.canShare && navigator.canShare({ files: [new File([], 'x')] })) {
+    try {
+      const res = await fetch(imgUrl, { cache: 'no-cache' });
+      const blob = await res.blob();
+      const file = new File([blob], 'c_lab_share.png', { type: blob.type || 'image/png' });
+      await navigator.share({
+        title: 'C LAB｜10秒診断',
+        text: 'QRから友だち追加して診断しよう👇',
+        files: [file]
+      });
+      return;
+    } catch (e) {
+      console.warn('ファイル共有に失敗 → URL共有へフォールバック', e);
+    }
+  }
+
+  // 2) URL共有（多くのSNSアプリで受け付ける）
   if (navigator.share) {
-    try { await navigator.share({ text }); } catch (_) {}
-  } else {
-    await navigator.clipboard.writeText(text);
-    alert('本文をコピーしました。お好みのアプリに貼り付けてください。');
+    try {
+      await navigator.share({
+        title: 'C LAB｜10秒診断',
+        text: 'QRから友だち追加して診断しよう👇',
+        url: imgUrl
+      });
+      return;
+    } catch (_) { /* ユーザーキャンセル等は無視 */ }
+  }
+
+  // 3) 最後の手段：URLをコピー
+  try {
+    await navigator.clipboard.writeText(imgUrl);
+    alert('画像のURLをコピーしました。お好みのアプリに貼り付けてください。');
+  } catch {
+    alert(`下のURLを手動でコピーしてください：\n${imgUrl}`);
   }
 }
-function buildShareTextFromCard() {
-  const card = $('#result .card');
-  const title = card ? card.querySelector('.ttl')?.textContent?.trim() : '診断結果';
-  const lines = Array.from(card?.querySelectorAll('h4, p, ul li') || [])
-    .slice(0, 12).map(el => '・' + el.textContent.trim());
-  return `C by me｜かんたん診断\n${title}\n${lines.join('\n')}\n#Cbyme`;
-}
+
 
 // ===== 起動 =====
 document.addEventListener('DOMContentLoaded', () => {
