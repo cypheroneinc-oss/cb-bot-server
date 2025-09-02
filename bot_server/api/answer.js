@@ -1,21 +1,13 @@
-// /bot_server/api/answer.js
+// /api/answer.js
 import { createClient } from '@supabase/supabase-js';
 
-// --- Supabase Client（サービスロールで）
+// --- Supabase（サービスロール）
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE
 );
 
-// 起動時にENVの有無をログ（本番デプロイ確認用）
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE) {
-  console.error('[answer] ENV missing:', {
-    hasUrl: !!process.env.SUPABASE_URL,
-    hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE
-  });
-}
-
-// 旧/新どちらの形式でもスコアを再計算（保険）
+// サーバ側でも保険で再計算
 function computeScoring(ab = {}) {
   let challenge = 0, plan = 0;
   if (ab.q1 === 'A') challenge++; else if (ab.q1 === 'B') plan++;
@@ -24,79 +16,70 @@ function computeScoring(ab = {}) {
   if (ab.q6 === 'A') challenge++; else plan++;
   if (ab.q7 === 'A') challenge++; else plan++;
   if (ab.q8 === 'B') challenge++; else plan++;
-  const typeKey = (challenge - plan >= 2) ? 'challenge'
-                 : (plan - challenge >= 2) ? 'plan'
-                 : 'balance';
+  const typeKey =
+    (challenge - plan >= 2) ? 'challenge' :
+    (plan - challenge >= 2) ? 'plan' : 'balance';
   return { challenge, plan, typeKey };
 }
 
-// 受け取った body を responses テーブルの列に合わせて正規化
-function normalize(body = {}) {
-  // --- v2（line / demographics / answers / scoring ...） or v1（userId 直置き）の両対応
-  const isV2 = !!body.line || !!body.answers?.ab;
+// 受け取った body を「今のresponsesスキーマ」に合わせて整形
+function toResponsesRow(body = {}) {
+  const isV2 = !!body.line || !!body.answers;
 
-  const submission_id = body.submission_id || null;  // 冪等キー（同一送信の重複防止）
-  const client_v      = body.client_v || null;       // クライアント版数の識別
+  const line = isV2 ? (body.line ?? null) : {
+    userId: body.userId,
+    displayName: body.displayName ?? null,
+    pictureUrl: body.pictureUrl ?? null
+  };
+  const line_user_id = line?.userId ?? body.userId ?? null;
 
-  const line_user_id      = isV2 ? body.line?.userId       : body.userId;
-  const line_display_name = isV2 ? body.line?.displayName  : body.displayName ?? null;
-  const line_picture_url  = isV2 ? body.line?.pictureUrl   : body.pictureUrl ?? null;
+  // demographics
+  const demographics = isV2 ? (body.demographics ?? null) : {
+    gender: body.gender ?? null,
+    age: body.age ?? null,
+    mbti: body.mbti ?? null
+  };
 
-  const gender = isV2 ? body.demographics?.gender : body.gender ?? null;
-  const age    = isV2 ? body.demographics?.age    : (body.age ?? null);
-  const mbti   = isV2 ? body.demographics?.mbti   : body.mbti ?? null;
+  // answers（v2ならそのまま、v1っぽければ変換）
+  let answers;
+  if (isV2) {
+    const ab = body.answers?.ab ?? {};
+    const mot = body.answers?.motivation_ordered ?? body.answers?.q3 ?? [];
+    answers = { ab, motivation_ordered: Array.isArray(mot) ? mot : [] };
+  } else {
+    const ab = {
+      q1: body.answers?.q1, q2: body.answers?.q2, q4: body.answers?.q4,
+      q5: body.answers?.q5, q6: body.answers?.q6, q7: body.answers?.q7, q8: body.answers?.q8
+    };
+    const mot = body.answers?.q3 ?? [];
+    answers = { ab, motivation_ordered: Array.isArray(mot) ? mot : [] };
+  }
 
-  // A/B 回答
-  const ab = isV2
-    ? (body.answers?.ab ?? {})
-    : { q1: body.answers?.q1, q2: body.answers?.q2, q4: body.answers?.q4,
-        q5: body.answers?.q5, q6: body.answers?.q6, q7: body.answers?.q7, q8: body.answers?.q8 };
+  // scoring / result / barnum / meta
+  const scoring = isV2 ? (body.scoring ?? computeScoring(answers.ab)) : computeScoring(answers.ab);
+  const result  = isV2 ? (body.result  ?? {}) : (body.result ?? {});
+  const barnum  = Array.isArray(body.barnum) ? body.barnum : (result.barnum ?? []);
+  const meta    = isV2 ? (body.meta ?? {}) : {
+    ts: body.ts ?? new Date().toISOString(),
+    ua: null, liffId: null, app: 'c-lab-liff', v: '2025-09'
+  };
 
-  // やる気スイッチ（順位）
-  const motArr = isV2
-    ? (body.answers?.motivation_ordered ?? body.answers?.q3 ?? [])
-    : (body.answers?.q3 ?? []);
-  const motivation1 = motArr[0] ?? null;
-  const motivation2 = motArr[1] ?? null;
-  const motivation3 = motArr[2] ?? null;
-
-  // スコアは保険でサーバ側でも算出
-  const scoring = isV2 ? (body.scoring || computeScoring(ab)) : computeScoring(ab);
-
-  // 診断結果
-  const result = isV2 ? (body.result || {}) : (body.result || {});
-  const type_key    = scoring.typeKey || result.typeKey || null;
-  const type_title  = result.typeTitle ?? null;
-  const tagline     = result.tagline   ?? null;
-  const style       = result.style     ?? null;
-  const jobs        = result.jobs      ?? null;  // DBは jsonb 列を想定
-  const advice      = result.advice    ?? null;
-
-  const barnum      = Array.isArray(body.barnum) ? body.barnum : (result.barnum ?? null);
-
-  // メタ
-  const meta_ts     = body.meta?.ts ?? body.ts ?? new Date().toISOString();
-  const meta_ua     = body.meta?.ua ?? (typeof navigator === 'undefined' ? null : navigator.userAgent);
-  const meta_liffId = body.meta?.liffId ?? null;
-  const meta_app    = body.meta?.app ?? 'c-lab-liff';
-  const meta_v      = body.meta?.v   ?? '2025-09';
+  // responses.result_type は not null なので入れる
+  const result_type = 'v2';
 
   return {
-    submission_id, client_v,
-    line_user_id, line_display_name, line_picture_url,
-    gender, age, mbti,
-    q1: ab.q1 ?? null, q2: ab.q2 ?? null, q4: ab.q4 ?? null, q5: ab.q5 ?? null,
-    q6: ab.q6 ?? null, q7: ab.q7 ?? null, q8: ab.q8 ?? null,
-    motivation1, motivation2, motivation3,
-    challenge: scoring.challenge, plan: scoring.plan, type_key,
-    type_title, tagline, style, jobs, advice,
-    barnum,
-    meta_ts, meta_ua, meta_liff_id: meta_liffId, meta_app, meta_v
+    line_user_id,
+    line, demographics,
+    answers,           // jsonb not null
+    scoring, result,   // jsonb
+    barnum, meta,      // jsonb
+    result_type        // text not null
+    // created_at はDBのdefaultに任せる
   };
 }
 
+// ヘルスチェック（環境変数の有無も確認）
 export default async function handler(req, res) {
-  // ヘルスチェック（ENVが読めてるかを外部から確認）
   if (req.method === 'GET') {
     return res.status(200).json({
       ok: true,
@@ -106,81 +89,56 @@ export default async function handler(req, res) {
       }
     });
   }
-
-  if (req.method !== 'POST')
+  if (req.method !== 'POST') {
     return res.status(405).json({ ok:false, error:'Method Not Allowed' });
+  }
 
   try {
-    const row = normalize(req.body || {});
+    const row = toResponsesRow(req.body || {});
+
     if (!row.line_user_id) {
       console.warn('[answer] missing line_user_id. body=', req.body);
       return res.status(400).json({ ok:false, error:'missing userId' });
     }
+    if (!row.answers) row.answers = { ab: {}, motivation_ordered: [] }; // 念のため
 
-    // 1) 生ログ保存（events_raw）— submission_id があれば冪等
-    if (req.body?.submission_id) {
-      const { error: errRaw } = await supabase
-        .from('events_raw')
-        .insert({
-          submission_id: req.body.submission_id,
-          line_user_id: row.line_user_id,
-          payload: req.body,
-          received_at: new Date().toISOString()
-        })
-        .select('submission_id')
-        .single()
-        .catch(() => ({ error: null })); // unique違反などでthrowされた時も握り潰す
-
-      if (errRaw && errRaw.code !== '23505') { // unique_violation 以外はログ出し
-        console.error('[answer] events_raw error:', {
-          code: errRaw.code, message: errRaw.message, details: errRaw.details, hint: errRaw.hint
-        });
-      }
-    }
-
-    // 2) 整形テーブル responses へ1行挿入（submission_id は UNIQUE を推奨）
+    // メイン行の挿入
     const { data, error } = await supabase
       .from('responses')
       .insert(row)
       .select('id, created_at')
       .single();
 
-    if (error) {
-      console.error('[answer] supabase error:', {
-        code: error.code, message: error.message, details: error.details, hint: error.hint
-      });
-      throw error;
-    }
+    if (error) throw error;
 
-    // 3) 正規化テーブル answers_ab へ（q1..q8）
-    const ab = { q1: row.q1, q2: row.q2, q4: row.q4, q5: row.q5, q6: row.q6, q7: row.q7, q8: row.q8 };
-    const abRows = Object.entries(ab)
-      .filter(([,v]) => v != null)
-      .map(([key, val]) => ({ response_id: data.id, question_key: key, choice: String(val) }));
-    if (abRows.length) {
-      const { error: errAb } = await supabase.from('answers_ab').insert(abRows);
-      if (errAb) console.error('[answer] answers_ab error:', {
-        code: errAb.code, message: errAb.message, details: errAb.details, hint: errAb.hint
-      });
-    }
+    // ---------- 正規化テーブルにも同時保存（任意／失敗しても本体は成功のまま） ----------
+    const respId = data.id; // uuid
+    try {
+      const ab = row.answers?.ab || {};
+      const abRows = Object.entries(ab)
+        .filter(([k,v]) => v)
+        .map(([k,v]) => ({ response_id: respId, question_key: k, choice: String(v) }));
+      if (abRows.length) {
+        await supabase.from('answers_ab').insert(abRows);
+      }
 
-    // 4) 正規化テーブル motivation_picks へ（Top3を行で）
-    const motRows = [row.motivation1, row.motivation2, row.motivation3]
-      .map((m,i) => m ? ({ response_id: data.id, rank: i+1, motivation: m }) : null)
-      .filter(Boolean);
-    if (motRows.length) {
-      const { error: errMot } = await supabase.from('motivation_picks').insert(motRows);
-      if (errMot) console.error('[answer] motivation_picks error:', {
-        code: errMot.code, message: errMot.message, details: errMot.details, hint: errMot.hint
-      });
+      const mot = (row.answers?.motivation_ordered || []).slice(0,3);
+      const motRows = mot.map((m, idx) => ({
+        response_id: respId, rank: idx+1, motivation: String(m)
+      }));
+      if (motRows.length) {
+        await supabase.from('motivation_picks').insert(motRows);
+      }
+    } catch (e2) {
+      console.warn('[answer] normalize insert skipped:', e2?.message || e2);
     }
+    // ----------------------------------------------------------------------
 
-    // 確認用ログ（VercelのFunctionsログで見える）
     console.log('[answer] inserted:', data);
-
     return res.status(200).json({ ok:true, id:data.id, created_at:data.created_at });
   } catch (e) {
     console.error('[answer] insert error:', e);
-    return res.status(500).json({ ok:false, error:String(e.message || e) });
+    // エラー本文に toString して返す（フロントのアラートに出る）
+    return res.status(500).json({ ok:false, error: String(e?.message || e) });
   }
 }
