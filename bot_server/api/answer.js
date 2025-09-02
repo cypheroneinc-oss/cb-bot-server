@@ -1,3 +1,20 @@
+export default async function handler(req, res) {
+  // ↓ 追加：ヘルスチェック（環境変数が読めてるかも確認）
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      ok: true,
+      env: {
+        SUPABASE_URL: !!process.env.SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE: !!process.env.SUPABASE_SERVICE_ROLE,
+      }
+    });
+  }
+  if (req.method !== 'POST') {
+    return res.status(405).json({ ok:false, error:'Method Not Allowed' });
+  }
+  // （以降は現在の処理のまま）
+
+
 // /bot_server/api/answer.js
 import { createClient } from '@supabase/supabase-js';
 
