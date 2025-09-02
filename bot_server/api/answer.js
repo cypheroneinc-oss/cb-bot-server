@@ -64,8 +64,8 @@ function toResponsesRow(body = {}) {
     ua: null, liffId: null, app: 'c-lab-liff', v: '2025-09'
   };
 
-  // responses.result_type は not null なので入れる
-  const result_type = 'v2';
+  // responses.result_type は not null なので入れる（ここを差し替え）
+  const result_type = (result?.typeKey || scoring?.typeKey || 'balance');
 
   return {
     line_user_id,
