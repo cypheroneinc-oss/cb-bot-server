@@ -1,10 +1,8 @@
 /* =========================
    C Lab｜個性チェック
-   - index.html の質問テキストに完全対応
    - 回答送信→ /api/answer（分析向けv2）
-   - 結果カード
-   - 共有（LINE / 他アプリまとめ）
-   - 「当たってるかも？」は私生活寄りのバーナム文
+   - 生ログ + 整形 + 正規化保存（冪等キーつき）
+   - 結果カード & 共有
    ========================= */
 
 // ★ あなたの LIFF ID を入れてください（LINE Developers の LIFF ID）
@@ -94,7 +92,7 @@ async function initLIFF() {
 
     const result = buildResult(answers);
     renderResultCard(result, prof, answers);
-    await sendAnswer(prof, answers, result); // ← v2 送信
+    await sendAnswer(prof, answers, result); // ← v2 送信（生/整/正の3保存 & 冪等）
   });
 }
 
@@ -290,7 +288,14 @@ async function sendAnswer(profile, answers, result) {
   const ab = { q1:answers.q1, q2:answers.q2, q4:answers.q4, q5:answers.q5, q6:answers.q6, q7:answers.q7, q8:answers.q8 };
   const scoring = computeScoring(ab);
 
+  // 冪等キー（再送での二重カウント防止）
+  const submissionId =
+    (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2);
+
   const payload = {
+    submission_id: submissionId,
     line: {
       userId: profile.userId,
       displayName: profile.displayName || null,
@@ -321,7 +326,8 @@ async function sendAnswer(profile, answers, result) {
       liffId: typeof LIFF_ID !== 'undefined' ? LIFF_ID : null,
       app: 'c-lab-liff',
       v: '2025-09'
-    }
+    },
+    client_v: 'web-2025-09'
   };
 
   try {
@@ -332,7 +338,15 @@ async function sendAnswer(profile, answers, result) {
       credentials: 'include',
       mode: 'cors'
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    let json = {};
+    try { json = await res.json(); } catch (_) {}
+    if (!res.ok) {
+      console.error('POST /api/answer failed:', res.status, json);
+      alert(`送信エラー: ${res.status}\n${json?.error || '詳細はコンソールを見て'}`);
+      throw new Error(`HTTP ${res.status}: ${json?.error || 'unknown error'}`);
+    } else {
+      console.log('POST /api/answer ok:', json);
+    }
   } catch (e) {
     console.warn('送信に失敗しましたが、表示は続行します。', e);
   }
