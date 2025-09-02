@@ -238,7 +238,7 @@ function renderResultCard(result, prof, ans) {
     <h3 class="ttl">【タイプ】 ${escapeHtml(result.typeTitle)}</h3>
     <p class="lead">${escapeHtml(result.tagline)}</p>
 
-    <h4>【「あなた」ってこう✨】</h4>
+    <h4>【「あなた」の個性✨】</h4>
     <ul class="dots">
       ${result.barnum.map(s => `<li>${escapeHtml(s)}</li>`).join('')}
     </ul>
