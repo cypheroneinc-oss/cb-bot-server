@@ -1,20 +1,3 @@
-export default async function handler(req, res) {
-  // ↓ 追加：ヘルスチェック（環境変数が読めてるかも確認）
-  if (req.method === 'GET') {
-    return res.status(200).json({
-      ok: true,
-      env: {
-        SUPABASE_URL: !!process.env.SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE: !!process.env.SUPABASE_SERVICE_ROLE,
-      }
-    });
-  }
-  if (req.method !== 'POST') {
-    return res.status(405).json({ ok:false, error:'Method Not Allowed' });
-  }
-  // （以降は現在の処理のまま）
-
-
 // /bot_server/api/answer.js
 import { createClient } from '@supabase/supabase-js';
 
@@ -23,6 +6,14 @@ const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE
 );
+
+// 起動時にENVの有無をログ（本番デプロイ確認用）
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE) {
+  console.error('[answer] ENV missing:', {
+    hasUrl: !!process.env.SUPABASE_URL,
+    hasServiceRole: !!process.env.SUPABASE_SERVICE_ROLE
+  });
+}
 
 // 旧/新どちらの形式でもスコアを再計算（保険）
 function computeScoring(ab = {}) {
@@ -43,6 +34,9 @@ function computeScoring(ab = {}) {
 function normalize(body = {}) {
   // --- v2（line / demographics / answers / scoring ...） or v1（userId 直置き）の両対応
   const isV2 = !!body.line || !!body.answers?.ab;
+
+  const submission_id = body.submission_id || null;  // 冪等キー（同一送信の重複防止）
+  const client_v      = body.client_v || null;       // クライアント版数の識別
 
   const line_user_id      = isV2 ? body.line?.userId       : body.userId;
   const line_display_name = isV2 ? body.line?.displayName  : body.displayName ?? null;
@@ -75,7 +69,7 @@ function normalize(body = {}) {
   const type_title  = result.typeTitle ?? null;
   const tagline     = result.tagline   ?? null;
   const style       = result.style     ?? null;
-  const jobs        = result.jobs      ?? null;  // jsonb[] 列想定
+  const jobs        = result.jobs      ?? null;  // DBは jsonb 列を想定
   const advice      = result.advice    ?? null;
 
   const barnum      = Array.isArray(body.barnum) ? body.barnum : (result.barnum ?? null);
@@ -88,6 +82,7 @@ function normalize(body = {}) {
   const meta_v      = body.meta?.v   ?? '2025-09';
 
   return {
+    submission_id, client_v,
     line_user_id, line_display_name, line_picture_url,
     gender, age, mbti,
     q1: ab.q1 ?? null, q2: ab.q2 ?? null, q4: ab.q4 ?? null, q5: ab.q5 ?? null,
@@ -101,6 +96,17 @@ function normalize(body = {}) {
 }
 
 export default async function handler(req, res) {
+  // ヘルスチェック（ENVが読めてるかを外部から確認）
+  if (req.method === 'GET') {
+    return res.status(200).json({
+      ok: true,
+      env: {
+        SUPABASE_URL: !!process.env.SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE: !!process.env.SUPABASE_SERVICE_ROLE,
+      }
+    });
+  }
+
   if (req.method !== 'POST')
     return res.status(405).json({ ok:false, error:'Method Not Allowed' });
 
@@ -111,14 +117,63 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok:false, error:'missing userId' });
     }
 
-    // 1行挿入
+    // 1) 生ログ保存（events_raw）— submission_id があれば冪等
+    if (req.body?.submission_id) {
+      const { error: errRaw } = await supabase
+        .from('events_raw')
+        .insert({
+          submission_id: req.body.submission_id,
+          line_user_id: row.line_user_id,
+          payload: req.body,
+          received_at: new Date().toISOString()
+        })
+        .select('submission_id')
+        .single()
+        .catch(() => ({ error: null })); // unique違反などでthrowされた時も握り潰す
+
+      if (errRaw && errRaw.code !== '23505') { // unique_violation 以外はログ出し
+        console.error('[answer] events_raw error:', {
+          code: errRaw.code, message: errRaw.message, details: errRaw.details, hint: errRaw.hint
+        });
+      }
+    }
+
+    // 2) 整形テーブル responses へ1行挿入（submission_id は UNIQUE を推奨）
     const { data, error } = await supabase
       .from('responses')
       .insert(row)
       .select('id, created_at')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[answer] supabase error:', {
+        code: error.code, message: error.message, details: error.details, hint: error.hint
+      });
+      throw error;
+    }
+
+    // 3) 正規化テーブル answers_ab へ（q1..q8）
+    const ab = { q1: row.q1, q2: row.q2, q4: row.q4, q5: row.q5, q6: row.q6, q7: row.q7, q8: row.q8 };
+    const abRows = Object.entries(ab)
+      .filter(([,v]) => v != null)
+      .map(([key, val]) => ({ response_id: data.id, question_key: key, choice: String(val) }));
+    if (abRows.length) {
+      const { error: errAb } = await supabase.from('answers_ab').insert(abRows);
+      if (errAb) console.error('[answer] answers_ab error:', {
+        code: errAb.code, message: errAb.message, details: errAb.details, hint: errAb.hint
+      });
+    }
+
+    // 4) 正規化テーブル motivation_picks へ（Top3を行で）
+    const motRows = [row.motivation1, row.motivation2, row.motivation3]
+      .map((m,i) => m ? ({ response_id: data.id, rank: i+1, motivation: m }) : null)
+      .filter(Boolean);
+    if (motRows.length) {
+      const { error: errMot } = await supabase.from('motivation_picks').insert(motRows);
+      if (errMot) console.error('[answer] motivation_picks error:', {
+        code: errMot.code, message: errMot.message, details: errMot.details, hint: errMot.hint
+      });
+    }
 
     // 確認用ログ（VercelのFunctionsログで見える）
     console.log('[answer] inserted:', data);
