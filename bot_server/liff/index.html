@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>C Lab｜個性チェック　</title>
+<title>C Lab｜個性チェック</title>
 <style>
 /* ===== Clean Dark UI (cards + choices) ===== */
 :root{
@@ -60,7 +60,7 @@ select:focus,input[type="text"]:focus{border-color:var(--accent2);box-shadow:0 0
         <div class="field">
           <label class="cap">性別</label>
           <select id="gender" required>
-            <option value="" selected>選択してください</option>
+            <option value="" selected>選んでね</option>
             <option value="male">男性</option>
             <option value="female">女性</option>
             <option value="other">その他</option>
@@ -69,12 +69,12 @@ select:focus,input[type="text"]:focus{border-color:var(--accent2);box-shadow:0 0
         <div class="field">
           <label class="cap">年齢</label>
           <select id="age" required>
-            <option value="" selected>選択してください</option>
+            <option value="" selected>選んでね</option>
             <!-- 12〜35 は下のJSで自動挿入 -->
           </select>
         </div>
         <div class="field">
-          <label class="cap">MBTI</label>
+          <label class="cap">MBTI（わかれば）</label>
           <select id="mbti">
             <option value="" selected>未回答</option>
             <option>INTJ</option><option>INTP</option><option>ENTJ</option><option>ENTP</option>
@@ -88,167 +88,128 @@ select:focus,input[type="text"]:focus{border-color:var(--accent2);box-shadow:0 0
 
     <!-- Q1 -->
     <section class="section">
-      <h3>1. Q: なにかに取りかかるとき、近いのは？🏃‍♂️</h3>
+      <h3>1. はじめるとき、近いのは？🏃‍♂️</h3>
       <div class="choices">
         <label class="choice">
           <input type="radio" name="q1" value="A">
-          <span class="label">A. とりあえず始めて、やりながら直す派</span>
+          <span class="label">A. とりあえずやってみて、走りながら直す</span>
         </label>
         <label class="choice">
           <input type="radio" name="q1" value="B">
-          <span class="label">B. まず全体を考えてから始める派</span>
+          <span class="label">B. まず全体をざっくり決めてから動く</span>
         </label>
       </div>
     </section>
 
     <!-- Q2 -->
     <section class="section">
-      <h3>2. Q: なやんだとき、何基準で決める？💭</h3>
+      <h3>2. 迷ったら、何で決める？💭</h3>
       <div class="choices">
         <label class="choice">
           <input type="radio" name="q2" value="A">
-          <span class="label">A. なんとなくの直感とかノリで決める</span>
+          <span class="label">A. 直感・フィーリング</span>
         </label>
         <label class="choice">
           <input type="radio" name="q2" value="B">
-          <span class="label">B. 理由とかデータを見て決める</span>
+          <span class="label">B. 理由やデータ</span>
         </label>
       </div>
     </section>
 
     <!-- Q3（モチベーション：プルダウン×3） -->
     <section class="section">
-      <h3>3. Q: 「よし、がんばろう！」と思えるのは？🔥（複数OK／できれば順位付け）</h3>
+      <h3>3. 「よし、やるぞ！」のスイッチは？🔥（複数OK／できれば順位）</h3>
       <div class="row">
         <div class="field">
           <label class="cap">第1位</label>
-          <select id="mot1">
-            <option value="" selected>未選択</option>
-            <option value="達成">なにかを達成したとき（達成感）</option>
-            <option value="承認">認められたり褒められたとき（承認）</option>
-            <option value="貢献">誰かの役に立ったとき（貢献）</option>
-            <option value="安心">安心できる環境があるとき（安心）</option>
-            <option value="探究">新しいことを知れたとき（探究）</option>
-            <option value="自由">自分のやり方で自由にできるとき（自由）</option>
-            <option value="仲間">仲間と一緒に動けるとき（仲間）</option>
-            <option value="成長">成長している実感があるとき（成長）</option>
-          </select>
+          <select id="mot1"><option value="" selected>未選択</option></select>
         </div>
         <div class="field">
           <label class="cap">第2位（任意）</label>
-          <select id="mot2">
-            <option value="" selected>未選択</option>
-            <option value="達成">なにかを達成したとき（達成感）</option>
-            <option value="承認">認められたり褒められたとき（承認）</option>
-            <option value="貢献">誰かの役に立ったとき（貢献）</option>
-            <option value="安心">安心できる環境があるとき（安心）</option>
-            <option value="探究">新しいことを知れたとき（探究）</option>
-            <option value="自由">自分のやり方で自由にできるとき（自由）</option>
-            <option value="仲間">仲間と一緒に動けるとき（仲間）</option>
-            <option value="成長">成長している実感があるとき（成長）</option>
-          </select>
+          <select id="mot2"><option value="" selected>未選択</option></select>
         </div>
         <div class="field">
           <label class="cap">第3位（任意）</label>
-          <select id="mot3">
-            <option value="" selected>未選択</option>
-            <option value="達成">なにかを達成したとき（達成感）</option>
-            <option value="承認">認められたり褒められたとき（承認）</option>
-            <option value="貢献">誰かの役に立ったとき（貢献）</option>
-            <option value="安心">安心できる環境があるとき（安心）</option>
-            <option value="探究">新しいことを知れたとき（探究）</option>
-            <option value="自由">自分のやり方で自由にできるとき（自由）</option>
-            <option value="仲間">仲間と一緒に動けるとき（仲間）</option>
-            <option value="成長">成長している実感があるとき（成長）</option>
-          </select>
+          <select id="mot3"><option value="" selected>未選択</option></select>
         </div>
       </div>
-      <p class="note">※ 同じ項目は重複できません。選ばない場合は「未選択」のままでOK。</p>
+      <p class="note">※ 同じ項目は重複できません。選ばないところは「未選択」のままでOK。</p>
 
       <!-- app.js が読む hidden チェックボックス（自動同期） -->
-      <div id="q3-hidden" style="display:none">
-        <input type="checkbox" name="q3" value="達成">
-        <input type="checkbox" name="q3" value="承認">
-        <input type="checkbox" name="q3" value="貢献">
-        <input type="checkbox" name="q3" value="安心">
-        <input type="checkbox" name="q3" value="探究">
-        <input type="checkbox" name="q3" value="自由">
-        <input type="checkbox" name="q3" value="仲間">
-        <input type="checkbox" name="q3" value="成長">
-      </div>
+      <div id="q3-hidden" style="display:none"></div>
     </section>
 
     <!-- Q4 -->
     <section class="section">
-      <h3>4. Q: どちらの方がしんどい？😓</h3>
+      <h3>4. どっちの方がしんどい？😓</h3>
       <div class="choices">
         <label class="choice">
           <input type="radio" name="q4" value="A">
-          <span class="label">A. ずっと細かく口出しされる方がしんどい</span>
+          <span class="label">A. ずっと細かく口出しされる</span>
         </label>
         <label class="choice">
           <input type="radio" name="q4" value="B">
-          <span class="label">B. ほったらかしで丸投げされる方がしんどい</span>
+          <span class="label">B. 丸投げで放置される</span>
         </label>
       </div>
     </section>
 
     <!-- Q5 -->
     <section class="section">
-      <h3>5. Q: 感情が動いた時に近いのはどっち？🫀</h3>
+      <h3>5. 気持ちが動いたとき、近いのは？🫀</h3>
       <div class="choices">
         <label class="choice">
           <input type="radio" name="q5" value="A">
-          <span class="label">A. すぐ顔とか言葉に出ちゃう</span>
+          <span class="label">A. 顔や言葉にすぐ出る</span>
         </label>
         <label class="choice">
           <input type="radio" name="q5" value="B">
-          <span class="label">B. 顔とか態度には出さないけど思うところはある</span>
+          <span class="label">B. 表にはあまり出さない</span>
         </label>
       </div>
     </section>
 
     <!-- Q6 -->
     <section class="section">
-      <h3>6. Q: 一緒にいてラクなのは？😌</h3>
+      <h3>6. 一緒にいてラクなのは？😌</h3>
       <div class="choices">
         <label class="choice">
           <input type="radio" name="q6" value="A">
-          <span class="label">A. 何でもズバッと言えるチーム</span>
+          <span class="label">A. なんでもズバッと言えるチーム</span>
         </label>
         <label class="choice">
           <input type="radio" name="q6" value="B">
-          <span class="label">B. 空気を大事にして、まったりなチーム</span>
+          <span class="label">B. 空気を大事にするまったりチーム</span>
         </label>
       </div>
     </section>
 
     <!-- Q7 -->
     <section class="section">
-      <h3>7. Q: 班とかチームで自然に多いのはどっち？🤝</h3>
+      <h3>7. 自然と多い役割は？🤝</h3>
       <div class="choices">
         <label class="choice">
           <input type="radio" name="q7" value="A">
-          <span class="label">A. みんなを引っ張るリーダータイプ</span>
+          <span class="label">A. みんなを引っ張るリーダー</span>
         </label>
         <label class="choice">
           <input type="radio" name="q7" value="B">
-          <span class="label">B. サポートして支えるタイプ</span>
+          <span class="label">B. サポートして支える</span>
         </label>
       </div>
     </section>
 
     <!-- Q8 -->
     <section class="section">
-      <h3>8. Q: じぶんの理想に近いのは？💫</h3>
+      <h3>8. 理想に近いのは？💫</h3>
       <div class="choices">
         <label class="choice">
           <input type="radio" name="q8" value="A">
-          <span class="label">A. 一つのことを極めたい</span>
+          <span class="label">A. 一つのことをじっくり極める</span>
         </label>
         <label class="choice">
           <input type="radio" name="q8" value="B">
-          <span class="label">B. いろんなことに同時にチャレンジしたい</span>
+          <span class="label">B. いろんなことに同時に挑戦する</span>
         </label>
       </div>
     </section>
@@ -266,14 +227,50 @@ select:focus,input[type="text"]:focus{border-color:var(--accent2);box-shadow:0 0
       const ageSel = document.getElementById('age');
       for(let a=12;a<=35;a++){ const o=document.createElement('option'); o.value=a; o.textContent=a; ageSel.appendChild(o); }
 
-      const s1 = document.getElementById('mot1');
-      const s2 = document.getElementById('mot2');
-      const s3 = document.getElementById('mot3');
-      const hidden = document.querySelectorAll('#q3-hidden input[name="q3"]');
+      // モチベ13項目（表示テキスト）
+      const MOTS = [
+        ["達成","なにかを達成したとき（達成感）"],
+        ["承認","認められたり褒められたとき（承認）"],
+        ["貢献","誰かの役に立てたとき（貢献）"],
+        ["安心","安心できる環境があるとき（安心）"],
+        ["探究","新しいことを知れたとき（探究）"],
+        ["自由","自分のやり方で自由にできるとき（自由）"],
+        ["仲間","仲間と一緒に動けるとき（仲間）"],
+        ["成長","成長している実感があるとき（成長）"],
+        ["収入","ちゃんと稼げる・お金につながるとき（収入）"],
+        ["役割","自分の担当・役割がハッキリしているとき（役割）"],
+        ["変化","変化があってワクワクするとき（変化）"],
+        ["競争","ライバルがいて燃えるとき（競争）"],
+        ["使命","これは自分の使命だと感じるとき（使命）"]
+      ];
+
+      const selects = [document.getElementById('mot1'), document.getElementById('mot2'), document.getElementById('mot3')];
+      const hiddenBoxWrap = document.getElementById('q3-hidden');
+
+      // セレクトとhiddenチェックボックスを生成
+      function buildOptions(){
+        // hidden checkbox
+        hiddenBoxWrap.innerHTML = "";
+        MOTS.forEach(([val])=>{
+          const cb = document.createElement('input');
+          cb.type = 'checkbox'; cb.name='q3'; cb.value=val;
+          hiddenBoxWrap.appendChild(cb);
+        });
+        // selects
+        selects.forEach(sel=>{
+          // 既存の未選択以外をクリア
+          [...sel.options].forEach((op,i)=>{ if(i>0) sel.removeChild(op); });
+          MOTS.forEach(([val, text])=>{
+            const op = document.createElement('option');
+            op.value = val; op.textContent = text;
+            sel.appendChild(op);
+          });
+        });
+      }
 
       function dedupeSelects(){
-        const picked = new Set([s1.value,s2.value,s3.value].filter(Boolean));
-        [s1,s2,s3].forEach(sel=>{
+        const picked = new Set(selects.map(s=>s.value).filter(Boolean));
+        selects.forEach(sel=>{
           Array.from(sel.options).forEach(op=>{
             if(!op.value) return;
             op.disabled = picked.has(op.value) && sel.value !== op.value;
@@ -281,15 +278,18 @@ select:focus,input[type="text"]:focus{border-color:var(--accent2);box-shadow:0 0
         });
       }
       function syncToHidden(){
+        const hidden = hiddenBoxWrap.querySelectorAll('input[name="q3"]');
         hidden.forEach(cb=>{cb.checked=false;cb.dataset.order='';});
-        const vals=[s1.value,s2.value,s3.value].filter(Boolean);
+        const vals=selects.map(s=>s.value).filter(Boolean);
         let order=1;
         vals.forEach(v=>{
           const cb=[...hidden].find(c=>c.value===v);
           if(cb){cb.checked=true;cb.dataset.order=String(order++);}
         });
       }
-      [s1,s2,s3].forEach(sel=>sel.addEventListener('change',()=>{dedupeSelects();syncToHidden();}));
+
+      buildOptions();
+      selects.forEach(sel=>sel.addEventListener('change',()=>{dedupeSelects();syncToHidden();}));
       dedupeSelects();syncToHidden();
     })();
   </script>
