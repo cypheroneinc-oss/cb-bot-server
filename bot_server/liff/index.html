@@ -1,4 +1,4 @@
-  <!doctype html>
+<!doctype html>
   <html lang="ja">
   <head>
   <meta charset="utf-8" />
@@ -804,11 +804,11 @@
     <script src="app.js"></script>
 
     <script>
-      // 年齢プルダウンを自動生成（12〜50歳）
+      // 年齢プルダウンを自動生成（12〜35歳）
       document.addEventListener('DOMContentLoaded', () => {
         const ageSelect = document.getElementById('age');
         if (ageSelect) {
-          for (let i = 12; i <= 50; i++) {
+          for (let i = 12; i <= 35; i++) {
             const option = document.createElement('option');
             option.value = i;
             option.textContent = `${i}歳`;
