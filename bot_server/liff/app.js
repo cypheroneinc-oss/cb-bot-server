@@ -1,4 +1,4 @@
-  /* =========================
+ /* =========================
      C Lab｜個性チェック
      - 回答送信→ /api/answer（分析向けv2）
      - 生ログ + 整形 + 正規化保存（冪等キーつき）
@@ -86,14 +86,13 @@
 
   // ===== LIFF init =====
   async function initLIFF() {
-    $('#status') && ($('#status').textContent = 'LIFF 初期化中…');
+    try {
+      $('#status') && ($('#status').textContent = 'LIFF 初期化中…');
 
-    // 防御: LIFFが使えない環境でもエラーで止まらない
-    if (typeof window.liff === 'undefined') {
-      $('#status').textContent = 'LINEアプリで開くことをお勧めします';
-      console.warn('LIFF SDK not available');
-      return;
-    }
+      // 防御: LIFFが使えない環境でもエラーで止まらない
+      if (typeof window.liff === 'undefined') {
+        throw new Error('LIFF SDK not available');
+      }
 
     await liff.init({ liffId: LIFF_ID });
 
@@ -113,16 +112,28 @@
       if (!liff.isLoggedIn()) return liff.login();
     }
 
-    const prof = await liff.getProfile();
-    window.currentProfile = prof;
-    $('#status').textContent = '読み込み完了';
+      const prof = await liff.getProfile();
+      window.currentProfile = prof;
+      $('#status').textContent = '読み込み完了';
 
-    setupFormHandlers(prof);
+      setupFormHandlers(prof);
+    } catch (e) {
+      console.error('LIFF initialization error:', e);
+      // LIFF初期化失敗時でもフォームを動作させる
+      const dummyProfile = {
+        userId: 'liff-init-failed-' + Date.now(),
+        displayName: 'LIFFエラーユーザー',
+        pictureUrl: null
+      };
+      window.dummyProfile = dummyProfile;
+      setupFormHandlers(dummyProfile);
+      $('#status').textContent = 'LIFF初期化失敗（ブラウザモード）';
+      throw e; // 再 throwしてcatchブロックで処理
+    }
   }
 
   // ===== フォームハンドラー設定 =====
   function setupFormHandlers(prof) {
-    // フォームのsubmitイベント登録
     const form = $('#personalityForm');
     if (form) {
       form.addEventListener('submit', (e) => onSubmit(e, prof));
@@ -130,8 +141,20 @@
 
     $('#run')?.addEventListener('click', async (e) => {
       e.preventDefault();
-      await onSubmit(e, prof || window.dummyProfile || { userId:
+      // form.submit確実発火（requestSubmitフォールバック付き）
+      if (form) {
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit();
+        } else {
+          // フォールバック: dispatchEvent
+          form.dispatchEvent(new Event('submit', { cancelable: true,
+  bubbles: true }));
+        }
+      } else {
+        // フォームが見つからない場合の直接実行
+        await onSubmit(e, prof || window.dummyProfile || { userId:
   'anonymous', displayName: 'Anonymous' });
+      }
     });
   }
 
@@ -149,12 +172,18 @@
     const result = buildResult(answers);
     renderResultCard(result, prof, answers);
 
-    // 結果エリアを表示
+    // 結果エリアを表示、進捗100%、ステータス更新
     const resultEl = $('#result');
     if (resultEl) {
       resultEl.style.display = 'block';
       resultEl.scrollIntoView({ behavior: 'smooth' });
     }
+
+    // 進捗バー100%とステータス更新
+    const progressEl = $('#progress');
+    if (progressEl) progressEl.style.width = '100%';
+    const statusEl = $('#status');
+    if (statusEl) statusEl.textContent = '診断完了！';
 
     // デバッグ出力
     console.log('[dryrun] payload:', {
@@ -375,6 +404,17 @@
   sub">ほかのアプリでシェア</button>
       </div>
     </div>`;
+
+    // 結果表示後の処理: display:block、progress:100%、status更新
+    const resultEl = $('#result');
+    if (resultEl) {
+      resultEl.style.display = 'block';
+      resultEl.scrollIntoView({ behavior: 'smooth' });
+    }
+    const progressEl = $('#progress');
+    if (progressEl) progressEl.style.width = '100%';
+    const statusEl = $('#status');
+    if (statusEl) statusEl.textContent = '診断完了！';
 
     // 再バインド（↑でDOMを入れ替えたため）
     $('#share-line')?.addEventListener('click', shareOnLINE);
@@ -626,7 +666,7 @@
       $('#status').textContent = 'ブラウザモード（LIFF SDK未読込）';
       console.warn('LIFF SDK not loaded - running in browser mode');
 
-      // LIFF未読込時のダミープロフィール
+      // LIFF未読込時のダミープロフィールとフォームハンドラー設定
       const dummyProfile = {
         userId: 'browser-user-' + Date.now(),
         displayName: 'ブラウザユーザー',
@@ -634,5 +674,7 @@
       };
       window.dummyProfile = dummyProfile;
       setupFormHandlers(dummyProfile);
+      console.log('[browser mode] Form handlers set up with dummy
+  profile:', dummyProfile);
     }
   });
