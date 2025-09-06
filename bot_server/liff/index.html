@@ -3,299 +3,690 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="description" content="あなたの個性を診断するチェックツール" />
 <title>C Lab｜個性チェック</title>
+
 <style>
-/* ===== Clean Dark UI (cards + choices) ===== */
+/* ========== Cbyme Clean Floating UI ========== */
 :root{
-  --bg:#0b1020; --card:#101826; --border:#1f2a3a;
-  --text:#e6edf5; --sub:#9fb0c6; --accent:#3b82f6; --accent2:#22d3ee;
+  /* Brand-ish */
+  --bg-grad-from:#eaf6ff;
+  --bg-grad-to:#f7fffb;
+  --sheet:#ffffff;
+  --ink:#1f2a37;
+  --sub:#70839a;
+  --line:#e7eef6;
+  --accent:#16b1ff;
+  --accent2:#10d6c8;
+  --accent-grad: linear-gradient(180deg, #19c2ff 0%, #10d6c8 100%);
+  --chip:#e9f7ff;
+  --error:#ef4444;
+  --success:#10b981;
 }
+
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;}
-.wrap{max-width:720px;margin:0 auto;padding:18px 14px 28px;}
-h1{font-size:20px;margin:6px 2px 14px;text-align:center;letter-spacing:.03em}
-.status{font-size:13px;color:var(--sub);text-align:center;margin:0 0 10px}
-.section{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px;margin:16px 0;box-shadow:0 6px 18px rgba(0,0,0,.25)}
-.section h2{font-size:20px;margin:0 0 10px}
-.section h3{font-size:18px;margin:0 0 6px}
-.section .qsub{color:var(--sub);font-size:14px;margin:0 0 12px}
-.row{display:flex;flex-direction:column;gap:12px}
-.field{display:flex;flex-direction:column;gap:8px}
-label.cap{font-size:14px;color:var(--sub)}
-select,input[type="text"]{width:100%;height:44px;border-radius:12px;border:1px solid var(--border);
-  background:rgba(255,255,255,.02);color:var(--text);padding:0 12px;outline:none}
-select:focus,input[type="text"]:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(34,211,238,.12)}
-.choices{display:flex;flex-direction:column;gap:12px}
-.choice{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--border);border-radius:14px;
-  background:rgba(255,255,255,.02);transition:all .15s ease}
-.choice:hover{border-color:var(--accent2);background:rgba(34,211,238,.06)}
-.choice input[type="radio"]{appearance:none;width:20px;height:20px;border-radius:50%;border:2px solid var(--sub);position:relative;flex:0 0 auto;outline:none}
-.choice input[type="radio"]:checked{border-color:var(--accent)}
-.choice input[type="radio"]:checked::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--accent)}
-.choice .label{font-size:16px;line-height:1.4}
-.btn{width:100%;height:50px;border:none;border-radius:14px;font-size:16px;font-weight:700;letter-spacing:.03em}
-.btn.primary{background:var(--accent);color:#fff}
-.btn.primary:active{transform:translateY(1px);opacity:.95}
-#result .card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px;margin-top:18px}
-#result .ttl{font-size:18px;margin:0 0 8px}
-#result h4{font-size:16px;margin:14px 0 6px}
-#result .lead{color:var(--sub)}
-#result .dots{padding-left:18px;margin:8px 0}
-#result .meta{color:var(--sub);font-size:12px;margin-top:10px}
-#result .share{display:flex;gap:10px;margin-top:10px}
-#result .btn.sub{flex:1;height:44px;background:rgba(255,255,255,.03);color:var(--text);border:1px solid var(--border);border-radius:12px}
-.note{color:var(--sub);font-size:12px;margin:8px 2px 0}
+
+html,body{
+  margin:0;
+  padding:0;
+  scroll-behavior:smooth;
+}
+
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans JP",Helvetica,Arial,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+  color:var(--ink);
+  background:linear-gradient(180deg,var(--bg-grad-from),var(--bg-grad-to)) fixed;
+  -webkit-font-smoothing:antialiased;
+  line-height:1.6;
+}
+
+.header{
+  position:sticky;
+  top:0;
+  z-index:20;
+  background:linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,255,255,.55));
+  backdrop-filter:saturate(140%) blur(16px);
+  border-bottom:1px solid rgba(0,0,0,.04);
+}
+
+.header-inner{
+  max-width:840px;
+  margin:0 auto;
+  padding:14px 16px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.brand-dot{
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  background:conic-gradient(from 180deg,var(--accent),var(--accent2));
+  box-shadow:0 2px 6px rgba(0,0,0,.15);
+}
+
+.title{
+  font-weight:800;
+  letter-spacing:.02em;
+  font-size:16px;
+}
+
+.wrap{
+  max-width:840px;
+  margin:16px auto 56px;
+  padding:0 14px;
+}
+
+.sheet{
+  background:var(--sheet);
+  border:1px solid rgba(31,42,55,.06);
+  border-radius:22px;
+  box-shadow:0 10px 28px rgba(18, 32, 56, .14),0 1px 0 rgba(255,255,255,.6) inset;
+  padding:18px 16px;
+}
+
+.section{
+  border-radius:18px;
+  padding:16px 14px;
+  margin:14px 0;
+  border:1px solid var(--line);
+  background:#fff;
+}
+
+.section h2{
+  font-size:18px;
+  margin:0 0 8px;
+  color:var(--ink);
+}
+
+.section h3{
+  font-size:16px;
+  margin:0 0 4px;
+  color:var(--ink);
+}
+
+.qsub,.cap,.note{
+  color:var(--sub);
+  font-size:14px;
+}
+
+.required{
+  color:var(--error);
+  font-weight:bold;
+}
+
+.row{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.field.error select,
+.field.error input[type="text"]{
+  border-color:var(--error);
+  box-shadow:0 0 0 2px rgba(239, 68, 68, .1);
+}
+
+.error-message{
+  color:var(--error);
+  font-size:12px;
+  margin-top:4px;
+  display:none;
+}
+
+.field.error .error-message{
+  display:block;
+}
+
+select,input[type="text"]{
+  height:46px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--ink);
+  padding:0 12px;
+  font-size:15px;
+  box-shadow:0 2px 0 rgba(16,214,200,.05) inset;
+  transition:border-color .2s ease, box-shadow .2s ease;
+}
+
+select:focus,input[type="text"]:focus{
+  outline:none;
+  border-color:#b9ecff;
+  box-shadow:0 0 0 4px rgba(25,194,255,.14);
+}
+
+select:disabled{
+  background:#f8f9fa;
+  color:var(--sub);
+  cursor:not-allowed;
+}
+
+.choices{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-top:8px;
+}
+
+.choice{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:13px 12px;
+  border-radius:14px;
+  border:1px solid var(--line);
+  background:#fff;
+  box-shadow:0 1px 0 rgba(0,0,0,.02);
+  transition:transform .08s ease, box-shadow .2s ease, border-color .2s ease;
+  cursor:pointer;
+}
+
+.choice:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(18,32,56,.08);
+}
+
+.choice:focus-within{
+  border-color:#b9ecff;
+  box-shadow:0 0 0 2px rgba(25,194,255,.14);
+}
+
+.choice input[type="radio"]{
+  appearance:none;
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  border:2px solid #9fc9ff;
+  position:relative;
+  flex:0 0 auto;
+  cursor:pointer;
+  transition:border-color .2s ease, background .2s ease;
+}
+
+.choice input[type="radio"]:checked{
+  border-color:#2bbfff;
+  background:radial-gradient(circle at 50% 50%, #2bbfff 0 52%, transparent 54%);
+}
+
+.choice input[type="radio"]:focus{
+  outline:2px solid #2bbfff;
+  outline-offset:2px;
+}
+
+.choice .label{
+  font-size:15px;
+  cursor:pointer;
+}
+
+.actions{
+  position:sticky;
+  bottom:0;
+  z-index:15;
+  margin-top:16px;
+}
+
+.actions-inner{
+  max-width:840px;
+  margin:0 auto;
+  padding:12px 14px;
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.7));
+  backdrop-filter:blur(10px);
+}
+
+.btn{
+  appearance:none;
+  border:none;
+  border-radius:14px;
+  height:52px;
+  padding:0 18px;
+  font-weight:800;
+  letter-spacing:.02em;
+  cursor:pointer;
+  transition:transform .06s ease, filter .2s ease, box-shadow .2s ease;
+  font-size:15px;
+}
+
+.btn:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+  transform:none !important;
+}
+
+.btn.primary{
+  color:#fff;
+  background:var(--accent-grad);
+  box-shadow:0 8px 18px rgba(25,194,255,.35), inset 0 -2px 0 rgba(0,0,0,.08);
+  min-width:220px;
+}
+
+.btn.primary:active:not(:disabled){
+  transform:translateY(1px);
+  filter:saturate(95%);
+}
+
+.btn.secondary{
+  background:#fff;
+  border:1px solid var(--line);
+  color:var(--ink);
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+}
+
+.btn.secondary:hover:not(:disabled){
+  background:#f8f9fa;
+}
+
+#result .card{
+  margin-top:14px;
+}
+
+#result .ttl{
+  font-size:17px;
+  margin:0 0 6px;
+  color:var(--ink);
+}
+
+#result .lead{
+  color:var(--sub);
+}
+
+#result h4{
+  font-size:15px;
+  margin:14px 0 6px;
+  color:var(--ink);
+}
+
+#result .dots{
+  padding-left:18px;
+  margin:6px 0;
+}
+
+#result .share{
+  display:flex;
+  gap:10px;
+  margin-top:16px;
+  flex-wrap:wrap;
+}
+
+#result .btn.sub{
+  flex:1;
+  height:44px;
+  background:#fff;
+  border:1px solid var(--line);
+  border-radius:12px;
+  min-width:120px;
+}
+
+.note{
+  font-size:12px;
+  margin:8px 2px 0;
+}
+
+.progress-bar{
+  height:4px;
+  background:var(--line);
+  border-radius:2px;
+  margin:16px 0;
+  overflow:hidden;
+}
+
+.progress-fill{
+  height:100%;
+  background:var(--accent-grad);
+  width:0;
+  transition:width .3s ease;
+  border-radius:2px;
+}
+
+.loading{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+
+.spinner{
+  width:16px;
+  height:16px;
+  border:2px solid var(--line);
+  border-top:2px solid var(--accent);
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+  to{transform:rotate(360deg)}
+}
+
+.sr-only{
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0,0,0,0);
+  white-space:nowrap;
+  border:0;
+}
+
+@media (min-width:768px){
+  .sheet{padding:22px}
+  .section{padding:18px 16px}
+  .title{font-size:18px}
+  .row{flex-direction:row;flex-wrap:wrap}
+  .field{flex:1;min-width:200px}
+}
+
+@media (max-width:480px){
+  .actions-inner{flex-direction:column}
+  .btn{width:100%}
+  #result .share{flex-direction:column}
+  #result .btn.sub{flex:none}
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{
+    animation-duration:0.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important;
+  }
+}
 </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <h1>C Lab｜個性チェック</h1>
-    <div id="status" class="status">読み込み中…</div>
-
-    <!-- プロフィール -->
-    <section class="section" id="profile">
-      <h2>プロフィール</h2>
-      <div class="row">
-        <div class="field">
-          <label class="cap">性別</label>
-          <select id="gender" required>
-            <option value="" selected>選んでね</option>
-            <option value="male">男性</option>
-            <option value="female">女性</option>
-            <option value="other">その他</option>
-          </select>
-        </div>
-        <div class="field">
-          <label class="cap">年齢</label>
-          <select id="age" required>
-            <option value="" selected>選んでね</option>
-            <!-- 12〜35 は下のJSで自動挿入 -->
-          </select>
-        </div>
-        <div class="field">
-          <label class="cap">MBTI（わかれば）</label>
-          <select id="mbti">
-            <option value="" selected>未回答</option>
-            <option>INTJ</option><option>INTP</option><option>ENTJ</option><option>ENTP</option>
-            <option>INFJ</option><option>INFP</option><option>ENFJ</option><option>ENFP</option>
-            <option>ISTJ</option><option>ISFJ</option><option>ESTJ</option><option>ESFJ</option>
-            <option>ISTP</option><option>ISFP</option><option>ESTP</option><option>ESFP</option>
-          </select>
-        </div>
-      </div>
-    </section>
-
-    <!-- Q1 -->
-    <section class="section">
-      <h3>1. はじめるとき、近いのは？🏃‍♂️</h3>
-      <div class="choices">
-        <label class="choice">
-          <input type="radio" name="q1" value="A">
-          <span class="label">A. とりあえずやってみて、走りながら直す</span>
-        </label>
-        <label class="choice">
-          <input type="radio" name="q1" value="B">
-          <span class="label">B. まず全体をざっくり決めてから動く</span>
-        </label>
-      </div>
-    </section>
-
-    <!-- Q2 -->
-    <section class="section">
-      <h3>2. 迷ったら、何で決める？💭</h3>
-      <div class="choices">
-        <label class="choice">
-          <input type="radio" name="q2" value="A">
-          <span class="label">A. 直感・フィーリング</span>
-        </label>
-        <label class="choice">
-          <input type="radio" name="q2" value="B">
-          <span class="label">B. 理由やデータ</span>
-        </label>
-      </div>
-    </section>
-
-    <!-- Q3（モチベーション：プルダウン×3） -->
-    <section class="section">
-      <h3>3. 「よし、やるぞ！」のスイッチは？🔥（複数OK／できれば順位）</h3>
-      <div class="row">
-        <div class="field">
-          <label class="cap">第1位</label>
-          <select id="mot1"><option value="" selected>未選択</option></select>
-        </div>
-        <div class="field">
-          <label class="cap">第2位（任意）</label>
-          <select id="mot2"><option value="" selected>未選択</option></select>
-        </div>
-        <div class="field">
-          <label class="cap">第3位（任意）</label>
-          <select id="mot3"><option value="" selected>未選択</option></select>
-        </div>
-      </div>
-      <p class="note">※ 同じ項目は重複できません。選ばないところは「未選択」のままでOK。</p>
-
-      <!-- app.js が読む hidden チェックボックス（自動同期） -->
-      <div id="q3-hidden" style="display:none"></div>
-    </section>
-
-    <!-- Q4 -->
-    <section class="section">
-      <h3>4. どっちの方がしんどい？😓</h3>
-      <div class="choices">
-        <label class="choice">
-          <input type="radio" name="q4" value="A">
-          <span class="label">A. ずっと細かく口出しされる</span>
-        </label>
-        <label class="choice">
-          <input type="radio" name="q4" value="B">
-          <span class="label">B. 丸投げで放置される</span>
-        </label>
-      </div>
-    </section>
-
-    <!-- Q5 -->
-    <section class="section">
-      <h3>5. 気持ちが動いたとき、近いのは？🫀</h3>
-      <div class="choices">
-        <label class="choice">
-          <input type="radio" name="q5" value="A">
-          <span class="label">A. 顔や言葉にすぐ出る</span>
-        </label>
-        <label class="choice">
-          <input type="radio" name="q5" value="B">
-          <span class="label">B. 表にはあまり出さない</span>
-        </label>
-      </div>
-    </section>
-
-    <!-- Q6 -->
-    <section class="section">
-      <h3>6. 一緒にいてラクなのは？😌</h3>
-      <div class="choices">
-        <label class="choice">
-          <input type="radio" name="q6" value="A">
-          <span class="label">A. なんでもズバッと言えるチーム</span>
-        </label>
-        <label class="choice">
-          <input type="radio" name="q6" value="B">
-          <span class="label">B. 空気を大事にするまったりチーム</span>
-        </label>
-      </div>
-    </section>
-
-    <!-- Q7 -->
-    <section class="section">
-      <h3>7. 自然と多い役割は？🤝</h3>
-      <div class="choices">
-        <label class="choice">
-          <input type="radio" name="q7" value="A">
-          <span class="label">A. みんなを引っ張るリーダー</span>
-        </label>
-        <label class="choice">
-          <input type="radio" name="q7" value="B">
-          <span class="label">B. サポートして支える</span>
-        </label>
-      </div>
-    </section>
-
-    <!-- Q8 -->
-    <section class="section">
-      <h3>8. 理想に近いのは？💫</h3>
-      <div class="choices">
-        <label class="choice">
-          <input type="radio" name="q8" value="A">
-          <span class="label">A. 一つのことをじっくり極める</span>
-        </label>
-        <label class="choice">
-          <input type="radio" name="q8" value="B">
-          <span class="label">B. いろんなことに同時に挑戦する</span>
-        </label>
-      </div>
-    </section>
-
-    <button id="run" class="btn primary">結果を見る</button>
-
-    <div id="result"></div>
-    <p class="note"></p>
+  <div class="header">
+    <div class="header-inner">
+      <div class="brand-dot" aria-hidden="true"></div>
+      <h1 class="title">C Lab｜個性チェック</h1>
+    </div>
   </div>
 
-  <!-- モチベ（プルダウン）→ hidden checkbox へ同期（app.js互換） + 年齢自動生成 -->
-  <script>
-    (function(){
-      // 年齢 12〜35 を自動挿入
-      const ageSel = document.getElementById('age');
-      for(let a=12;a<=35;a++){ const o=document.createElement('option'); o.value=a; o.textContent=a; ageSel.appendChild(o); }
+  <div class="wrap">
+    <div class="sheet">
+      <div id="status" class="qsub" style="text-align:center;margin-bottom:8px">
+        <span class="loading">
+          <span class="spinner" aria-hidden="true"></span>
+          読み込み中…
+        </span>
+      </div>
 
-      // モチベ13項目（表示テキスト）
-      const MOTS = [
-        ["達成","なにかを達成したとき（達成感）"],
-        ["承認","認められたり褒められたとき（承認）"],
-        ["貢献","誰かの役に立てたとき（貢献）"],
-        ["安心","安心できる環境があるとき（安心）"],
-        ["探究","新しいことを知れたとき（探究）"],
-        ["自由","自分のやり方で自由にできるとき（自由）"],
-        ["仲間","仲間と一緒に動けるとき（仲間）"],
-        ["成長","成長している実感があるとき（成長）"],
-        ["収入","ちゃんと稼げる・お金につながるとき（収入）"],
-        ["役割","自分の担当・役割がハッキリしているとき（役割）"],
-        ["変化","変化があってワクワクするとき（変化）"],
-        ["競争","ライバルがいて燃えるとき（競争）"],
-        ["使命","これは自分の使命だと感じるとき（使命）"]
-      ];
+      <div class="progress-bar" aria-label="進捗">
+        <div class="progress-fill" id="progress"></div>
+      </div>
 
-      const selects = [document.getElementById('mot1'), document.getElementById('mot2'), document.getElementById('mot3')];
-      const hiddenBoxWrap = document.getElementById('q3-hidden');
+      <form id="personalityForm" novalidate>
+        <!-- プロフィール -->
+        <section class="section" id="profile">
+          <h2>プロフィール</h2>
+          <div class="row">
+            <div class="field" id="gender-field">
+              <label for="gender" class="cap">性別 <span class="required">*</span></label>
+              <select id="gender" required aria-describedby="gender-error">
+                <option value="">選択してください</option>
+                <option value="male">男性</option>
+                <option value="female">女性</option>
+                <option value="other">その他</option>
+              </select>
+              <div class="error-message" id="gender-error">性別を選択してください</div>
+            </div>
+            
+            <div class="field" id="age-field">
+              <label for="age" class="cap">年齢 <span class="required">*</span></label>
+              <select id="age" required aria-describedby="age-error">
+                <option value="">選択してください</option>
+                <!-- 12〜35 は下のJSで自動挿入 -->
+              </select>
+              <div class="error-message" id="age-error">年齢を選択してください</div>
+            </div>
+            
+            <div class="field">
+              <label for="mbti" class="cap">MBTI（任意）</label>
+              <select id="mbti" aria-describedby="mbti-help">
+                <option value="">未回答</option>
+                <option value="INTJ">INTJ</option><option value="INTP">INTP</option>
+                <option value="ENTJ">ENTJ</option><option value="ENTP">ENTP</option>
+                <option value="INFJ">INFJ</option><option value="INFP">INFP</option>
+                <option value="ENFJ">ENFJ</option><option value="ENFP">ENFP</option>
+                <option value="ISTJ">ISTJ</option><option value="ISFJ">ISFJ</option>
+                <option value="ESTJ">ESTJ</option><option value="ESFJ">ESFJ</option>
+                <option value="ISTP">ISTP</option><option value="ISFP">ISFP</option>
+                <option value="ESTP">ESTP</option><option value="ESFP">ESFP</option>
+              </select>
+              <div id="mbti-help" class="note">分からない場合は「未回答」のままで大丈夫です</div>
+            </div>
+          </div>
+        </section>
 
-      // セレクトとhiddenチェックボックスを生成
-      function buildOptions(){
-        // hidden checkbox
-        hiddenBoxWrap.innerHTML = "";
-        MOTS.forEach(([val])=>{
-          const cb = document.createElement('input');
-          cb.type = 'checkbox'; cb.name='q3'; cb.value=val;
-          hiddenBoxWrap.appendChild(cb);
-        });
-        // selects
-        selects.forEach(sel=>{
-          // 既存の未選択以外をクリア
-          [...sel.options].forEach((op,i)=>{ if(i>0) sel.removeChild(op); });
-          MOTS.forEach(([val, text])=>{
-            const op = document.createElement('option');
-            op.value = val; op.textContent = text;
-            sel.appendChild(op);
-          });
-        });
-      }
+        <!-- Q1 -->
+        <section class="section">
+          <fieldset style="border:none;padding:0;margin:0">
+            <legend>
+              <h3>1. なにかに取りかかるとき、近いのは？🏃‍♂️</h3>
+            </legend>
+            <div class="choices" role="radiogroup" aria-labelledby="q1-legend">
+              <label class="choice">
+                <input type="radio" name="q1" value="A" id="q1-a">
+                <span class="label">A. とりあえず始めて、やりながら直す派</span>
+              </label>
+              <label class="choice">
+                <input type="radio" name="q1" value="B" id="q1-b">
+                <span class="label">B. まず全体を考えてから始める派</span>
+              </label>
+            </div>
+          </fieldset>
+        </section>
 
-      function dedupeSelects(){
-        const picked = new Set(selects.map(s=>s.value).filter(Boolean));
-        selects.forEach(sel=>{
-          Array.from(sel.options).forEach(op=>{
-            if(!op.value) return;
-            op.disabled = picked.has(op.value) && sel.value !== op.value;
-          });
-        });
-      }
-      function syncToHidden(){
-        const hidden = hiddenBoxWrap.querySelectorAll('input[name="q3"]');
-        hidden.forEach(cb=>{cb.checked=false;cb.dataset.order='';});
-        const vals=selects.map(s=>s.value).filter(Boolean);
-        let order=1;
-        vals.forEach(v=>{
-          const cb=[...hidden].find(c=>c.value===v);
-          if(cb){cb.checked=true;cb.dataset.order=String(order++);}
-        });
-      }
+        <!-- Q2 -->
+        <section class="section">
+          <fieldset style="border:none;padding:0;margin:0">
+            <legend>
+              <h3>2. なやんだとき、何基準で決める？💭</h3>
+            </legend>
+            <div class="choices" role="radiogroup">
+              <label class="choice">
+                <input type="radio" name="q2" value="A" id="q2-a">
+                <span class="label">A. なんとなくの直感とかノリで決める</span>
+              </label>
+              <label class="choice">
+                <input type="radio" name="q2" value="B" id="q2-b">
+                <span class="label">B. 理由とかデータを見て決める</span>
+              </label>
+            </div>
+          </fieldset>
+        </section>
 
-      buildOptions();
-      selects.forEach(sel=>sel.addEventListener('change',()=>{dedupeSelects();syncToHidden();}));
-      dedupeSelects();syncToHidden();
-    })();
-  </script>
+        <!-- Q3（モチベーション：プルダウン×3） -->
+        <section class="section">
+          <h3>3. 「よし、がんばろう！」と思えるのは？🔥</h3>
+          <p class="qsub">複数選択OK／できれば順位付けしてください</p>
+          
+          <div class="row">
+            <!-- 1位 -->
+            <div class="field">
+              <label for="mot1" class="cap">第1位</label>
+              <select id="mot1" aria-describedby="mot-help">
+                <option value="">未選択</option>
+                <option value="がんばって結果を出したとき／達成したとき">がんばって結果を出したとき／達成したとき</option>
+                <option value="人にほめられたり「いいね！」って言われたとき">人にほめられたり「いいね！」って言われたとき</option>
+                <option value="人の役に立てたとき">人の役に立てたとき</option>
+                <option value="安心できる場所や環境にいるとき">安心できる場所や環境にいるとき</option>
+                <option value="新しいことを知ったり学べたとき">新しいことを知ったり学べたとき</option>
+                <option value="自分のやり方で自由にできるとき">自分のやり方で自由にできるとき</option>
+                <option value="友だちや仲間と一緒にやっているとき">友だちや仲間と一緒にやっているとき</option>
+                <option value="少しでも自分が成長したと感じたとき">少しでも自分が成長したと感じたとき</option>
+                <option value="おこづかいやお金がもらえたとき">おこづかいやお金がもらえたとき</option>
+                <option value="リーダーになれたり、みんなから頼られたとき">リーダーになれたり、みんなから頼られたとき</option>
+                <option value="楽しいことやワクワクすることができたとき">楽しいことやワクワクすることができたとき</option>
+                <option value="むずかしいことにチャレンジできたとき">むずかしいことにチャレンジできたとき</option>
+                <option value="人を動かしたり、大きな影響をあたえられたとき">人を動かしたり、大きな影響をあたえられたとき</option>
+              </select>
+            </div>
+            
+            <!-- 2位 -->
+            <div class="field">
+              <label for="mot2" class="cap">第2位（任意）</label>
+              <select id="mot2">
+                <option value="">未選択</option>
+                <option value="がんばって結果を出したとき／達成したとき">がんばって結果を出したとき／達成したとき</option>
+                <option value="人にほめられたり「いいね！」って言われたとき">人にほめられたり「いいね！」って言われたとき</option>
+                <option value="人の役に立てたとき">人の役に立てたとき</option>
+                <option value="安心できる場所や環境にいるとき">安心できる場所や環境にいるとき</option>
+                <option value="新しいことを知ったり学べたとき">新しいことを知ったり学べたとき</option>
+                <option value="自分のやり方で自由にできるとき">自分のやり方で自由にできるとき</option>
+                <option value="友だちや仲間と一緒にやっているとき">友だちや仲間と一緒にやっているとき</option>
+                <option value="少しでも自分が成長したと感じたとき">少しでも自分が成長したと感じたとき</option>
+                <option value="おこづかいやお金がもらえたとき">おこづかいやお金がもらえたとき</option>
+                <option value="リーダーになれたり、みんなから頼られたとき">リーダーになれたり、みんなから頼られたとき</option>
+                <option value="楽しいことやワクワクすることができたとき">楽しいことやワクワクすることができたとき</option>
+                <option value="むずかしいことにチャレンジできたとき">むずかしいことにチャレンジできたとき</option>
+                <option value="人を動かしたり、大きな影響をあたえられたとき">人を動かしたり、大きな影響をあたえられたとき</option>
+              </select>
+            </div>
+            
+            <!-- 3位 -->
+            <div class="field">
+              <label for="mot3" class="cap">第3位（任意）</label>
+              <select id="mot3">
+                <option value="">未選択</option>
+                <option value="がんばって結果を出したとき／達成したとき">がんばって結果を出したとき／達成したとき</option>
+                <option value="人にほめられたり「いいね！」って言われたとき">人にほめられたり「いいね！」って言われたとき</option>
+                <option value="人の役に立てたとき">人の役に立てたとき</option>
+                <option value="安心できる場所や環境にいるとき">安心できる場所や環境にいるとき</option>
+                <option value="新しいことを知ったり学べたとき">新しいことを知ったり学べたとき</option>
+                <option value="自分のやり方で自由にできるとき">自分のやり方で自由にできるとき</option>
+                <option value="友だちや仲間と一緒にやっているとき">友だちや仲間と一緒にやっているとき</option>
+                <option value="少しでも自分が成長したと感じたとき">少しでも自分が成長したと感じたとき</option>
+                <option value="おこづかいやお金がもらえたとき">おこづかいやお金がもらえたとき</option>
+                <option value="リーダーになれたり、みんなから頼られたとき">リーダーになれたり、みんなから頼られたとき</option>
+                <option value="楽しいことやワクワクすることができたとき">楽しいことやワクワクすることができたとき</option>
+                <option value="むずかしいことにチャレンジできたとき">むずかしいことにチャレンジできたとき</option>
+                <option value="人を動かしたり、大きな影響をあたえられたとき">人を動かしたり、大きな影響をあたえられたとき</option>
+              </select>
+            </div>
+          </div>
 
-  <!-- LIFF SDK & App -->
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="/liff/app.js"></script>
-</body>
-</html>
+          <p class="note" id="mot-help">※ 同じ項目は重複できません。選ばない場合は「未選択」のままでOK。</p>
+
+          <!-- app.js が読む hidden チェックボックス（自動同期） -->
+          <div id="q3-hidden" style="display:none">
+            <input type="checkbox" name="q3" value="がんばって結果を出したとき／達成したとき">
+            <input type="checkbox" name="q3" value="人にほめられたり「いいね！」って言われたとき">
+            <input type="checkbox" name="q3" value="人の役に立てたとき">
+            <input type="checkbox" name="q3" value="安心できる場所や環境にいるとき">
+            <input type="checkbox" name="q3" value="新しいことを知ったり学べたとき">
+            <input type="checkbox" name="q3" value="自分のやり方で自由にできるとき">
+            <input type="checkbox" name="q3" value="友だちや仲間と一緒にやっているとき">
+            <input type="checkbox" name="q3" value="少しでも自分が成長したと感じたとき">
+            <input type="checkbox" name="q3" value="おこづかいやお金がもらえたとき">
+            <input type="checkbox" name="q3" value="リーダーになれたり、みんなから頼られたとき">
+            <input type="checkbox" name="q3" value="楽しいことやワクワクすることができたとき">
+            <input type="checkbox" name="q3" value="むずかしいことにチャレンジできたとき">
+            <input type="checkbox" name="q3" value="人を動かしたり、大きな影響をあたえられたとき">
+          </div>
+        </section>
+
+        <!-- Q4 -->
+        <section class="section">
+          <fieldset style="border:none;padding:0;margin:0">
+            <legend>
+              <h3>4. どちらの方がしんどい？😓</h3>
+            </legend>
+            <div class="choices" role="radiogroup">
+              <label class="choice">
+                <input type="radio" name="q4" value="A" id="q4-a">
+                <span class="label">A. ずっと細かく口出しされる方がしんどい</span>
+              </label>
+              <label class="choice">
+                <input type="radio" name="q4" value="B" id="q4-b">
+                <span class="label">B. ほったらかしで丸投げされる方がしんどい</span>
+              </label>
+            </div>
+          </fieldset>
+        </section>
+
+        <!-- Q5 -->
+        <section class="section">
+          <fieldset style="border:none;padding:0;margin:0">
+            <legend>
+              <h3>5. 感情が動いた時に近いのはどっち？🫀</h3>
+            </legend>
+            <div class="choices" role="radiogroup">
+              <label class="choice">
+                <input type="radio" name="q5" value="A" id="q5-a">
+                <span class="label">A. すぐ顔とか言葉に出ちゃう</span>
+              </label>
+              <label class="choice">
+                <input type="radio" name="q5" value="B" id="q5-b">
+                <span class="label">B. 顔とか態度には出さないけど思うところはある</span>
+              </label>
+            </div>
+          </fieldset>
+        </section>
+
+        <!-- Q6 -->
+        <section class="section">
+          <fieldset style="border:none;padding:0;margin:0">
+            <legend>
+              <h3>6. 一緒にいてラクなのは？😌</h3>
+            </legend>
+            <div class="choices" role="radiogroup">
+              <label class="choice">
+                <input type="radio" name="q6" value="A" id="q6-a">
+                <span class="label">A. 何でもズバッと言えるチーム</span>
+              </label>
+              <label class="choice">
+                <input type="radio" name="q6" value="B" id="q6-b">
+                <span class="label">B. 空気を大事にして、まったりなチーム</span>
+              </label>
+            </div>
+          </fieldset>
+        </section>
+
+        <!-- Q7 -->
+        <section class="section">
+          <fieldset style="border:none;padding:0;margin:0">
+            <legend>
+              <h3>7. 班とかチームで自然に多いのはどっち？🤝</h3>
+            </legend>
+            <div class="choices" role="radiogroup">
+              <label class="choice">
+                <input type="radio" name="q7" value="A" id="q7-a">
+                <span class="label">A. みんなを引っ張るリーダータイプ</span>
+              </label>
+              <label class="choice">
+                <input type="radio" name="q7" value="B" id="q7-b">
+                <span class="label">B. サポートして支えるタイプ</span>
+              </label>
+            </div>
+          </fieldset>
+        </section>
+
+        <!-- Q8 -->
+        <section class="section">
+          <fieldset style="border:none;padding:0;margin:0">
+            <legend>
+              <h3>8. じぶんの理想に近いのは？💫</h3>
+            </legend>
+            <div class="choices" role="radiogroup">
+              <label class="choice">
+                <input type="radio" name="q8" value="A" id="q8-a">
+                <span class="label">A. 一つのことを極めたい</span>
+              </label>
+              <label class="choice">
+                <input type="radio" name="q8" value="B" id="q8-b">
+                <span class="label">B. いろんなことに同時にチャレンジしたい</span>
+              </label>
+            </div>
+          </fieldset>
+        
