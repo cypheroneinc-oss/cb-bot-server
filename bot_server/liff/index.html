@@ -523,25 +523,27 @@
     color:var(--tone-ink);
   }
 
-  #result .card{
+  #result-content .card{
     border:1px solid var(--tone-line);
     border-radius:20px;
     box-shadow:0 6px 18px rgba(18,32,56,.06);
     padding:18px 18px 20px;
     background:#fff;
+    margin-top:14px;
   }
-  #result .ttl{
+  #result-content .ttl{
     font-weight:800;
     letter-spacing:.01em;
     font-size:20px;
     margin:0 0 4px;
+    color:var(--tone-ink);
   }
-  #result .lead{
+  #result-content .lead{
     color:var(--tone-ink-soft);
     font-size:15px;
     line-height:1.7;
   }
-  #result h4{
+  #result-content h4{
     margin:18px 0 8px;
     font-size:14px;
     font-weight:800;
@@ -549,18 +551,24 @@
     color:var(--tone-ink);
     position:relative;
   }
-  #result h4::after{
+  #result-content h4::after{
     content:"";
     display:block;
     height:1px;
     background:var(--tone-line);
     margin-top:8px;
   }
-  #result .dots{ margin:8px 0 2px; padding-left:18px; }
-  #result .dots li{ margin:6px 0; color:var(--tone-ink); }
+  #result-content .dots{ margin:8px 0 2px; padding-left:18px; }
+  #result-content .dots li{ margin:6px 0; color:var(--tone-ink); }
 
-  #result .share{ margin-top:18px; gap:12px; }
-  #result .btn.sub{
+  #result-content .share{
+    display:flex;
+    gap:12px;
+    margin-top:18px;
+    flex-wrap:wrap;
+  }
+  #result-content .btn.sub{
+    flex:1;
     height:46px;
     border-radius:12px;
     border:1px solid var(--tone-line);
@@ -568,9 +576,16 @@
     box-shadow:0 1px 0 rgba(0,0,0,.02);
     color:var(--tone-ink);
     font-weight:700;
+    min-width:120px;
   }
-  #result .btn.sub:hover{ background:#f6f9fb; }
+  #result-content .btn.sub:hover{ background:#f6f9fb; }
 
+  /* ====== ▲▲▲ 上書きここまで ▲▲▲ ====== */
+
+  /* === ▼ ここから指定の追記（既存CSSの最後に統合） ▼ === */
+  /* ここまで既存CSS ... */
+
+  /* === 診断結果UI トーン調整 === */
   .btn.primary{
     background:var(--tone-accent-grad);
     box-shadow:0 8px 16px rgba(87,195,230,.25);
@@ -583,10 +598,19 @@
   @media (max-width:480px){
     .modal-content{ border-radius:22px; }
     .modal-body{ padding:18px 16px 22px; }
-    #result .card{ padding:16px; }
-    #result .ttl{ font-size:19px; }
+    #result-content .card{ padding:16px; }
+    #result-content .ttl{ font-size:19px; }
   }
-  /* ====== ▲▲▲ 上書きここまで ▲▲▲ ====== */
+
+  .badge{
+    display:inline-block;
+    padding:6px 10px;
+    border-radius:999px;
+    background:var(--tone-chip);
+    border:1px solid #daf0e3;
+    font-size:13px;
+  }
+  /* === ▲ 追記ここまで ▲ === */
   </style>
 </head>
 
