@@ -1,8 +1,7 @@
 /* =========================
-   C Lab｜個性チェック 完全差し替え版
-   - 改行混入でもQ3同期が落ちない（selector未使用）
-   - ${title} 改行バグ修正 / 日本語素行の除去
-   - クリック→検証→描画→送信の順で確実に進む
+   C Lab｜個性チェック（フロントのみ）
+   - UI/文言は変更なし
+   - 送信は /api/answer にPOST（JSON）
    ========================= */
 
 const LIFF_ID  = '2008019437-Jxwm33XM';
@@ -305,9 +304,6 @@ function renderResultCard(result, prof, ans){
       <h4>あなたのやる気スイッチ💡</h4>
       <p>${mot || '—'}</p>
 
-      <h4>ささやかアドバイス📝</h4>
-      <p>${escapeHtml(result.advice)}</p>
-
       <h4>👇今すぐ友達にシェア👇</h4>
       <div class="share">
         <button id="share-line"   class="btn sub">LINEで送る</button>
@@ -346,7 +342,7 @@ async function sendAnswer(profile, answers, result){
 
   const payload = {
     submission_id: submissionId,
-    line: { userId: profile.userId, displayName: profile.displayName||null, pictureUrl: profile.pictureUrl||null },
+    line: { userId: profile?.userId || null, displayName: profile?.displayName||null, pictureUrl: profile?.pictureUrl||null },
     demographics: { gender: answers.gender||null, age: answers.age?Number(answers.age):null, mbti: answers.mbti||null },
     answers: { ab, motivation_ordered: answers.q3||[] },
     scoring,
@@ -366,11 +362,15 @@ async function sendAnswer(profile, answers, result){
     method:'POST',
     headers:{ 'Content-Type':'application/json' },
     body: JSON.stringify(payload),
-    credentials:'include',
+    credentials:'same-origin',
     mode:'cors'
   });
+
   let json={}; try{ json = await res.json(); }catch(_){}
-  if(!res.ok){ console.error('POST /api/answer failed:', res.status, json); throw new Error(`HTTP ${res.status}: ${json?.error||'unknown error'}`); }
+  if(!res.ok){
+    console.error('POST /api/answer failed:', res.status, json);
+    throw new Error(`HTTP ${res.status}: ${json?.error||'unknown error'}`);
+  }
   console.log('POST /api/answer ok:', json);
 }
 
@@ -441,12 +441,10 @@ function updateProgress(){
 
 // ---------- 起動 ----------
 document.addEventListener('DOMContentLoaded', ()=>{
-  // DOMチェック（任意ログ）
   ['#personalityForm','#run','#status','#progress','#result','#result-modal'].forEach(sel=>{
     console.log('DOM check:', sel, !!$(sel) ? 'OK' : 'NOT FOUND');
   });
 
-  // モチベ同期・進捗
   ['mot1','mot2','mot3'].forEach(id=>{
     const el = document.getElementById(id);
     if(el){
@@ -456,10 +454,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   ['#gender','#age','input[name="q1"]','input[name="q2"]','input[name="q4"]','input[name="q5"]','input[name="q6"]','input[name="q7"]','input[name="q8"]']
     .forEach(sel=> $$(sel).forEach(el=> el.addEventListener('change', updateProgress)));
 
-  // 初回
   syncMotivationHidden(); updateProgress();
 
-  // モーダル操作
   const modal = $('#result-modal');
   const closeBtn = $('#close-modal');
   if(closeBtn) closeBtn.addEventListener('click', hideResultModal);
@@ -468,7 +464,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal?.classList.contains('show')) hideResultModal(); });
 
-  // LIFF 初期化 or フォールバック
   if(typeof window.liff!=='undefined'){
     initLIFF().catch(e=>{
       console.error('LIFF init failed:', e);
