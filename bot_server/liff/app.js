@@ -290,22 +290,22 @@ function renderResultCard(result, prof, ans){
 
   wrap.innerHTML = `
     <div class="card">
-      <h3 class="ttl">【タイプ】 ${escapeHtml(result.typeTitle)}</h3>
+      <h3 class="ttl">【${escapeHtml(result.typeTitle)}】</h3>
       <p class="lead">${escapeHtml(result.tagline)}</p>
 
-      <h4>【「あなた」の個性✨】</h4>
+      <h4>「あなた」の個性✨</h4>
       <ul class="dots">${result.barnum.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ul>
 
-      <h4>【合う働き方⚡️】</h4>
+      <h4>かがやくはたらき方⚡️</h4>
       <p>${escapeHtml(result.style)}</p>
 
-      <h4>【向いている職種の例💼】</h4>
+      <h4>向いているしごとの例💼</h4>
       <ul class="dots">${jobs}</ul>
 
-      <h4>【あなたのやる気スイッチ💡】</h4>
+      <h4>あなたのやる気スイッチ💡</h4>
       <p>${mot || '—'}</p>
 
-      <h4>【アドバイス📝】</h4>
+      <h4>ささやかアドバイス📝</h4>
       <p>${escapeHtml(result.advice)}</p>
 
       <h4>👇今すぐ友達にシェア👇</h4>
