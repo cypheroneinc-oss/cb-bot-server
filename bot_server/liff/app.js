@@ -1,4 +1,4 @@
- ⎿ /* =========================
+ /* =========================
        C Lab｜個性チェック
        - 回答送信→ /api/answer（分析向けv2）
        - 生ログ + 整形 + 正規化保存（冪等キーつき）
@@ -526,7 +526,7 @@
 
     // 結果タイトル（タイプ名）を抜き出し
     function getResultTitle() {
-      return ($('#result .ttl')?.textContent ||
+      return ($('#result-content .ttl')?.textContent ||
     '').replace('【タイプ】','').trim() || '診断結果';
     }
 
@@ -626,12 +626,37 @@
     document.addEventListener('DOMContentLoaded', () => {
       // DOM要素の存在確認とログ出力
       const requiredElements = ['#personalityForm', '#run', '#status',
-    '#progress', '#result'];
+    '#progress', '#result', '#result-modal'];
       requiredElements.forEach(selector => {
         const el = $(selector);
         console.log(`DOM check: ${selector} -> ${el ? 'OK' : 'NOT
     FOUND'}`);
       });
+
+      // 診断ボタンのイベントリスナーを必ず設定
+      const runBtn = $('#run');
+      if (runBtn) {
+        runBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          console.log('[run button] clicked!');
+
+          // フォームの結果を直接処理
+          const form = $('#personalityForm');
+          if (form) {
+            const fakeEvent = new Event('submit', { cancelable: true,
+    bubbles: true });
+            const profile = window.currentProfile ||
+    window.dummyProfile || { userId: 'direct-' + Date.now(),
+    displayName: 'テストユーザー' };
+            await onSubmit(fakeEvent, profile);
+          } else {
+            console.error('Form not found!');
+          }
+        });
+        console.log('[setup] Run button event listener attached');
+      } else {
+        console.error('[setup] Run button not found!');
+      }
 
       // モチベーション同期の初期設定（LIFF外でも動作）
       ['mot1', 'mot2', 'mot3'].forEach(motId => {
