@@ -924,11 +924,11 @@
   <script src="app.js"></script>
 
   <script>
-    // 年齢プルダウンを自動生成（12〜35歳）
+    // 年齢プルダウンを自動生成（12〜50歳）
     document.addEventListener('DOMContentLoaded', () => {
       const ageSelect = document.getElementById('age');
       if (ageSelect) {
-        for (let i = 12; i <= 35; i++) {
+        for (let i = 12; i <= 50; i++) {
           const option = document.createElement('option');
           option.value = i;
           option.textContent = `${i}歳`;
