@@ -28,11 +28,9 @@
 
     // ▼共有文面
     const CAPTION_LINE   = (title) =>
-      `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は『$
-    {title}』だった！やってみて！`;
+      `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は『${title}』だった！やってみて！`;
     const CAPTION_OTHERS = (title) =>
-      `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は『$
-    {title}』だった！みんなは？👇 #CLab #Cbyme #個性チェック`;
+      `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は『${title}』だった！みんなは？👇 #CLab #Cbyme #個性チェック`;
 
     // ===== ヘルパ =====
     const $  = (sel, p = document) => p.querySelector(sel);
@@ -187,9 +185,7 @@
         profile: prof
       });
 
-      await sendAnswer(prof, answers, result); // ← v2
-    送信（生/整/正の3保存 & 冪等）
-    }
+   await sendAnswer(prof, answers, result); // v2: 生/整/正の3保存 & 冪等
 
     function validateForm() {
       const answers = collectAnswers();
