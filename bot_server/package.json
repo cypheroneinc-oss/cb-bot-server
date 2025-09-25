@@ -1,9 +1,12 @@
 {
   "name": "c-lab-liff",
   "version": "1.0.0",
-  "type": "commonjs",
+  "type": "module",
   "engines": { "node": ">=18" },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0"
+  },
+  "scripts": {
+    "test": "node --test"
   }
 }
