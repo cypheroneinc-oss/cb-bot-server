@@ -43,24 +43,22 @@ export default async function handler(req, res) {
   let imageUrl = null;
 
   try {
-    const client = getSupabaseAdmin({ optional: true });
-    if (client) {
-      const { data, error } = await client
-        .from('result_assignments')
-        .select('cluster, hero_slug')
-        .eq('session_id', sessionId)
+    const client = await getSupabaseAdmin();
+    const { data, error } = await client
+      .from('result_assignments')
+      .select('cluster, hero_slug')
+      .eq('session_id', sessionId)
+      .maybeSingle();
+    if (!error && data) {
+      cluster = data.cluster;
+      heroSlug = data.hero_slug;
+      const asset = await client
+        .from('share_card_assets')
+        .select('image_url')
+        .eq('hero_slug', heroSlug)
         .maybeSingle();
-      if (!error && data) {
-        cluster = data.cluster;
-        heroSlug = data.hero_slug;
-        const asset = await client
-          .from('share_card_assets')
-          .select('image_url')
-          .eq('hero_slug', heroSlug)
-          .maybeSingle();
-        if (!asset.error) {
-          imageUrl = asset.data?.image_url ?? null;
-        }
+      if (!asset.error) {
+        imageUrl = asset.data?.image_url ?? null;
       }
     }
   } catch (error) {

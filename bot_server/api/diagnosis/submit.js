@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import questions from '../../data/questions.v1.js';
-import { runDiagnosis, QUESTION_VERSION } from '../../lib/scoring.js';
+import { scoreAndMapToHero } from '../../lib/scoring.js';
 import {
   saveAnswers,
   saveScores,
@@ -10,62 +10,71 @@ import {
 } from '../../lib/persistence.js';
 
 const QUESTION_COUNT = 25;
-const QUESTION_MAP = new Map(questions.map((question) => [question.id, question]));
+const QUESTION_LOOKUP = new Map(
+  questions.map((question) => [question.id, question])
+);
 
-function normalizeAnswers(rawAnswers, requestId) {
+function validateAnswers(rawAnswers, requestId) {
   if (!Array.isArray(rawAnswers) || rawAnswers.length !== QUESTION_COUNT) {
-    throw Object.assign(new Error('answers must be 25 items'), {
-      statusCode: 400,
-      requestId
-    });
+    return {
+      ok: false,
+      error: 'answers must be 25 items',
+      errorId: requestId
+    };
   }
 
   const seen = new Set();
   const normalized = [];
+  const persistencePayload = [];
 
   for (const answer of rawAnswers) {
     const questionId = answer?.questionId ?? answer?.question_id;
     const choiceKey = answer?.choiceKey ?? answer?.choice_key;
 
     if (typeof questionId !== 'string' || typeof choiceKey !== 'string') {
-      throw Object.assign(new Error('Invalid answer format'), {
-        statusCode: 400,
-        requestId
-      });
+      return {
+        ok: false,
+        error: 'Invalid answer format',
+        errorId: requestId
+      };
     }
 
     if (seen.has(questionId)) {
-      throw Object.assign(new Error(`Duplicate answer for ${questionId}`), {
-        statusCode: 400,
-        requestId
-      });
+      return {
+        ok: false,
+        error: `Duplicate answer for ${questionId}`,
+        errorId: requestId
+      };
     }
     seen.add(questionId);
 
-    const question = QUESTION_MAP.get(questionId);
+    const question = QUESTION_LOOKUP.get(questionId);
     if (!question) {
-      throw Object.assign(new Error(`Unknown question id: ${questionId}`), {
-        statusCode: 400,
-        requestId
-      });
+      return {
+        ok: false,
+        error: `Unknown question id: ${questionId}`,
+        errorId: requestId
+      };
     }
 
     const choiceExists = question.choices.some((choice) => choice.key === choiceKey);
     if (!choiceExists) {
-      throw Object.assign(new Error(`Unknown choice ${choiceKey} for ${questionId}`), {
-        statusCode: 400,
-        requestId
-      });
+      return {
+        ok: false,
+        error: `Unknown choice ${choiceKey} for ${questionId}`,
+        errorId: requestId
+      };
     }
 
     normalized.push({ questionId, choiceKey });
+    persistencePayload.push({ question_id: questionId, choice_key: choiceKey });
   }
 
-  return normalized;
+  return { ok: true, normalized, persistencePayload };
 }
 
 export function createSubmitHandler({
-  runDiagnosisFn = runDiagnosis,
+  scoreAndMapToHeroFn = scoreAndMapToHero,
   createOrReuseSessionFn = createOrReuseSession,
   saveAnswersFn = saveAnswers,
   saveScoresFn = saveScores,
@@ -74,87 +83,66 @@ export function createSubmitHandler({
 } = {}) {
   return async function handler(req, res) {
     if (req.method !== 'POST') {
-      res.status(405).json({ ok: false, error: 'Method Not Allowed' });
-      return;
+      return res.status(405).json({ ok: false, error: 'Method Not Allowed' });
     }
 
     const requestId = crypto.randomUUID?.() || String(Date.now());
 
     try {
-      const payload =
-        typeof req.body === 'string' ? JSON.parse(req.body) : req.body ?? {};
+      const body = req.body ?? {};
+      const { userId, sessionId: inputSessionId, answers } = body;
 
-      const { userId, sessionId: inputSessionId, answers } = payload;
-
-      if (typeof userId !== 'string' || userId.length === 0) {
-        res
+      if (!userId) {
+        return res
           .status(400)
           .json({ ok: false, error: 'userId required', errorId: requestId });
-        return;
       }
 
       if (inputSessionId && typeof inputSessionId !== 'string') {
-        res
-          .status(400)
-          .json({ ok: false, error: 'sessionId must be a string', errorId: requestId });
-        return;
+        return res.status(400).json({
+          ok: false,
+          error: 'sessionId must be a string',
+          errorId: requestId
+        });
       }
 
-      let normalizedAnswers;
-      try {
-        normalizedAnswers = normalizeAnswers(answers, requestId);
-      } catch (validationError) {
-        if (validationError.statusCode === 400) {
-          res.status(400).json({
-            ok: false,
-            error: validationError.message,
-            errorId: requestId
-          });
-          return;
-        }
-        throw validationError;
+      const validation = validateAnswers(answers, requestId);
+      if (!validation.ok) {
+        return res.status(400).json(validation);
       }
 
-      const sessionInfo = inputSessionId
-        ? { sessionId: inputSessionId }
-        : await createOrReuseSessionFn({ userId, version: QUESTION_VERSION });
+      const { normalized, persistencePayload } = validation;
 
-      const sessionId = sessionInfo.sessionId;
+      const sessionId = inputSessionId
+        ? inputSessionId
+        : (await createOrReuseSessionFn({ userId, version: 1 })).sessionId;
 
-      const diagnosis = runDiagnosisFn(normalizedAnswers, sessionId);
+      await saveAnswersFn({ sessionId, answers: persistencePayload });
 
-      await saveAnswersFn({
-        sessionId,
-        answers: normalizedAnswers.map(({ questionId, choiceKey }) => ({
-          question_id: questionId,
-          choice_key: choiceKey
-        }))
-      });
+      const { factorScores, total, cluster, heroSlug } = scoreAndMapToHeroFn(
+        normalized,
+        questions
+      );
 
-      const factorScores = diagnosis.scores;
-      await saveScoresFn({ sessionId, factorScores, total: factorScores.total });
-      await saveResultFn({
-        sessionId,
-        cluster: diagnosis.cluster,
-        heroSlug: diagnosis.heroSlug
-      });
+      await saveScoresFn({ sessionId, factorScores, total });
+      await saveResultFn({ sessionId, cluster, heroSlug });
 
-      const imageUrl = await getShareCardImageFn(diagnosis.heroSlug);
+      const imageUrl = await getShareCardImageFn(heroSlug);
 
-      res.status(200).json({
+      return res.status(200).json({
         ok: true,
         sessionId,
-        questionSetVersion: QUESTION_VERSION,
-        cluster: diagnosis.cluster,
-        clusterScores: diagnosis.clusterScores,
-        heroSlug: diagnosis.heroSlug,
+        cluster,
+        heroSlug,
         imageUrl,
         factorScores,
-        total: factorScores.total
+        total
       });
     } catch (error) {
       console.error('[submit]', requestId, error);
-      res.status(500).json({ ok: false, error: 'internal', errorId: requestId });
+      return res
+        .status(500)
+        .json({ ok: false, error: 'internal', errorId: requestId });
     }
   };
 }

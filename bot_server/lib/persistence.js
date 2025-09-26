@@ -5,7 +5,7 @@ export async function createOrReuseSession({ userId, version = 1 }) {
     throw new Error('userId is required to create a session');
   }
 
-  const supabase = getSupabaseAdmin();
+  const supabase = await getSupabaseAdmin();
 
   const existing = await supabase
     .from('diagnostic_sessions')
@@ -43,7 +43,7 @@ export async function saveAnswers({ sessionId, answers }) {
     throw new Error('sessionId is required to save answers');
   }
 
-  const supabase = getSupabaseAdmin();
+  const supabase = await getSupabaseAdmin();
 
   await supabase.from('answers').delete().eq('session_id', sessionId);
 
@@ -72,7 +72,7 @@ export async function saveScores({ sessionId, factorScores, total }) {
     throw new Error('factorScores are required to save scores');
   }
 
-  const supabase = getSupabaseAdmin();
+  const supabase = await getSupabaseAdmin();
 
   const payload = {
     session_id: sessionId,
@@ -103,7 +103,7 @@ export async function saveResult({ sessionId, cluster, heroSlug }) {
     throw new Error('cluster and heroSlug are required');
   }
 
-  const supabase = getSupabaseAdmin();
+  const supabase = await getSupabaseAdmin();
 
   const { error } = await supabase
     .from('result_assignments')
@@ -122,20 +122,25 @@ export async function getShareCardImage(heroSlug) {
     return null;
   }
 
-  const supabase = getSupabaseAdmin({ optional: true });
-  if (!supabase) {
-    return null;
-  }
+  try {
+    const supabase = await getSupabaseAdmin();
 
-  const { data, error } = await supabase
-    .from('share_card_assets')
-    .select('image_url')
-    .eq('hero_slug', heroSlug)
-    .maybeSingle();
+    const { data, error } = await supabase
+      .from('share_card_assets')
+      .select('image_url')
+      .eq('hero_slug', heroSlug)
+      .maybeSingle();
 
-  if (error && error.code !== 'PGRST116') {
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    return data?.image_url ?? null;
+  } catch (error) {
+    if (error?.message?.includes('Missing SUPABASE_URL')) {
+      console.warn('[shareCard] Supabase not configured');
+      return null;
+    }
     throw error;
   }
-
-  return data?.image_url ?? null;
 }

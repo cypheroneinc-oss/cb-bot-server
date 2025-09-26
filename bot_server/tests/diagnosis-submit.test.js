@@ -62,8 +62,8 @@ test('executes scoring pipeline and persistence on success', async () => {
     saveScoresFn,
     saveResultFn,
     getShareCardImageFn,
-    runDiagnosisFn: () => ({
-      scores: {
+    scoreAndMapToHeroFn: () => ({
+      factorScores: {
         mbti: 10,
         safety: 10,
         workstyle: 10,
@@ -72,8 +72,8 @@ test('executes scoring pipeline and persistence on success', async () => {
         sync: 10,
         total: 60
       },
+      total: 60,
       cluster: 'challenge',
-      clusterScores: { challenge: 1 },
       heroSlug: 'oda'
     })
   });
@@ -89,9 +89,7 @@ test('executes scoring pipeline and persistence on success', async () => {
   assert.deepEqual(res.jsonPayload, {
     ok: true,
     sessionId: 'session-123',
-    questionSetVersion: 1,
     cluster: 'challenge',
-    clusterScores: { challenge: 1 },
     heroSlug: 'oda',
     imageUrl: 'https://example.com/image.png',
     factorScores: {
@@ -124,8 +122,8 @@ test('returns 500 when persistence fails', async () => {
     saveAnswersFn: async () => {
       throw new Error('DB down');
     },
-    runDiagnosisFn: () => ({
-      scores: {
+    scoreAndMapToHeroFn: () => ({
+      factorScores: {
         mbti: 10,
         safety: 10,
         workstyle: 10,
@@ -134,8 +132,8 @@ test('returns 500 when persistence fails', async () => {
         sync: 10,
         total: 60
       },
+      total: 60,
       cluster: 'challenge',
-      clusterScores: { challenge: 1 },
       heroSlug: 'oda'
     })
   });

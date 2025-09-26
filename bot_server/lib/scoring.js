@@ -575,6 +575,40 @@ export function runDiagnosis(answers, sessionId) {
   };
 }
 
+export function scoreAndMapToHero(answers, questionDataset = getQuestions(QUESTION_VERSION)) {
+  const questionMap = new Map(questionDataset.map((question) => [question.id, question]));
+
+  const normalized = answers.map((answer) => {
+    const questionId = answer?.questionId ?? answer?.question_id;
+    const choiceKey = answer?.choiceKey ?? answer?.choice_key;
+
+    if (!questionId || !choiceKey) {
+      throw new Error('Invalid answer payload');
+    }
+
+    const question = questionMap.get(questionId);
+    if (!question) {
+      throw new Error(`Unknown question id: ${questionId}`);
+    }
+
+    const hasChoice = question.choices.some((choice) => choice.key === choiceKey);
+    if (!hasChoice) {
+      throw new Error(`Unknown choice ${choiceKey} for ${questionId}`);
+    }
+
+    return { questionId, choiceKey };
+  });
+
+  const diagnosis = runDiagnosis(normalized);
+
+  return {
+    factorScores: diagnosis.scores,
+    total: diagnosis.scores.total,
+    cluster: diagnosis.cluster,
+    heroSlug: diagnosis.heroSlug
+  };
+}
+
 export {
   QUESTION_VERSION,
   QUESTION_IDS,

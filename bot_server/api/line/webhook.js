@@ -49,19 +49,20 @@ async function replyMessage(replyToken, messages) {
 
 async function createSession(userId) {
   const sessionId = crypto.randomUUID();
-  const client = getSupabaseAdmin({ optional: true });
-  if (!client) {
-    return sessionId;
-  }
-  const { error } = await client
-    .from('diagnostic_sessions')
-    .insert({
-      id: sessionId,
-      user_id: userId,
-      question_set_version: QUESTION_VERSION
-    });
-  if (error) {
-    throw error;
+  try {
+    const client = await getSupabaseAdmin();
+    const { error } = await client
+      .from('diagnostic_sessions')
+      .insert({
+        id: sessionId,
+        user_id: userId,
+        question_set_version: QUESTION_VERSION
+      });
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error('[line:webhook] Failed to persist session', error);
   }
   return sessionId;
 }
