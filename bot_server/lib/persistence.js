@@ -5,7 +5,7 @@ export async function createOrReuseSession({ userId, version = 1 }) {
     throw new Error('userId is required to create a session');
   }
 
-  const supabase = await getSupabaseAdmin();
+  const supabase = getSupabaseAdmin();
 
   const existing = await supabase
     .from('diagnostic_sessions')
@@ -43,7 +43,7 @@ export async function saveAnswers({ sessionId, answers }) {
     throw new Error('sessionId is required to save answers');
   }
 
-  const supabase = await getSupabaseAdmin();
+  const supabase = getSupabaseAdmin();
 
   await supabase.from('answers').delete().eq('session_id', sessionId);
 
@@ -72,7 +72,7 @@ export async function saveScores({ sessionId, factorScores, total }) {
     throw new Error('factorScores are required to save scores');
   }
 
-  const supabase = await getSupabaseAdmin();
+  const supabase = getSupabaseAdmin();
 
   const payload = {
     session_id: sessionId,
@@ -103,7 +103,7 @@ export async function saveResult({ sessionId, cluster, heroSlug }) {
     throw new Error('cluster and heroSlug are required');
   }
 
-  const supabase = await getSupabaseAdmin();
+  const supabase = getSupabaseAdmin();
 
   const { error } = await supabase
     .from('result_assignments')
@@ -123,7 +123,7 @@ export async function getShareCardImage(heroSlug) {
   }
 
   try {
-    const supabase = await getSupabaseAdmin();
+    const supabase = getSupabaseAdmin();
 
     const { data, error } = await supabase
       .from('share_card_assets')

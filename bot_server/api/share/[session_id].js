@@ -43,7 +43,7 @@ export default async function handler(req, res) {
   let imageUrl = null;
 
   try {
-    const client = await getSupabaseAdmin();
+    const client = getSupabaseAdmin();
     const { data, error } = await client
       .from('result_assignments')
       .select('cluster, hero_slug')

@@ -50,7 +50,7 @@ async function replyMessage(replyToken, messages) {
 async function createSession(userId) {
   const sessionId = crypto.randomUUID();
   try {
-    const client = await getSupabaseAdmin();
+    const client = getSupabaseAdmin();
     const { error } = await client
       .from('diagnostic_sessions')
       .insert({
