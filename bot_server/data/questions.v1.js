@@ -1,4 +1,4 @@
-[
+export default [
   {"id":"Q1","text":"授業でグループ発表の役割を決めるとき、どう動く？",
    "choices":[
      {"key":"A","label":"みんなの前でサッと手を挙げて進める",
@@ -241,3 +241,4 @@
       "tags":{"CLUSTER_HINT":["strategy"],"Motivation":["security","growth"]},"w":1.0}
    ]}
 ]
+;

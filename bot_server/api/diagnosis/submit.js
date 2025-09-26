@@ -1,85 +1,160 @@
+import crypto from 'node:crypto';
+import questions from '../../data/questions.v1.js';
 import { runDiagnosis, QUESTION_VERSION } from '../../lib/scoring.js';
-import { buildFlexMessage } from '../../lib/line.js';
 import {
-  ensureSession,
-  persistAnswers,
-  persistScores,
-  persistAssignment
+  saveAnswers,
+  saveScores,
+  saveResult,
+  getShareCardImage,
+  createOrReuseSession
 } from '../../lib/persistence.js';
+
+const QUESTION_COUNT = 25;
+const QUESTION_MAP = new Map(questions.map((question) => [question.id, question]));
+
+function normalizeAnswers(rawAnswers, requestId) {
+  if (!Array.isArray(rawAnswers) || rawAnswers.length !== QUESTION_COUNT) {
+    throw Object.assign(new Error('answers must be 25 items'), {
+      statusCode: 400,
+      requestId
+    });
+  }
+
+  const seen = new Set();
+  const normalized = [];
+
+  for (const answer of rawAnswers) {
+    const questionId = answer?.questionId ?? answer?.question_id;
+    const choiceKey = answer?.choiceKey ?? answer?.choice_key;
+
+    if (typeof questionId !== 'string' || typeof choiceKey !== 'string') {
+      throw Object.assign(new Error('Invalid answer format'), {
+        statusCode: 400,
+        requestId
+      });
+    }
+
+    if (seen.has(questionId)) {
+      throw Object.assign(new Error(`Duplicate answer for ${questionId}`), {
+        statusCode: 400,
+        requestId
+      });
+    }
+    seen.add(questionId);
+
+    const question = QUESTION_MAP.get(questionId);
+    if (!question) {
+      throw Object.assign(new Error(`Unknown question id: ${questionId}`), {
+        statusCode: 400,
+        requestId
+      });
+    }
+
+    const choiceExists = question.choices.some((choice) => choice.key === choiceKey);
+    if (!choiceExists) {
+      throw Object.assign(new Error(`Unknown choice ${choiceKey} for ${questionId}`), {
+        statusCode: 400,
+        requestId
+      });
+    }
+
+    normalized.push({ questionId, choiceKey });
+  }
+
+  return normalized;
+}
 
 export function createSubmitHandler({
   runDiagnosisFn = runDiagnosis,
-  buildFlexMessageFn = buildFlexMessage,
-  ensureSessionFn = ensureSession,
-  persistAnswersFn = persistAnswers,
-  persistScoresFn = persistScores,
-  persistAssignmentFn = persistAssignment
+  createOrReuseSessionFn = createOrReuseSession,
+  saveAnswersFn = saveAnswers,
+  saveScoresFn = saveScores,
+  saveResultFn = saveResult,
+  getShareCardImageFn = getShareCardImage
 } = {}) {
   return async function handler(req, res) {
     if (req.method !== 'POST') {
-      res.status(405).json({ error: 'Method Not Allowed' });
+      res.status(405).json({ ok: false, error: 'Method Not Allowed' });
       return;
     }
 
+    const requestId = crypto.randomUUID?.() || String(Date.now());
+
     try {
-      let payload = req.body ?? {};
-      if (typeof payload === 'string') {
-        payload = JSON.parse(payload);
-      }
-      const { sessionId, answers, userId } = payload;
+      const payload =
+        typeof req.body === 'string' ? JSON.parse(req.body) : req.body ?? {};
 
-      if (typeof sessionId !== 'string' || sessionId.length === 0) {
-        res.status(400).json({ error: 'sessionId is required' });
+      const { userId, sessionId: inputSessionId, answers } = payload;
+
+      if (typeof userId !== 'string' || userId.length === 0) {
+        res
+          .status(400)
+          .json({ ok: false, error: 'userId required', errorId: requestId });
         return;
       }
 
-      if (!Array.isArray(answers)) {
-        res.status(400).json({ error: 'answers must be an array' });
+      if (inputSessionId && typeof inputSessionId !== 'string') {
+        res
+          .status(400)
+          .json({ ok: false, error: 'sessionId must be a string', errorId: requestId });
         return;
       }
 
-      const session = await ensureSessionFn(sessionId, { userId });
-      if (session.exists === false) {
-        res.status(404).json({
-          error: 'SessionNotFound',
-          message: 'セッションが無効です。LINEから診断を開始し直してください。'
-        });
-        return;
+      let normalizedAnswers;
+      try {
+        normalizedAnswers = normalizeAnswers(answers, requestId);
+      } catch (validationError) {
+        if (validationError.statusCode === 400) {
+          res.status(400).json({
+            ok: false,
+            error: validationError.message,
+            errorId: requestId
+          });
+          return;
+        }
+        throw validationError;
       }
 
-      const normalizedAnswers = answers.map((item) => ({
-        questionId: item.questionId,
-        choiceKey: item.choiceKey
-      }));
+      const sessionInfo = inputSessionId
+        ? { sessionId: inputSessionId }
+        : await createOrReuseSessionFn({ userId, version: QUESTION_VERSION });
 
-      const result = runDiagnosisFn(normalizedAnswers, sessionId);
+      const sessionId = sessionInfo.sessionId;
 
-      await persistAnswersFn(sessionId, normalizedAnswers);
-      await persistScoresFn(sessionId, result.scores);
-      const assignment = await persistAssignmentFn(sessionId, result.cluster, result.heroSlug);
+      const diagnosis = runDiagnosisFn(normalizedAnswers, sessionId);
 
-      const imageUrl = assignment.asset?.image_url ?? null;
-      const flexMessage = buildFlexMessageFn({
-        heroSlug: result.heroSlug,
-        cluster: result.cluster,
-        imageUrl,
-        displayName: 'あなたの働き方スタイル',
-        sessionId
+      await saveAnswersFn({
+        sessionId,
+        answers: normalizedAnswers.map(({ questionId, choiceKey }) => ({
+          question_id: questionId,
+          choice_key: choiceKey
+        }))
       });
+
+      const factorScores = diagnosis.scores;
+      await saveScoresFn({ sessionId, factorScores, total: factorScores.total });
+      await saveResultFn({
+        sessionId,
+        cluster: diagnosis.cluster,
+        heroSlug: diagnosis.heroSlug
+      });
+
+      const imageUrl = await getShareCardImageFn(diagnosis.heroSlug);
 
       res.status(200).json({
+        ok: true,
         sessionId,
         questionSetVersion: QUESTION_VERSION,
-        scores: result.scores,
-        cluster: result.cluster,
-        clusterScores: result.clusterScores,
-        heroSlug: result.heroSlug,
-        flexMessage
+        cluster: diagnosis.cluster,
+        clusterScores: diagnosis.clusterScores,
+        heroSlug: diagnosis.heroSlug,
+        imageUrl,
+        factorScores,
+        total: factorScores.total
       });
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Diagnosis submission error', error);
-      res.status(500).json({ error: 'Internal Server Error' });
+      console.error('[submit]', requestId, error);
+      res.status(500).json({ ok: false, error: 'internal', errorId: requestId });
     }
   };
 }

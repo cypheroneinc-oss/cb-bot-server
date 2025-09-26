@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runDiagnosis, decideHero, pickStable } from '../lib/scoring.js';
-import questions from '../data/questions.v1.json' assert { type: 'json' };
+import questions from '../data/questions.v1.js';
 
 function buildAnswers(choiceMap) {
   return questions.map((question) => ({

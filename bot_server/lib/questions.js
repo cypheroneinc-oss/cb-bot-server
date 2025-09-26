@@ -1,4 +1,4 @@
-import questions from '../data/questions.v1.json' assert { type: 'json' };
+import questions from '../data/questions.v1.js';
 
 export function getQuestions(version = 1) {
   if (version !== 1) {

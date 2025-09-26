@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { QUESTION_VERSION } from '../../lib/scoring.js';
-import { getSupabaseClient } from '../../lib/supabase.js';
+import { getSupabaseAdmin } from '../../lib/supabase.js';
 import { verifyLineSignature } from '../../lib/line.js';
 
 export const config = {
@@ -49,7 +49,7 @@ async function replyMessage(replyToken, messages) {
 
 async function createSession(userId) {
   const sessionId = crypto.randomUUID();
-  const client = getSupabaseClient({ optional: true });
+  const client = getSupabaseAdmin({ optional: true });
   if (!client) {
     return sessionId;
   }

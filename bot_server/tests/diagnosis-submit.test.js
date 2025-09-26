@@ -1,78 +1,154 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { createSubmitHandler } from '../api/diagnosis/submit.js';
+import questions from '../data/questions.v1.js';
 
 function createResponse() {
   return {
     statusCode: 200,
+    jsonPayload: undefined,
     headers: {},
-    jsonPayload: null,
-    body: null,
     status(code) {
       this.statusCode = code;
       return this;
     },
-    setHeader(name, value) {
-      this.headers[name] = value;
-    },
     json(payload) {
       this.jsonPayload = payload;
-      this.body = payload;
       return this;
     }
   };
 }
 
-test('returns 404 when session is missing', async (t) => {
-  const { createSubmitHandler } = await import('../api/diagnosis/submit.js');
-
-  const ensureSessionMock = mock.fn(async () => ({
-    sessionId: 'missing',
-    userId: null,
-    persisted: false,
-    exists: false
-  }));
-  const persistAnswersMock = mock.fn(async () => {
-    throw new Error('persistAnswers should not be called when session is missing');
-  });
-  const persistScoresMock = mock.fn(async () => {
-    throw new Error('persistScores should not be called when session is missing');
-  });
-  const persistAssignmentMock = mock.fn(async () => {
-    throw new Error('persistAssignment should not be called when session is missing');
-  });
-
-  const handler = createSubmitHandler({
-    ensureSessionFn: ensureSessionMock,
-    persistAnswersFn: persistAnswersMock,
-    persistScoresFn: persistScoresMock,
-    persistAssignmentFn: persistAssignmentMock,
-    runDiagnosisFn: () => ({
-      scores: { total: 0 },
-      cluster: 'challenge',
-      clusterScores: {},
-      heroSlug: 'oda'
-    }),
-    buildFlexMessageFn: () => ({})
-  });
-
-  const req = {
-    method: 'POST',
-    body: {
-      sessionId: 'missing',
-      answers: [{ questionId: 'Q1', choiceKey: 'A' }]
-    }
-  };
+test('rejects non-POST methods', async () => {
+  const handler = createSubmitHandler();
   const res = createResponse();
 
-  await handler(req, res);
+  await handler({ method: 'GET', body: null }, res);
 
-  assert.equal(res.statusCode, 404);
-  assert.deepEqual(res.jsonPayload, {
-    error: 'SessionNotFound',
-    message: 'セッションが無効です。LINEから診断を開始し直してください。'
+  assert.equal(res.statusCode, 405);
+  assert.deepEqual(res.jsonPayload, { ok: false, error: 'Method Not Allowed' });
+});
+
+test('returns 400 when answers are incomplete', async () => {
+  const handler = createSubmitHandler();
+  const res = createResponse();
+
+  await handler(
+    { method: 'POST', body: { userId: 'user-1', answers: [] } },
+    res
+  );
+
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.jsonPayload.ok, false);
+  assert.equal(res.jsonPayload.error, 'answers must be 25 items');
+  assert.ok(res.jsonPayload.errorId);
+});
+
+test('executes scoring pipeline and persistence on success', async () => {
+  const answers = questions.map((question) => ({
+    questionId: question.id,
+    choiceKey: question.choices[0].key
+  }));
+
+  const createOrReuseSessionFn = mock.fn(async () => ({ sessionId: 'session-123' }));
+  const saveAnswersFn = mock.fn(async () => {});
+  const saveScoresFn = mock.fn(async () => {});
+  const saveResultFn = mock.fn(async () => {});
+  const getShareCardImageFn = mock.fn(async () => 'https://example.com/image.png');
+
+  const handler = createSubmitHandler({
+    createOrReuseSessionFn,
+    saveAnswersFn,
+    saveScoresFn,
+    saveResultFn,
+    getShareCardImageFn,
+    runDiagnosisFn: () => ({
+      scores: {
+        mbti: 10,
+        safety: 10,
+        workstyle: 10,
+        motivation: 10,
+        ng: 10,
+        sync: 10,
+        total: 60
+      },
+      cluster: 'challenge',
+      clusterScores: { challenge: 1 },
+      heroSlug: 'oda'
+    })
   });
-  assert.equal(ensureSessionMock.mock.callCount(), 1);
-  assert.equal(persistAnswersMock.mock.callCount(), 0);
-  assert.equal(persistScoresMock.mock.callCount(), 0);
-  assert.equal(persistAssignmentMock.mock.callCount(), 0);
+
+  const res = createResponse();
+
+  await handler(
+    { method: 'POST', body: { userId: 'user-1', answers } },
+    res
+  );
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.jsonPayload, {
+    ok: true,
+    sessionId: 'session-123',
+    questionSetVersion: 1,
+    cluster: 'challenge',
+    clusterScores: { challenge: 1 },
+    heroSlug: 'oda',
+    imageUrl: 'https://example.com/image.png',
+    factorScores: {
+      mbti: 10,
+      safety: 10,
+      workstyle: 10,
+      motivation: 10,
+      ng: 10,
+      sync: 10,
+      total: 60
+    },
+    total: 60
+  });
+
+  assert.equal(createOrReuseSessionFn.mock.callCount(), 1);
+  assert.equal(saveAnswersFn.mock.callCount(), 1);
+  assert.equal(saveScoresFn.mock.callCount(), 1);
+  assert.equal(saveResultFn.mock.callCount(), 1);
+  assert.equal(getShareCardImageFn.mock.callCount(), 1);
+});
+
+test('returns 500 when persistence fails', async () => {
+  const answers = questions.map((question) => ({
+    questionId: question.id,
+    choiceKey: question.choices[0].key
+  }));
+
+  const handler = createSubmitHandler({
+    createOrReuseSessionFn: async () => ({ sessionId: 'session-err' }),
+    saveAnswersFn: async () => {
+      throw new Error('DB down');
+    },
+    runDiagnosisFn: () => ({
+      scores: {
+        mbti: 10,
+        safety: 10,
+        workstyle: 10,
+        motivation: 10,
+        ng: 10,
+        sync: 10,
+        total: 60
+      },
+      cluster: 'challenge',
+      clusterScores: { challenge: 1 },
+      heroSlug: 'oda'
+    })
+  });
+
+  const res = createResponse();
+
+  await handler(
+    { method: 'POST', body: { userId: 'user-1', answers } },
+    res
+  );
+
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.jsonPayload.ok, false);
+  assert.equal(res.jsonPayload.error, 'internal');
+  assert.ok(res.jsonPayload.errorId);
 });

@@ -1,4 +1,4 @@
-import { getSupabaseClient } from '../../lib/supabase.js';
+import { getSupabaseAdmin } from '../../lib/supabase.js';
 
 function renderHtml({ sessionId, cluster, heroSlug, imageUrl }) {
   const title = cluster && heroSlug ? `診断結果｜${cluster}｜${heroSlug}` : '診断結果を準備中';
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
   let imageUrl = null;
 
   try {
-    const client = getSupabaseClient({ optional: true });
+    const client = getSupabaseAdmin({ optional: true });
     if (client) {
       const { data, error } = await client
         .from('result_assignments')
