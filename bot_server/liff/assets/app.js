@@ -10,12 +10,12 @@ const CLUSTER_LABELS = {
 };
 
 const LIKERT_OPTIONS = [
-  { value: 1, label: 'Strongly Agree', size: 'large' },
-  { value: 2, label: 'Agree', size: 'medium' },
-  { value: 3, label: 'Slightly Agree', size: 'small' },
-  { value: 4, label: 'Slightly Disagree', size: 'small' },
-  { value: 5, label: 'Disagree', size: 'medium' },
-  { value: 6, label: 'Strongly Disagree', size: 'large' },
+  { value: 1, label: 'とてもそう思う', size: 'large' },
+  { value: 2, label: 'かなりそう思う', size: 'medium' },
+  { value: 3, label: '少しそう思う', size: 'small' },
+  { value: 4, label: '少しそう思わない', size: 'small' },
+  { value: 5, label: 'かなりそう思わない', size: 'medium' },
+  { value: 6, label: '全くそう思わない', size: 'large' },
 ];
 
 const LIKERT_SHORTCUT_KEYS = new Set(['1', '2', '3', '4', '5', '6']);
@@ -183,6 +183,7 @@ function renderQuestions() {
     list.dataset.likertContainer = 'true';
     list.setAttribute('role', 'radiogroup');
     list.setAttribute('aria-labelledby', headingId);
+    list.tabIndex = 0;
 
     const previousSelection = appState.answers.get(question.code);
 
