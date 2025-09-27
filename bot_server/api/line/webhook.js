@@ -26,7 +26,7 @@ await fetch('https://api.line.me/v2/bot/message/push', {
 method: 'POST',
 headers: {
 'Content-Type': 'application/json',
-Authorization: Bearer ${accessToken}
+Authorization: `Bearer ${accessToken}`
 },
 body: JSON.stringify({ to, messages })
 });
@@ -71,8 +71,8 @@ function buildStartMessage(sessionId) {
 const liffId = process.env.LIFF_ID;
 const baseUrl = process.env.APP_BASE_URL ?? 'https://example.com';
 const entryUrl = liffId
-? https://liff.line.me/${liffId}?session=${sessionId}
-: ${baseUrl}/diagnosis?session=${sessionId};
+? `https://liff.line.me/${liffId}?session=${sessionId}`
+: `${baseUrl}/diagnosis?session=${sessionId}`;
 return [
 {
 type: 'text',
