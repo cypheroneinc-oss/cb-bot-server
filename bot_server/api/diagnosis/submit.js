@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { score, QUESTION_VERSION } from '../../lib/scoring/index.js';
+import { score, QUESTION_VERSION, mapLikertToChoice } from '../../lib/scoring/index.js';
 import { getQuestionDataset } from '../../lib/questions/index.js';
 import {
   saveAnswers,
@@ -19,7 +19,14 @@ function normalizeAnswer(answer) {
   const code =
     answer?.code ?? answer?.questionId ?? answer?.question_id ?? answer?.id ?? null;
   const key = answer?.key ?? answer?.choiceKey ?? answer?.choice_key ?? null;
-  return { code, key };
+  const scale = answer?.scale ?? answer?.value ?? null;
+  const scaleMax =
+    answer?.scaleMax ??
+    answer?.maxScale ??
+    answer?.scale_range ??
+    answer?.scaleRange ??
+    null;
+  return { code, key, scale, scaleMax };
 }
 
 function validateAnswers(rawAnswers, requestId) {
@@ -36,8 +43,8 @@ function validateAnswers(rawAnswers, requestId) {
   const persistencePayload = [];
 
   for (const rawAnswer of rawAnswers) {
-    const { code, key } = normalizeAnswer(rawAnswer);
-    if (typeof code !== 'string' || typeof key !== 'string') {
+    const { code, key, scale, scaleMax } = normalizeAnswer(rawAnswer);
+    if (typeof code !== 'string') {
       return {
         ok: false,
         error: 'Invalid answer format',
@@ -63,17 +70,33 @@ function validateAnswers(rawAnswers, requestId) {
       };
     }
 
-    const match = question.choices.some((choice) => choice.key === key);
+    let resolvedKey = key;
+    let weight = typeof rawAnswer?.w === 'number' ? rawAnswer.w : undefined;
+
+    if (typeof resolvedKey !== 'string') {
+      const mapped = mapLikertToChoice({ questionId: code, scale, scaleMax });
+      if (!mapped || typeof mapped.choiceKey !== 'string') {
+        return {
+          ok: false,
+          error: `Invalid scale for ${code}`,
+          errorId: requestId,
+        };
+      }
+      resolvedKey = mapped.choiceKey;
+      weight = mapped.w;
+    }
+
+    const match = question.choices.some((choice) => choice.key === resolvedKey);
     if (!match) {
       return {
         ok: false,
-        error: `Unknown choice ${key} for ${code}`,
+        error: `Unknown choice ${resolvedKey} for ${code}`,
         errorId: requestId,
       };
     }
 
-    normalized.push({ code, key });
-    persistencePayload.push({ question_id: code, choice_key: key });
+    normalized.push({ code, key: resolvedKey, w: weight });
+    persistencePayload.push({ question_id: code, choice_key: resolvedKey, scale });
   }
 
   if (normalized.length !== EXPECTED_COUNT) {
