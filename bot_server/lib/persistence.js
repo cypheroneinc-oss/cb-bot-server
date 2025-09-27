@@ -1,109 +1,146 @@
-import { getSupabaseClient } from './supabase.js';
-import { QUESTION_VERSION } from './scoring.js';
+import { getSupabaseAdmin } from './supabase.js';
 
-export async function ensureSession(sessionId, { userId } = {}) {
-  const client = getSupabaseClient({ optional: true });
-  if (!client) {
-    return { sessionId, userId: userId ?? null, persisted: false };
-  }
-
-  const { data, error } = await client
-    .from('diagnostic_sessions')
-    .select('id, user_id')
-    .eq('id', sessionId)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (data) {
-    return { sessionId: data.id, userId: data.user_id, persisted: true };
-  }
-
-  if (!userId) {
-    throw new Error('Session does not exist and user id is required to create one');
-  }
-
-  const insert = await client.from('diagnostic_sessions').insert({
-    id: sessionId,
-    user_id: userId,
-    question_set_version: QUESTION_VERSION
-  });
-
-  if (insert.error) {
-    throw insert.error;
-  }
-
-  return { sessionId, userId, persisted: true };
+export async function createOrReuseSession({ userId, version = 1 }) {
+if (!userId) {
+throw new Error('userId is required to create a session');
 }
 
-export async function persistAnswers(sessionId, answers) {
-  const client = getSupabaseClient({ optional: true });
-  if (!client) {
-    return { persisted: false };
-  }
+const supabase = getSupabaseAdmin();
 
-  await client.from('answers').delete().eq('session_id', sessionId);
-  const payload = answers.map(({ questionId, choiceKey }) => ({
-    session_id: sessionId,
-    question_id: questionId,
-    choice_key: choiceKey
-  }));
-  const { error } = await client.from('answers').insert(payload);
-  if (error) {
-    throw error;
-  }
-  return { persisted: true };
+const existing = await supabase
+.from('diagnostic_sessions')
+.select('id')
+.eq('user_id', userId)
+.eq('question_set_version', version)
+.is('finished_at', null)
+.order('started_at', { ascending: false })
+.limit(1)
+.maybeSingle();
+
+if (existing.error && existing.error.code !== 'PGRST116') {
+throw existing.error;
 }
 
-export async function persistScores(sessionId, scores) {
-  const client = getSupabaseClient({ optional: true });
-  if (!client) {
-    return { persisted: false };
-  }
-  const { error } = await client
-    .from('scores')
-    .upsert({
-      session_id: sessionId,
-      mbti: scores.mbti,
-      safety: scores.safety,
-      workstyle: scores.workstyle,
-      motivation: scores.motivation,
-      ng: scores.ng,
-      sync: scores.sync,
-      total: scores.total
-    });
-  if (error) {
-    throw error;
-  }
-  return { persisted: true };
+if (existing.data?.id) {
+return { sessionId: existing.data.id };
 }
 
-export async function persistAssignment(sessionId, cluster, heroSlug) {
-  const client = getSupabaseClient({ optional: true });
-  if (!client) {
-    return { persisted: false, asset: null };
-  }
+const inserted = await supabase
+.from('diagnostic_sessions')
+.insert({ user_id: userId, question_set_version: version })
+.select('id')
+.single();
 
-  const { data, error } = await client
-    .from('result_assignments')
-    .upsert({ session_id: sessionId, cluster, hero_slug: heroSlug })
-    .select('session_id')
-    .single();
-  if (error) {
-    throw error;
-  }
+if (inserted.error) {
+throw inserted.error;
+}
 
-  const asset = await client
-    .from('share_card_assets')
-    .select('image_url')
-    .eq('hero_slug', heroSlug)
-    .maybeSingle();
+return { sessionId: inserted.data.id };
+}
 
-  if (asset.error) {
-    throw asset.error;
-  }
+export async function saveAnswers({ sessionId, answers }) {
+if (!sessionId) {
+throw new Error('sessionId is required to save answers');
+}
 
-  return { persisted: true, asset: asset.data };
+const supabase = getSupabaseAdmin();
+
+await supabase.from('answers').delete().eq('session_id', sessionId);
+
+if (!Array.isArray(answers) || answers.length === 0) {
+return;
+}
+
+const payload = answers.map(({ question_id, choice_key }) => ({
+session_id: sessionId,
+question_id,
+choice_key
+}));
+
+const { error } = await supabase.from('answers').insert(payload);
+if (error) {
+throw error;
+}
+}
+
+export async function saveScores({ sessionId, factorScores, total }) {
+if (!sessionId) {
+throw new Error('sessionId is required to save scores');
+}
+
+if (!factorScores) {
+throw new Error('factorScores are required to save scores');
+}
+
+const supabase = getSupabaseAdmin();
+
+const payload = {
+session_id: sessionId,
+mbti: factorScores.mbti,
+safety: factorScores.safety,
+workstyle: factorScores.workstyle,
+motivation: factorScores.motivation,
+ng: factorScores.ng,
+sync: factorScores.sync,
+total: total ?? factorScores.total ?? 0
+};
+
+const { error } = await supabase
+.from('scores')
+.upsert(payload, { onConflict: 'session_id' });
+
+if (error) {
+throw error;
+}
+}
+
+export async function saveResult({ sessionId, cluster, heroSlug }) {
+if (!sessionId) {
+throw new Error('sessionId is required to save result');
+}
+
+if (!cluster || !heroSlug) {
+throw new Error('cluster and heroSlug are required');
+}
+
+const supabase = getSupabaseAdmin();
+
+const { error } = await supabase
+.from('result_assignments')
+.upsert(
+{ session_id: sessionId, cluster, hero_slug: heroSlug },
+{ onConflict: 'session_id' }
+);
+
+if (error) {
+throw error;
+}
+}
+
+export async function getShareCardImage(heroSlug) {
+if (!heroSlug) {
+return null;
+}
+
+try {
+const supabase = getSupabaseAdmin();
+
+const { data, error } = await supabase
+  .from('share_card_assets')
+  .select('image_url')
+  .eq('hero_slug', heroSlug)
+  .maybeSingle();
+
+if (error && error.code !== 'PGRST116') {
+  throw error;
+}
+
+return data?.image_url ?? null;
+} catch (error) {
+if (error?.message?.includes('Missing SUPABASE_URL')) {
+console.warn('[shareCard] Supabase not configured');
+return null;
+}
+throw error;
+}
 }
