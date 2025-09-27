@@ -1,20 +1,46 @@
-import { getQuestions } from '../../lib/questions.js';
-import { QUESTION_VERSION } from '../../lib/scoring.js';
+import { getQuestions } from '../../lib/questions/index.js';
+import { QUESTION_VERSION } from '../../lib/scoring/index.js';
 
-export default async function handler(req, res) {
+export const config = { runtime: 'nodejs' };
+
+function firstValue(value) {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+function parseVersion(req) {
+  const raw =
+    firstValue(req.query?.v) ??
+    firstValue(req.query?.version) ??
+    firstValue(req.query?.ver) ??
+    firstValue(req.query?.question_version);
+
+  if (raw === undefined || raw === null || raw === '') {
+    return QUESTION_VERSION;
+  }
+
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) ? parsed : NaN;
+}
+
+export default function handler(req, res) {
   if (req.method !== 'GET') {
-    res.status(405).json({ error: 'Method Not Allowed' });
-    return;
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { v } = req.query ?? {};
-  const version = Number(v ?? QUESTION_VERSION);
+  try {
+    const version = parseVersion(req);
+    if (!Number.isInteger(version)) {
+      return res.status(400).json({ error: 'Invalid version' });
+    }
+    if (version !== QUESTION_VERSION) {
+      return res.status(400).json({ error: 'Unsupported question set version' });
+    }
 
-  if (!Number.isInteger(version) || version !== QUESTION_VERSION) {
-    res.status(400).json({ error: 'Unsupported question set version' });
-    return;
+    const questions = getQuestions(version);
+    return res.status(200).json({ version, count: questions.length, questions });
+  } catch (error) {
+    console.error('[diagnosis] fatal', error);
+    return res.status(500).json({ error: 'Internal error' });
   }
-
-  const questions = getQuestions(version);
-  res.status(200).json({ version, questions });
 }

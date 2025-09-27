@@ -1,13 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runDiagnosis, decideHero, pickStable } from '../lib/scoring.js';
-import questions from '../data/questions.v1.js';
+import { getQuestionDataset } from '../lib/questions/index.js';
+
+const QUESTIONS = getQuestionDataset();
 
 function buildAnswers(choiceMap) {
-return questions.map((question) => ({
-questionId: question.id,
-choiceKey: choiceMap[question.id] ?? question.choices[0].key
-}));
+  return QUESTIONS.map((question) => ({
+    questionId: question.code,
+    choiceKey: choiceMap[question.code] ?? question.choices[0].key,
+  }));
 }
 
 const challengeAnswers = {
@@ -132,28 +134,28 @@ WorkStyle: { structured: 3 }
 ];
 
 for (const scenario of heroExpectations) {
-test(decideHero selects ${scenario.expected}, () => {
-const hero = decideHero(scenario.cluster, scenario.counts, 'session');
-assert.equal(hero, scenario.expected);
-});
+  test(`decideHero selects ${scenario.expected}`, () => {
+    const hero = decideHero(scenario.cluster, scenario.counts, 'session');
+    assert.equal(hero, scenario.expected);
+  });
 }
 
 test('pickStable produces deterministic choice', () => {
-const pool = ['a', 'b', 'c'];
-const first = pickStable(pool, 'alpha');
-const second = pickStable(pool, 'alpha');
-assert.equal(first, second);
+  const pool = ['a', 'b', 'c'];
+  const first = pickStable(pool, 'alpha');
+  const second = pickStable(pool, 'alpha');
+  assert.equal(first, second);
 });
 
 test('cluster diversity for random answers', () => {
-const totals = new Map();
-for (let i = 0; i < 400; i += 1) {
-const answers = questions.map((question) => {
-const choice = question.choices[Math.floor(Math.random() * question.choices.length)];
-return { questionId: question.id, choiceKey: choice.key };
-});
-const result = runDiagnosis(answers, rand-${i});
-totals.set(result.cluster, (totals.get(result.cluster) ?? 0) + 1);
-}
-assert.equal(totals.size, 4);
+  const totals = new Map();
+  for (let i = 0; i < 400; i += 1) {
+    const answers = QUESTIONS.map((question) => {
+      const choice = question.choices[Math.floor(Math.random() * question.choices.length)];
+      return { questionId: question.code, choiceKey: choice.key };
+    });
+    const result = runDiagnosis(answers, `rand-${i}`);
+    totals.set(result.cluster, (totals.get(result.cluster) ?? 0) + 1);
+  }
+  assert.equal(totals.size, 4);
 });

@@ -1,148 +1,177 @@
 import crypto from 'node:crypto';
-import questions from '../../data/questions.v1.js';
-import { scoreAndMapToHero } from '../../lib/scoring.js';
+import { score, QUESTION_VERSION } from '../../lib/scoring/index.js';
+import { getQuestionDataset } from '../../lib/questions/index.js';
 import {
-saveAnswers,
-saveScores,
-saveResult,
-getShareCardImage,
-createOrReuseSession
+  saveAnswers,
+  saveScores,
+  saveResult,
+  getShareCardImage,
+  createOrReuseSession,
 } from '../../lib/persistence.js';
 
-const QUESTION_COUNT = 25;
-const QUESTION_LOOKUP = new Map(
-questions.map((question) => [question.id, question])
-);
+export const config = { runtime: 'nodejs' };
+
+const QUESTION_SET = getQuestionDataset(QUESTION_VERSION);
+const QUESTION_MAP = new Map(QUESTION_SET.map((question) => [question.code, question]));
+const EXPECTED_COUNT = QUESTION_SET.length;
+
+function normalizeAnswer(answer) {
+  const code =
+    answer?.code ?? answer?.questionId ?? answer?.question_id ?? answer?.id ?? null;
+  const key = answer?.key ?? answer?.choiceKey ?? answer?.choice_key ?? null;
+  return { code, key };
+}
 
 function validateAnswers(rawAnswers, requestId) {
-if (!Array.isArray(rawAnswers) || rawAnswers.length !== QUESTION_COUNT) {
-return {
-ok: false,
-error: 'answers must be 25 items',
-errorId: requestId
-};
-}
+  if (!Array.isArray(rawAnswers) || rawAnswers.length !== EXPECTED_COUNT) {
+    return {
+      ok: false,
+      error: `answers must be ${EXPECTED_COUNT} items`,
+      errorId: requestId,
+    };
+  }
 
-const seen = new Set();
-const normalized = [];
-const persistencePayload = [];
+  const seen = new Set();
+  const normalized = [];
+  const persistencePayload = [];
 
-for (const answer of rawAnswers) {
-const questionId = answer?.questionId ?? answer?.question_id;
-const choiceKey = answer?.choiceKey ?? answer?.choice_key;
+  for (const rawAnswer of rawAnswers) {
+    const { code, key } = normalizeAnswer(rawAnswer);
+    if (typeof code !== 'string' || typeof key !== 'string') {
+      return {
+        ok: false,
+        error: 'Invalid answer format',
+        errorId: requestId,
+      };
+    }
 
-if (typeof questionId !== 'string' || typeof choiceKey !== 'string') {
-  return {
-    ok: false,
-    error: 'Invalid answer format',
-    errorId: requestId
-  };
-}
+    if (seen.has(code)) {
+      return {
+        ok: false,
+        error: `Duplicate answer for ${code}`,
+        errorId: requestId,
+      };
+    }
+    seen.add(code);
 
-if (seen.has(questionId)) {
-  return {
-    ok: false,
-    error: `Duplicate answer for ${questionId}`,
-    errorId: requestId
-  };
-}
-seen.add(questionId);
+    const question = QUESTION_MAP.get(code);
+    if (!question) {
+      return {
+        ok: false,
+        error: `Unknown question id: ${code}`,
+        errorId: requestId,
+      };
+    }
 
-const question = QUESTION_LOOKUP.get(questionId);
-if (!question) {
-  return {
-    ok: false,
-    error: `Unknown question id: ${questionId}`,
-    errorId: requestId
-  };
-}
+    const match = question.choices.some((choice) => choice.key === key);
+    if (!match) {
+      return {
+        ok: false,
+        error: `Unknown choice ${key} for ${code}`,
+        errorId: requestId,
+      };
+    }
 
-const choiceExists = question.choices.some((choice) => choice.key === choiceKey);
-if (!choiceExists) {
-  return {
-    ok: false,
-    error: `Unknown choice ${choiceKey} for ${questionId}`,
-    errorId: requestId
-  };
-}
+    normalized.push({ code, key });
+    persistencePayload.push({ question_id: code, choice_key: key });
+  }
 
-normalized.push({ questionId, choiceKey });
-persistencePayload.push({ question_id: questionId, choice_key: choiceKey });
-}
+  if (normalized.length !== EXPECTED_COUNT) {
+    return {
+      ok: false,
+      error: 'answers must cover all questions',
+      errorId: requestId,
+    };
+  }
 
-return { ok: true, normalized, persistencePayload };
+  return { ok: true, normalized, persistencePayload };
 }
 
 export function createSubmitHandler({
-scoreAndMapToHeroFn = scoreAndMapToHero,
-createOrReuseSessionFn = createOrReuseSession,
-saveAnswersFn = saveAnswers,
-saveScoresFn = saveScores,
-saveResultFn = saveResult,
-getShareCardImageFn = getShareCardImage
+  scoreFn = score,
+  createOrReuseSessionFn = createOrReuseSession,
+  saveAnswersFn = saveAnswers,
+  saveScoresFn = saveScores,
+  saveResultFn = saveResult,
+  getShareCardImageFn = getShareCardImage,
 } = {}) {
-return async function handler(req, res) {
-if (req.method !== 'POST') {
-return res.status(405).json({ ok: false, error: 'Method Not Allowed' });
+  return async function handler(req, res) {
+    if (req.method !== 'POST') {
+      return res.status(405).json({ ok: false, error: 'Method Not Allowed' });
+    }
+
+    const requestId = crypto.randomUUID?.() || String(Date.now());
+
+    try {
+      const body = req.body ?? {};
+      const { userId, sessionId: inputSessionId, answers, version } = body;
+
+      if (!userId) {
+        return res
+          .status(400)
+          .json({ ok: false, error: 'userId required', errorId: requestId });
+      }
+
+      if (inputSessionId && typeof inputSessionId !== 'string') {
+        return res.status(400).json({
+          ok: false,
+          error: 'sessionId must be a string',
+          errorId: requestId,
+        });
+      }
+
+      const questionVersion = version ?? QUESTION_VERSION;
+      if (questionVersion !== QUESTION_VERSION) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Unsupported question set version',
+          errorId: requestId,
+        });
+      }
+
+      const validation = validateAnswers(answers, requestId);
+      if (!validation.ok) {
+        return res.status(400).json(validation);
+      }
+
+      const { normalized, persistencePayload } = validation;
+
+      const sessionId = inputSessionId
+        ? inputSessionId
+        : (await createOrReuseSessionFn({ userId, version: QUESTION_VERSION })).sessionId;
+
+      await saveAnswersFn({ sessionId, answers: persistencePayload });
+
+      const scoring = scoreFn(normalized, QUESTION_VERSION);
+
+      await saveScoresFn({ sessionId, factorScores: scoring.factorScores, total: scoring.total });
+      await saveResultFn({ sessionId, cluster: scoring.cluster, heroSlug: scoring.heroSlug });
+
+      const imageUrl = await getShareCardImageFn(scoring.heroSlug);
+
+      return res.status(200).json({
+        ok: true,
+        sessionId,
+        cluster: scoring.cluster,
+        heroSlug: scoring.heroSlug,
+        imageUrl,
+        factorScores: scoring.factorScores,
+        total: scoring.total,
+        result: {
+          version: QUESTION_VERSION,
+          cluster: scoring.cluster,
+          heroSlug: scoring.heroSlug,
+          factorScores: scoring.factorScores,
+          total: scoring.total,
+        },
+      });
+    } catch (error) {
+      console.error('[diagnosis:submit]', requestId, error);
+      return res
+        .status(500)
+        .json({ ok: false, error: 'internal', errorId: requestId });
+    }
+  };
 }
 
-const requestId = crypto.randomUUID?.() || String(Date.now());
-
-try {
-  const body = req.body ?? {};
-  const { userId, sessionId: inputSessionId, answers } = body;
-
-  if (!userId) {
-    return res
-      .status(400)
-      .json({ ok: false, error: 'userId required', errorId: requestId });
-  }
-
-  if (inputSessionId && typeof inputSessionId !== 'string') {
-    return res.status(400).json({
-      ok: false,
-      error: 'sessionId must be a string',
-      errorId: requestId
-    });
-  }
-
-  const validation = validateAnswers(answers, requestId);
-  if (!validation.ok) {
-    return res.status(400).json(validation);
-  }
-
-  const { normalized, persistencePayload } = validation;
-
-  const sessionId = inputSessionId
-    ? inputSessionId
-    : (await createOrReuseSessionFn({ userId, version: 1 })).sessionId;
-
-  await saveAnswersFn({ sessionId, answers: persistencePayload });
-
-  const { factorScores, total, cluster, heroSlug } = scoreAndMapToHeroFn(
-    normalized,
-    questions
-  );
-
-  await saveScoresFn({ sessionId, factorScores, total });
-  await saveResultFn({ sessionId, cluster, heroSlug });
-
-  const imageUrl = await getShareCardImageFn(heroSlug);
-
-  return res.status(200).json({
-    ok: true,
-    sessionId,
-    cluster,
-    heroSlug,
-    imageUrl,
-    factorScores,
-    total
-  });
-} catch (error) {
-  console.error('[submit]', requestId, error);
-  return res
-    .status(500)
-    .json({ ok: false, error: 'internal', errorId: requestId });
-}
-};
-}
+export default createSubmitHandler();

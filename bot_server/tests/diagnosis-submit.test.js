@@ -1,7 +1,9 @@
 import test, { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSubmitHandler } from '../api/diagnosis/submit.js';
-import questions from '../data/questions.v1.js';
+import { getQuestionDataset } from '../lib/questions/index.js';
+
+const QUESTIONS = getQuestionDataset();
 
 function createResponse() {
   return {
@@ -45,9 +47,9 @@ test('returns 400 when answers are incomplete', async () => {
 });
 
 test('executes scoring pipeline and persistence on success', async () => {
-  const answers = questions.map((question) => ({
-    questionId: question.id,
-    choiceKey: question.choices[0].key
+  const answers = QUESTIONS.map((question) => ({
+    code: question.code,
+    key: question.choices[0].key
   }));
 
   const createOrReuseSessionFn = mock.fn(async () => ({ sessionId: 'session-123' }));
@@ -62,7 +64,7 @@ test('executes scoring pipeline and persistence on success', async () => {
     saveScoresFn,
     saveResultFn,
     getShareCardImageFn,
-    scoreAndMapToHeroFn: () => ({
+    scoreFn: () => ({
       factorScores: {
         mbti: 10,
         safety: 10,
@@ -101,7 +103,22 @@ test('executes scoring pipeline and persistence on success', async () => {
       sync: 10,
       total: 60
     },
-    total: 60
+    total: 60,
+    result: {
+      version: 1,
+      cluster: 'challenge',
+      heroSlug: 'oda',
+      factorScores: {
+        mbti: 10,
+        safety: 10,
+        workstyle: 10,
+        motivation: 10,
+        ng: 10,
+        sync: 10,
+        total: 60
+      },
+      total: 60
+    }
   });
 
   assert.equal(createOrReuseSessionFn.mock.callCount(), 1);
@@ -112,9 +129,9 @@ test('executes scoring pipeline and persistence on success', async () => {
 });
 
 test('returns 500 when persistence fails', async () => {
-  const answers = questions.map((question) => ({
-    questionId: question.id,
-    choiceKey: question.choices[0].key
+  const answers = QUESTIONS.map((question) => ({
+    code: question.code,
+    key: question.choices[0].key
   }));
 
   const handler = createSubmitHandler({
