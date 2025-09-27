@@ -1,3 +1,4 @@
+// LIFF + 診断UI ロジック（repo質問 / DB非依存）
 const LIFF_ID = resolveLiffId();
 const BASE_URL = resolveBaseUrl();
 
@@ -9,17 +10,15 @@ const CLUSTER_LABELS = {
 };
 
 const appState = {
-  stage: 'boot',
   version: null,
   questions: [],
-  answers: new Map(),
+  answers: new Map(),              // Map<code, key>
   sessionId: getSessionParam(),
   submitting: false,
   profile: { userId: 'debug-user', displayName: 'Debug User' },
 };
 
 const elements = {
-  app: document.getElementById('app'),
   questions: document.getElementById('questions'),
   progressFill: document.getElementById('progressFill'),
   answeredCount: document.getElementById('answeredCount'),
@@ -38,24 +37,46 @@ const elements = {
 
 init();
 
+/* ---------- boot & helpers ---------- */
+
 function resolveLiffId() {
-  const fromWindow = window.__LIFF_ID__;
-  if (fromWindow) return fromWindow;
+  if (window.__LIFF_ID__) return String(window.__LIFF_ID__).trim();
   const meta = document.querySelector('meta[name="liff-id"]');
-  if (meta?.content) return meta.content.trim();
-  return '';
+  return meta?.content?.trim() || '';
 }
 
 function resolveBaseUrl() {
-  const fromWindow = window.__APP_BASE_URL__;
-  if (fromWindow) return fromWindow;
+  if (window.__APP_BASE_URL__) return String(window.__APP_BASE_URL__).trim();
   const meta = document.querySelector('meta[name="app-base-url"]');
-  if (meta?.content) {
-    const trimmed = meta.content.trim();
-    if (trimmed) return trimmed;
-  }
-  return window.location.origin;
+  const v = (meta?.content || '').trim();
+  return v || window.location.origin;
 }
+
+function getSessionParam() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('session') || undefined;
+}
+
+async function ensureLiff() {
+  if (!window.liff) {
+    console.warn('[liff] sdk not found, continue with debug profile');
+    return;
+  }
+  await window.liff.init({ liffId: LIFF_ID || undefined, withLoginOnExternalBrowser: true });
+  console.log('[liff] init OK', { inClient: window.liff.isInClient(), loggedIn: window.liff.isLoggedIn() });
+  if (!window.liff.isLoggedIn()) {
+    window.liff.login();
+    // halt further execution on this page load
+    await new Promise(() => {});
+  }
+  const profile = await window.liff.getProfile();
+  appState.profile = {
+    userId: profile.userId,
+    displayName: profile.displayName || 'LINEユーザー',
+  };
+}
+
+/* ---------- UI boot ---------- */
 
 async function init() {
   bindFooterActions();
@@ -67,29 +88,6 @@ async function init() {
     console.error('[liff] init failed', error);
     showToast('LIFFの初期化に失敗しました。時間をおいて再試行してください', true);
     showErrorCard('LIFFの初期化に失敗しました。電波の良い場所で再試行してください。');
-  }
-}
-
-function getSessionParam() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('session') || undefined;
-}
-
-async function ensureLiff() {
-  if (window.liff) {
-    await window.liff.init({ liffId: LIFF_ID || undefined, withLoginOnExternalBrowser: true });
-    console.log('[liff] init OK');
-    if (!window.liff.isLoggedIn()) {
-      window.liff.login();
-      await new Promise(() => {});
-    }
-    const profile = await window.liff.getProfile();
-    appState.profile = {
-      userId: profile.userId,
-      displayName: profile.displayName || 'LINEユーザー',
-    };
-  } else {
-    console.warn('window.liff not found, using debug profile');
   }
 }
 
@@ -107,43 +105,47 @@ function bindFooterActions() {
   });
 }
 
+/* ---------- load & render ---------- */
+
 function renderSkeleton() {
   elements.questions.innerHTML = '';
   elements.questions.setAttribute('aria-busy', 'true');
-  const skeletonCard = document.createElement('section');
-  skeletonCard.className = 'question-card skeleton';
-  skeletonCard.innerHTML = `
+  const card = document.createElement('section');
+  card.className = 'question-card skeleton';
+  card.innerHTML = `
     <div class="skeleton-line skeleton-title"></div>
     <div class="skeleton-line"></div>
     <div class="skeleton-line"></div>
     <div class="skeleton-line"></div>
   `;
-  elements.questions.appendChild(skeletonCard);
+  elements.questions.appendChild(card);
 }
 
 async function loadQuestions() {
   try {
     const payload = await fetchDiagnosisPayload();
-    const questions = Array.isArray(payload?.questions) ? payload.questions : [];
-    if (!questions.length) {
-      throw new Error('診断データが取得できませんでした');
-    }
+    const qs = Array.isArray(payload?.questions) ? payload.questions : [];
+    if (!qs.length) throw new Error('診断データが取得できませんでした');
+
     appState.version = payload.version ?? null;
-    appState.questions = questions;
+    appState.questions = qs;
     appState.answers.clear();
     appState.submitting = false;
+
     elements.submitContent.textContent = '送信する';
     elements.retryButton.classList.add('hidden');
     elements.submitButton.classList.remove('hidden');
     elements.shareButton.classList.add('hidden');
+
     elements.questions.removeAttribute('aria-busy');
     renderQuestions();
     updateProgress();
     hideToast();
   } catch (error) {
     console.error('[diagnosis] load failed', error);
-    showToast(error.message || '読み込みに失敗しました', true);
+    elements.questions.innerHTML = '';
     showErrorCard('通信に失敗しました。電波の良い場所で再試行してください。');
+    showToast(error.message || '読み込みに失敗しました', true);
     elements.retryButton.classList.remove('hidden');
   }
 }
@@ -166,7 +168,9 @@ function renderQuestions() {
     list.className = 'choices';
 
     (question.choices ?? []).forEach((choice) => {
+      // 期待フォーマット: { key, label, description? }
       const choiceId = `${question.code}-${choice.key}`;
+
       const wrapper = document.createElement('div');
       wrapper.className = 'choice';
 
@@ -206,6 +210,8 @@ function renderQuestions() {
   });
 }
 
+/* ---------- state & submit ---------- */
+
 function handleAnswerChange(code, key) {
   appState.answers.set(code, key);
   updateProgress();
@@ -216,13 +222,13 @@ function updateProgress() {
   const answered = appState.answers.size;
   const remaining = Math.max(total - answered, 0);
 
-  elements.answeredCount.textContent = answered.toString();
-  elements.remainingCount.textContent = remaining.toString();
+  elements.answeredCount.textContent = String(answered);
+  elements.remainingCount.textContent = String(remaining);
 
   const percent = total === 0 ? 0 : (answered / total) * 100;
   elements.progressFill.style.width = `${percent}%`;
-  elements.progressFill.parentElement?.setAttribute('aria-valuenow', answered.toString());
-  elements.progressFill.parentElement?.setAttribute('aria-valuemax', total.toString());
+  elements.progressFill.parentElement?.setAttribute('aria-valuenow', String(answered));
+  elements.progressFill.parentElement?.setAttribute('aria-valuemax', String(total));
 
   const canSubmit = answered === total && total > 0 && !appState.submitting;
   elements.submitButton.disabled = !canSubmit;
@@ -236,30 +242,25 @@ function updateUnansweredAlert() {
     elements.unansweredAlert.classList.add('hidden');
     return;
   }
-
   if (appState.answers.size === total) {
     elements.unansweredAlert.classList.add('hidden');
     return;
   }
-
   const missing = appState.questions
-    .map((question, index) => ({ question, index }))
-    .filter(({ question }) => !appState.answers.has(question.code))
-    .map(({ index }) => `Q${index + 1}`);
+    .map((q, i) => ({ q, i }))
+    .filter(({ q }) => !appState.answers.has(q.code))
+    .map(({ i }) => `Q${i + 1}`);
 
-  if (!missing.length) {
+  if (missing.length) {
+    elements.unansweredAlert.textContent = `未回答：${missing.join('、')}`;
+    elements.unansweredAlert.classList.remove('hidden');
+  } else {
     elements.unansweredAlert.classList.add('hidden');
-    return;
   }
-
-  elements.unansweredAlert.textContent = `未回答：${missing.join('、')}`;
-  elements.unansweredAlert.classList.remove('hidden');
 }
 
 async function onSubmit() {
-  if (appState.submitting) return;
-
-  if (appState.answers.size !== appState.questions.length) {
+  if (appState.submitting || appState.answers.size !== appState.questions.length) {
     updateUnansweredAlert();
     showToast('未回答の質問があります', true);
     return;
@@ -303,6 +304,8 @@ async function onSubmit() {
   }
 }
 
+/* ---------- result & feedback ---------- */
+
 function showResult(result) {
   elements.questions.classList.add('hidden');
   elements.unansweredAlert.classList.add('hidden');
@@ -335,9 +338,7 @@ function showErrorCard(message) {
 
 function showToast(message, isError = false, errorId) {
   const displayMessage = shortenMessage(message);
-  elements.toast.textContent = errorId
-    ? `${displayMessage} (ID: ${errorId})`
-    : displayMessage;
+  elements.toast.textContent = errorId ? `${displayMessage} (ID: ${errorId})` : displayMessage;
   elements.toast.classList.toggle('error', Boolean(isError));
   elements.toast.classList.remove('hidden');
   clearTimeout(showToast._timer);
@@ -348,10 +349,10 @@ function showToast(message, isError = false, errorId) {
 
 function hideToast() {
   elements.toast.classList.add('hidden');
-  if (showToast._timer) {
-    clearTimeout(showToast._timer);
-  }
+  if (showToast._timer) clearTimeout(showToast._timer);
 }
+
+/* ---------- fetch utils ---------- */
 
 async function createFetchError(response) {
   let message = `通信に失敗しました (${response.status})`;
@@ -359,21 +360,14 @@ async function createFetchError(response) {
   const text = await response.text();
   try {
     const data = text ? JSON.parse(text) : {};
-    if (data?.errorId) {
-      errorId = data.errorId;
-    }
-    if (data?.message) {
-      message = data.message;
-    } else if (data?.error) {
-      message = data.error;
-    }
-  } catch (parseError) {
+    if (data?.errorId) errorId = data.errorId;
+    if (data?.message) message = data.message;
+    else if (data?.error) message = data.error;
+  } catch {
     message = text || message;
   }
   const error = new Error(message);
-  if (errorId) {
-    error.errorId = errorId;
-  }
+  if (errorId) error.errorId = errorId;
   return error;
 }
 
@@ -386,16 +380,12 @@ async function fetchDiagnosisPayload() {
   });
   const text = await response.text();
   console.log('[diagnosis] GET /api/diagnosis', response.status, text.slice(0, 200));
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${text}`);
-  }
-  if (!text) {
-    return {};
-  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}: ${text}`);
+  if (!text) return {};
   try {
     return JSON.parse(text);
-  } catch (error) {
-    console.error('[diagnosis] JSON parse error', error);
+  } catch (e) {
+    console.error('[diagnosis] JSON parse error', e);
     throw new Error('診断データの形式が不正です');
   }
 }
