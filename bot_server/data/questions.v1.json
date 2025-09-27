@@ -1,243 +1,809 @@
 [
-  {"id":"Q1","text":"授業でグループ発表の役割を決めるとき、どう動く？",
-   "choices":[
-     {"key":"A","label":"みんなの前でサッと手を挙げて進める",
-      "tags":{"MBTI":["E","N","P"],"WorkStyle":["speed","improv"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"裏で進行表を作って迷わないよう整える",
-      "tags":{"MBTI":["I","T","J"],"WorkStyle":["structured","careful"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"じっくり考えて自分に合う役割を静かに選ぶ",
-      "tags":{"MBTI":["I"],"WorkStyle":["careful"],"CLUSTER_HINT":["support","strategy"]},"w":1.0}
-   ]},
-  {"id":"Q2","text":"友達が『将来これやりたい！』と話した。あなたは？",
-   "choices":[
-     {"key":"A","label":"面白い！今すぐやろうと背中を押す",
-      "tags":{"MBTI":["E","N","P"],"WorkStyle":["improv"],"Motivation":["autonomy","achieve"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"まず何から始めるか段取りを考える",
-      "tags":{"MBTI":["T","J"],"WorkStyle":["structured","logical"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"気持ちに共感して寄り添う",
-      "tags":{"MBTI":["I"],"Motivation":["connection","contribution"],"CLUSTER_HINT":["support"]},"w":1.0}
-   ]},
-  {"id":"Q3","text":"新しいアプリを使うときの最初の行動は？",
-   "choices":[
-     {"key":"A","label":"とりあえず全部触って試す",
-      "tags":{"MBTI":["N","P"],"WorkStyle":["improv","intuitive"],"CLUSTER_HINT":["creative","challenge"]},"w":1.0},
-     {"key":"B","label":"説明やレビューを読んでから使う",
-      "tags":{"MBTI":["T","J"],"WorkStyle":["logical","structured"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"周りの使い方を観察してから動く",
-      "tags":{"MBTI":["I"],"WorkStyle":["careful"],"CLUSTER_HINT":["support","strategy"]},"w":1.0}
-   ]},
-  {"id":"Q4","text":"体育祭の応援団に誘われたら？",
-   "choices":[
-     {"key":"A","label":"やる！と即答する",
-      "tags":{"MBTI":["E","P"],"WorkStyle":["speed"],"Sync":["high_tension"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"役割分担を整理して自分の貢献点を考える",
-      "tags":{"MBTI":["T","J"],"WorkStyle":["structured","logical"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"断るか、サポート役に回る",
-      "tags":{"MBTI":["I"],"WorkStyle":["careful"],"CLUSTER_HINT":["support"]},"w":1.0}
-   ]},
-
-  {"id":"Q5","text":"チームで意見がぶつかった。あなたは？",
-   "choices":[
-     {"key":"A","label":"みんなが納得できる落とし所を探す",
-      "tags":{"BigFive":{"agreeableness":"high","extraversion":"mid"},"CLUSTER_HINT":["support"]},"w":1.0},
-     {"key":"B","label":"自分の意見を強めに押す",
-      "tags":{"BigFive":{"agreeableness":"low","extraversion":"high"},"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"C","label":"まず相手の話を聞いてから伝える",
-      "tags":{"BigFive":{"agreeableness":"mid","extraversion":"mid"},"CLUSTER_HINT":["strategy"]},"w":1.0}
-   ]},
-  {"id":"Q6","text":"放課後、知らないグループに誘われたら？",
-   "choices":[
-     {"key":"A","label":"すぐに打ち解けて会話をリード",
-      "tags":{"BigFive":{"agreeableness":"mid","extraversion":"high"},"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"様子を見て少しずつ関わる",
-      "tags":{"BigFive":{"agreeableness":"mid","extraversion":"mid"},"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"仲のいい友達と一緒なら参加",
-      "tags":{"BigFive":{"agreeableness":"high","extraversion":"mid"},"CLUSTER_HINT":["support"]},"w":1.0}
-   ]},
-  {"id":"Q7","text":"クラスで孤立している子がいたら？",
-   "choices":[
-     {"key":"A","label":"自分から声をかけ一緒に過ごす",
-      "tags":{"BigFive":{"agreeableness":"high","extraversion":"high"},"CLUSTER_HINT":["support"]},"w":1.0},
-     {"key":"B","label":"必要ならフォローするため観察する",
-      "tags":{"BigFive":{"agreeableness":"mid","extraversion":"mid"},"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"気にはなるが声はかけにくい",
-      "tags":{"BigFive":{"agreeableness":"mid","extraversion":"low"},"CLUSTER_HINT":["strategy","creative"]},"w":1.0}
-   ]},
-
-  {"id":"Q8","text":"夏休みの宿題、どう進める？",
-   "choices":[
-     {"key":"A","label":"とにかく早く終わらせて遊ぶ",
-      "tags":{"WorkStyle":["speed","improv"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"毎日計画を立てて少しずつやる",
-      "tags":{"WorkStyle":["structured","careful","logical"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"その日の気分で手をつける",
-      "tags":{"WorkStyle":["intuitive","improv"],"CLUSTER_HINT":["creative","challenge"]},"w":1.0}
-   ]},
-  {"id":"Q9","text":"美術の自由課題の進め方は？",
-   "choices":[
-     {"key":"A","label":"直感で思いついたものを形にする",
-      "tags":{"WorkStyle":["intuitive","improv"],"CLUSTER_HINT":["creative"]},"w":1.0},
-     {"key":"B","label":"下書きや計画を作ってから仕上げる",
-      "tags":{"WorkStyle":["structured","careful"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"友達の意見を聞きながら柔軟に変える",
-      "tags":{"WorkStyle":["careful"],"Motivation":["connection"],"CLUSTER_HINT":["support"]},"w":1.0}
-   ]},
-  {"id":"Q10","text":"体育祭の練習で全体がバラバラ。あなたは？",
-   "choices":[
-     {"key":"A","label":"『もっと勢い出そう！』と声をかける",
-      "tags":{"WorkStyle":["speed"],"Sync":["high_tension"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"動きを整理して共有する",
-      "tags":{"WorkStyle":["structured","logical"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"後ろから支えて流れを合わせる",
-      "tags":{"WorkStyle":["careful"],"CLUSTER_HINT":["support"]},"w":1.0}
-   ]},
-  {"id":"Q11","text":"授業のディベート、立ち回りは？",
-   "choices":[
-     {"key":"A","label":"インスピレーションでどんどん話す",
-      "tags":{"WorkStyle":["intuitive","improv"],"CLUSTER_HINT":["creative","challenge"]},"w":1.0},
-     {"key":"B","label":"データや根拠で筋道を立てる",
-      "tags":{"WorkStyle":["logical","structured"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"相手の意見を受け止めつつ補足",
-      "tags":{"WorkStyle":["careful"],"CLUSTER_HINT":["support"]},"w":1.0}
-   ]},
-  {"id":"Q12","text":"部活で頑張れる一番の理由は？",
-   "choices":[
-     {"key":"A","label":"大会で勝ちたい（成果）",
-      "tags":{"Motivation":["achieve","approval"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"認められたい（承認）",
-      "tags":{"Motivation":["approval"],"CLUSTER_HINT":["challenge","support"]},"w":1.0},
-     {"key":"C","label":"チームの役に立ちたい（貢献）",
-      "tags":{"Motivation":["contribution","connection"],"CLUSTER_HINT":["support"]},"w":1.0},
-     {"key":"D","label":"新しい技術を知りたい（探究）",
-      "tags":{"Motivation":["curiosity","growth"],"CLUSTER_HINT":["creative","strategy"]},"w":1.0}
-   ]},
-  {"id":"Q13","text":"新しい勉強法を知った。気持ちは？",
-   "choices":[
-     {"key":"A","label":"すぐ試して成績を上げたい",
-      "tags":{"Motivation":["achieve","growth"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"自分の可能性を広げたい",
-      "tags":{"Motivation":["growth"],"CLUSTER_HINT":["creative"]},"w":1.0},
-     {"key":"C","label":"面白そうで調べてみたい",
-      "tags":{"Motivation":["curiosity"],"CLUSTER_HINT":["creative","strategy"]},"w":1.0}
-   ]},
-  {"id":"Q14","text":"放課後の理想の過ごし方は？",
-   "choices":[
-     {"key":"A","label":"友達とわいわい",
-      "tags":{"Motivation":["connection"],"Sync":["high_tension","tsukkomi","natural"],"CLUSTER_HINT":["support","challenge"]},"w":1.0},
-     {"key":"B","label":"一人で自由に好きなこと",
-      "tags":{"Motivation":["autonomy","curiosity"],"CLUSTER_HINT":["creative","challenge"]},"w":1.0},
-     {"key":"C","label":"家で落ち着いて安心して過ごす",
-      "tags":{"Motivation":["security"],"Sync":["relaxed"],"CLUSTER_HINT":["strategy","support"]},"w":1.0}
-   ]},
-  {"id":"Q15","text":"将来の仕事で一番大事にしたいのは？",
-   "choices":[
-     {"key":"A","label":"結果を出して評価される",
-      "tags":{"Motivation":["achieve","approval"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"人の役に立ち社会に貢献",
-      "tags":{"Motivation":["contribution","connection"],"CLUSTER_HINT":["support"]},"w":1.0},
-     {"key":"C","label":"安定して長く働く",
-      "tags":{"Motivation":["security"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"D","label":"好きなことを自由にする",
-      "tags":{"Motivation":["autonomy","curiosity","growth"],"CLUSTER_HINT":["creative","challenge"]},"w":1.0}
-   ]},
-  {"id":"Q16","text":"一番イヤな状況は？",
-   "choices":[
-     {"key":"A","label":"常に上から詰められる",
-      "tags":{"NG":["pressure"],"CLUSTER_HINT":["support","creative"]},"w":1.0},
-     {"key":"B","label":"返事や対応を急かされる",
-      "tags":{"NG":["instant_reply"],"CLUSTER_HINT":["strategy","creative"]},"w":1.0},
-     {"key":"C","label":"空気を読めと言われ続ける",
-      "tags":{"NG":["read_between_lines"],"CLUSTER_HINT":["strategy","challenge"]},"w":1.0},
-     {"key":"D","label":"単調で刺激がない作業",
-      "tags":{"NG":["monotony","no_change"],"CLUSTER_HINT":["challenge","creative"]},"w":1.0}
-   ]},
-  {"id":"Q17","text":"グループ失敗後に先生から厳しく叱責。どう感じる？",
-   "choices":[
-     {"key":"A","label":"その言い方はつらい…と強いストレス",
-      "tags":{"NG":["pressure"],"CLUSTER_HINT":["support","creative"]},"w":1.0},
-     {"key":"B","label":"次はもっと丁寧にやろうと改善",
-      "tags":{"WorkStyle":["careful","structured"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"みんなで頑張ったのに…と落ち込む",
-      "tags":{"Motivation":["connection"],"NG":["pressure"],"CLUSTER_HINT":["support"]},"w":1.0}
-   ]},
-  {"id":"Q18","text":"勉強ペースを乱されると？",
-   "choices":[
-     {"key":"A","label":"自分のやり方を邪魔されたくない",
-      "tags":{"Motivation":["autonomy"],"NG":["no_autonomy"],"CLUSTER_HINT":["challenge","creative"]},"w":1.0},
-     {"key":"B","label":"みんなと一緒なら合わせる",
-      "tags":{"Motivation":["connection","contribution"],"CLUSTER_HINT":["support"]},"w":1.0},
-     {"key":"C","label":"決められた通りが安心",
-      "tags":{"Motivation":["security"],"WorkStyle":["structured"],"CLUSTER_HINT":["strategy"]},"w":1.0}
-   ]},
-  {"id":"Q19","text":"休み時間の会話スタイルは？",
-   "choices":[
-     {"key":"A","label":"とにかく盛り上がる",
-      "tags":{"Sync":["high_tension"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"穏やかな雑談",
-      "tags":{"Sync":["natural","relaxed"],"CLUSTER_HINT":["support"]},"w":1.0},
-     {"key":"C","label":"ボケとツッコミでテンポよく",
-      "tags":{"Sync":["tsukkomi"],"CLUSTER_HINT":["challenge","creative"]},"w":1.0},
-     {"key":"D","label":"冷静に分析して話す",
-      "tags":{"Sync":["logical_cool"],"CLUSTER_HINT":["strategy"]},"w":1.0}
-   ]},
-  {"id":"Q20","text":"試合前の声かけは？",
-   "choices":[
-     {"key":"A","label":"絶対勝つぞ！と気合い",
-      "tags":{"Sync":["high_tension"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"落ち着いてやろう、と促す",
-      "tags":{"Sync":["logical_cool"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"みんなで楽しもう、と和やかに",
-      "tags":{"Sync":["natural","relaxed"],"CLUSTER_HINT":["support"]},"w":1.0}
-   ]},
-  {"id":"Q21","text":"親友が落ち込んでいる。あなたは？",
-   "choices":[
-     {"key":"A","label":"大丈夫！元気出せ！と励ます",
-      "tags":{"Sync":["high_tension"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"気持ちわかるよ、と静かに寄り添う",
-      "tags":{"Sync":["relaxed","natural","quiet_hot"],"CLUSTER_HINT":["support","creative"]},"w":1.0},
-     {"key":"C","label":"原因を一緒に整理して分析する",
-      "tags":{"Sync":["logical_cool"],"CLUSTER_HINT":["strategy"]},"w":1.0}
-   ]},
-  {"id":"Q22","text":"初めて会う人と話すときは？",
-   "choices":[
-     {"key":"A","label":"明るく冗談で打ち解ける",
-      "tags":{"Sync":["tsukkomi","high_tension"],"CLUSTER_HINT":["challenge","creative"]},"w":1.0},
-     {"key":"B","label":"落ち着いてゆっくり聞き役",
-      "tags":{"Sync":["relaxed","natural"],"CLUSTER_HINT":["support"]},"w":1.0},
-     {"key":"C","label":"必要なことを的確に話す",
-      "tags":{"Sync":["logical_cool"],"CLUSTER_HINT":["strategy"]},"w":1.0}
-   ]},
-  {"id":"Q23","text":"学校祭の模擬店での立ち回りは？",
-   "choices":[
-     {"key":"A","label":"新しいアイデアでみんなを驚かす",
-      "tags":{"WorkStyle":["intuitive","improv"],"CLUSTER_HINT":["creative","challenge"]},"w":1.0},
-     {"key":"B","label":"レジや記録をきっちり管理",
-      "tags":{"WorkStyle":["structured","logical"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-     {"key":"C","label":"呼び込みでお客さんを盛り上げる",
-      "tags":{"Sync":["high_tension","tsukkomi"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"D","label":"裏方で支えて全体を整える",
-      "tags":{"WorkStyle":["careful"],"CLUSTER_HINT":["support"]},"w":1.0}
-   ]},
-  {"id":"Q24","text":"先生が『次のリーダー決めるよ』と言ったら？",
-   "choices":[
-     {"key":"A","label":"自分から立候補",
-      "tags":{"MBTI":["E","P"],"Motivation":["achieve"],"CLUSTER_HINT":["challenge"]},"w":1.0},
-     {"key":"B","label":"他の人を推薦して後ろで支える",
-      "tags":{"Motivation":["contribution","connection"],"CLUSTER_HINT":["support"]},"w":1.0},
-     {"key":"C","label":"必要なら引き受ける",
-      "tags":{"MBTI":["T","J"],"WorkStyle":["structured"],"CLUSTER_HINT":["strategy"]},"w":1.0},
-      {"key":"D","label":"新しい形のリーダー像を提案",
-      "tags":{"WorkStyle":["intuitive"],"CLUSTER_HINT":["creative"]},"w":1.0}
-   ]},
-  {"id":"Q25","text":"あなたにとって『働くこと』に近いイメージは？",
-   "choices":[
-     {"key":"A","label":"次々に挑戦する冒険",
-      "tags":{"CLUSTER_HINT":["challenge"],"Motivation":["autonomy","achieve"]},"w":1.0},
-     {"key":"B","label":"自分の色を表現する舞台",
-      "tags":{"CLUSTER_HINT":["creative"],"Motivation":["curiosity","growth"]},"w":1.0},
-     {"key":"C","label":"人の役に立ち支えること",
-      "tags":{"CLUSTER_HINT":["support"],"Motivation":["contribution","connection"]},"w":1.0},
-     {"key":"D","label":"長く続く仕組みを作ること",
-      "tags":{"CLUSTER_HINT":["strategy"],"Motivation":["security","growth"]},"w":1.0}
-   ]}
+  {
+    "id": "Q1",
+    "text": "授業で、前に出て話すのはわりと平気だ。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "MBTI": [
+            "E"
+          ],
+          "WorkStyle": [
+            "speed",
+            "improv"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "MBTI": [
+            "I"
+          ],
+          "WorkStyle": [
+            "careful"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q2",
+    "text": "新しいことは、まずやってみてから考えるタイプだ。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "MBTI": [
+            "N"
+          ],
+          "WorkStyle": [
+            "improv",
+            "intuitive"
+          ],
+          "CLUSTER_HINT": [
+            "creative",
+            "challenge"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "WorkStyle": [
+            "structured",
+            "logical"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q3",
+    "text": "人に頼まれなくても、自分から役割を決めて動ける。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Motivation": [
+            "achieve",
+            "autonomy"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "WorkStyle": [
+            "careful"
+          ],
+          "CLUSTER_HINT": [
+            "support"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q4",
+    "text": "みんなが困っていたら、まず流れを整理して伝えるほうだ。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "WorkStyle": [
+            "structured",
+            "logical"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "WorkStyle": [
+            "improv"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q5",
+    "text": "新しいアプリは、説明より先に触って覚える。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "WorkStyle": [
+            "improv",
+            "intuitive"
+          ],
+          "CLUSTER_HINT": [
+            "creative"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "WorkStyle": [
+            "structured"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q6",
+    "text": "はじめて会う人とも、すぐ場を明るくできる。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Sync": [
+            "high_tension",
+            "tsukkomi"
+          ],
+          "BigFive": {
+            "extraversion": "high"
+          },
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Sync": [
+            "relaxed"
+          ],
+          "BigFive": {
+            "extraversion": "low"
+          },
+          "CLUSTER_HINT": [
+            "support"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q7",
+    "text": "友だちの気持ちに気づきやすく、そっと支えることが多い。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Motivation": [
+            "connection",
+            "contribution"
+          ],
+          "WorkStyle": [
+            "careful"
+          ],
+          "CLUSTER_HINT": [
+            "support"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Motivation": [
+            "autonomy"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q8",
+    "text": "長い宿題は、計画を立てて少しずつ進めるのが合っている。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "WorkStyle": [
+            "structured",
+            "careful"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "WorkStyle": [
+            "improv",
+            "speed"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q9",
+    "text": "作品づくりは、ひらめきを大事にして形にしていく。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "WorkStyle": [
+            "intuitive",
+            "improv"
+          ],
+          "Motivation": [
+            "curiosity"
+          ],
+          "CLUSTER_HINT": [
+            "creative"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "WorkStyle": [
+            "structured"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q10",
+    "text": "チームで意見がぶつかっても、落としどころを見つけるのが得意だ。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "BigFive": {
+            "agreeableness": "high"
+          },
+          "CLUSTER_HINT": [
+            "support"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "BigFive": {
+            "agreeableness": "low"
+          },
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q11",
+    "text": "早い返事や即対応をいつも求められるのは苦手だ。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "NG": [
+            "instant_reply"
+          ],
+          "CLUSTER_HINT": [
+            "strategy",
+            "creative"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "WorkStyle": [
+            "speed"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q12",
+    "text": "強く叱られるやり方は、やる気が下がる。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "NG": [
+            "pressure"
+          ],
+          "CLUSTER_HINT": [
+            "support",
+            "creative"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "WorkStyle": [
+            "structured"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q13",
+    "text": "物事は数字や根拠で考えるほうが安心する。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "WorkStyle": [
+            "logical",
+            "structured"
+          ],
+          "MBTI": [
+            "T"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "MBTI": [
+            "N"
+          ],
+          "WorkStyle": [
+            "intuitive"
+          ],
+          "CLUSTER_HINT": [
+            "creative"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q14",
+    "text": "放課後は、一人で好きなことを深くやる時間が好きだ。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Motivation": [
+            "autonomy",
+            "curiosity",
+            "growth"
+          ],
+          "MBTI": [
+            "I"
+          ],
+          "CLUSTER_HINT": [
+            "creative"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Motivation": [
+            "connection"
+          ],
+          "Sync": [
+            "high_tension"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q15",
+    "text": "みんなの前で声を出して雰囲気を上げるのが得意だ。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Sync": [
+            "high_tension",
+            "tsukkomi"
+          ],
+          "MBTI": [
+            "E"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Sync": [
+            "relaxed",
+            "logical_cool"
+          ],
+          "CLUSTER_HINT": [
+            "strategy",
+            "support"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q16",
+    "text": "いつも同じ作業ばかりだと飽きやすい。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "NG": [
+            "monotony",
+            "no_change"
+          ],
+          "CLUSTER_HINT": [
+            "creative",
+            "challenge"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Motivation": [
+            "security"
+          ],
+          "WorkStyle": [
+            "structured"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q17",
+    "text": "自分のやり方で進める自由がないと、力が出しにくい。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Motivation": [
+            "autonomy"
+          ],
+          "NG": [
+            "no_autonomy"
+          ],
+          "CLUSTER_HINT": [
+            "challenge",
+            "creative"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "WorkStyle": [
+            "structured"
+          ],
+          "Motivation": [
+            "security"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q18",
+    "text": "誰かの役に立っていると感じると、やる気が出る。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Motivation": [
+            "contribution",
+            "connection"
+          ],
+          "CLUSTER_HINT": [
+            "support"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Motivation": [
+            "achieve",
+            "autonomy"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q19",
+    "text": "大事な場面では、落ち着いて筋道立てて話せる。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Sync": [
+            "logical_cool"
+          ],
+          "WorkStyle": [
+            "structured"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Sync": [
+            "high_tension",
+            "natural"
+          ],
+          "CLUSTER_HINT": [
+            "challenge",
+            "support"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q20",
+    "text": "新しい知識ややり方を知ると、つい深掘りしたくなる。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Motivation": [
+            "curiosity",
+            "growth"
+          ],
+          "MBTI": [
+            "N"
+          ],
+          "CLUSTER_HINT": [
+            "creative"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Motivation": [
+            "security"
+          ],
+          "MBTI": [
+            "J"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q21",
+    "text": "文化祭やイベントでは、アイデアでみんなを驚かせたい。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "WorkStyle": [
+            "intuitive",
+            "improv"
+          ],
+          "CLUSTER_HINT": [
+            "creative",
+            "challenge"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "WorkStyle": [
+            "careful",
+            "structured"
+          ],
+          "CLUSTER_HINT": [
+            "support",
+            "strategy"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q22",
+    "text": "必要なら、自分が前に立ってリードしてもいいと思う。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Motivation": [
+            "achieve"
+          ],
+          "MBTI": [
+            "E"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Motivation": [
+            "contribution"
+          ],
+          "WorkStyle": [
+            "careful"
+          ],
+          "CLUSTER_HINT": [
+            "support"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q23",
+    "text": "新しいことより、長く続く仕組みを作るのが好きだ。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Motivation": [
+            "security"
+          ],
+          "WorkStyle": [
+            "structured"
+          ],
+          "CLUSTER_HINT": [
+            "strategy"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Motivation": [
+            "autonomy"
+          ],
+          "WorkStyle": [
+            "improv"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q24",
+    "text": "友だちが落ちこんでいたら、静かにそばにいて話を聞く。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Sync": [
+            "relaxed",
+            "natural"
+          ],
+          "Motivation": [
+            "connection"
+          ],
+          "CLUSTER_HINT": [
+            "support"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Sync": [
+            "high_tension",
+            "logical_cool"
+          ],
+          "CLUSTER_HINT": [
+            "challenge",
+            "strategy"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "Q25",
+    "text": "目標をはっきり決めて、結果にこだわるほうだ。",
+    "choices": [
+      {
+        "key": "POS",
+        "tags": {
+          "Motivation": [
+            "achieve",
+            "approval"
+          ],
+          "CLUSTER_HINT": [
+            "challenge"
+          ]
+        }
+      },
+      {
+        "key": "NEG",
+        "tags": {
+          "Motivation": [
+            "contribution",
+            "security"
+          ],
+          "CLUSTER_HINT": [
+            "support",
+            "strategy"
+          ]
+        }
+      }
+    ]
+  }
 ]

@@ -9,6 +9,18 @@ const CLUSTER_LABELS = {
   strategy: 'ストラテジー',
 };
 
+const LIKERT_OPTIONS = [
+  { value: 1, label: 'とてもそう思う', size: 'large' },
+  { value: 2, label: 'かなりそう思う', size: 'medium' },
+  { value: 3, label: '少しそう思う', size: 'small' },
+  { value: 4, label: '少しそう思わない', size: 'small' },
+  { value: 5, label: 'かなりそう思わない', size: 'medium' },
+  { value: 6, label: '全くそう思わない', size: 'large' },
+];
+
+const LIKERT_SHORTCUT_KEYS = new Set(['1', '2', '3', '4', '5', '6']);
+const QUESTION_SOURCE_PATHS = ['./data/questions.v1.json', '../data/questions.v1.json'];
+
 const appState = {
   version: null,
   questions: [],
@@ -23,6 +35,7 @@ const elements = {
   progressFill: document.getElementById('progressFill'),
   answeredCount: document.getElementById('answeredCount'),
   remainingCount: document.getElementById('remainingCount'),
+  loadError: document.getElementById('loadError'),
   submitButton: document.getElementById('submitButton'),
   submitContent: document.getElementById('submitContent'),
   shareButton: document.getElementById('shareButton'),
@@ -80,6 +93,7 @@ async function ensureLiff() {
 
 async function init() {
   bindFooterActions();
+  bindLikertShortcuts();
   renderSkeleton();
   try {
     await ensureLiff();
@@ -136,6 +150,8 @@ async function loadQuestions() {
     elements.retryButton.classList.add('hidden');
     elements.submitButton.classList.remove('hidden');
     elements.shareButton.classList.add('hidden');
+    elements.loadError.classList.add('hidden');
+    elements.loadError.textContent = '';
 
     elements.questions.removeAttribute('aria-busy');
     renderQuestions();
@@ -143,6 +159,10 @@ async function loadQuestions() {
     hideToast();
   } catch (error) {
     console.error('[diagnosis] load failed', error);
+    elements.questions.removeAttribute('aria-busy');
+    elements.loadError.textContent = error.message || '質問データの読み込みに失敗しました。';
+    elements.loadError.classList.remove('hidden');
+    elements.submitButton.disabled = true;
     elements.questions.innerHTML = '';
     showErrorCard('通信に失敗しました。電波の良い場所で再試行してください。');
     showToast(error.message || '読み込みに失敗しました', true);
@@ -161,44 +181,58 @@ function renderQuestions() {
     card.dataset.questionCode = question.code;
 
     const heading = document.createElement('h2');
+    const headingId = `${question.code}-title`;
+    heading.id = headingId;
     heading.textContent = `${index + 1}. ${question.text}`;
     card.appendChild(heading);
 
     const list = document.createElement('div');
-    list.className = 'choices';
+    list.className = 'choices likert-scale';
+    list.dataset.likertContainer = 'true';
+    list.setAttribute('role', 'radiogroup');
+    list.setAttribute('aria-labelledby', headingId);
+    list.tabIndex = 0;
 
-    (question.choices ?? []).forEach((choice) => {
-      // 期待フォーマット: { key, label, description? }
-      const choiceId = `${question.code}-${choice.key}`;
+    const previousSelection = appState.answers.get(question.code);
+
+    LIKERT_OPTIONS.forEach((option) => {
+      const choiceId = `${question.code}-scale-${option.value}`;
 
       const wrapper = document.createElement('div');
-      wrapper.className = 'choice';
+      wrapper.className = 'likert-choice';
 
       const input = document.createElement('input');
       input.type = 'radio';
       input.name = question.code;
       input.id = choiceId;
-      input.value = choice.key;
+      input.value = String(option.value);
       input.required = true;
-      if (appState.answers.get(question.code) === choice.key) {
+      input.className = 'likert-input';
+      if (Number(previousSelection) === option.value) {
         input.checked = true;
       }
-      input.addEventListener('change', () => handleAnswerChange(question.code, choice.key));
+      input.addEventListener('change', () => handleAnswerChange(question.code, option.value));
 
       const label = document.createElement('label');
       label.setAttribute('for', choiceId);
+      label.className = `likert-option size-${option.size}`;
+      label.setAttribute('aria-label', `${option.label} (${option.value})`);
 
-      const title = document.createElement('span');
-      title.className = 'choice-title';
-      title.textContent = choice.label;
-      label.appendChild(title);
+      const diamond = document.createElement('span');
+      diamond.className = 'likert-diamond';
+      diamond.setAttribute('aria-hidden', 'true');
 
-      if (choice.description) {
-        const desc = document.createElement('span');
-        desc.className = 'choice-desc';
-        desc.textContent = choice.description;
-        label.appendChild(desc);
-      }
+      const diamondValue = document.createElement('span');
+      diamondValue.className = 'likert-diamond-value';
+      diamondValue.textContent = String(option.value);
+      diamond.appendChild(diamondValue);
+
+      const caption = document.createElement('span');
+      caption.className = 'likert-caption';
+      caption.textContent = option.label;
+
+      label.appendChild(diamond);
+      label.appendChild(caption);
 
       wrapper.appendChild(input);
       wrapper.appendChild(label);
@@ -212,8 +246,10 @@ function renderQuestions() {
 
 /* ---------- state & submit ---------- */
 
-function handleAnswerChange(code, key) {
-  appState.answers.set(code, key);
+function handleAnswerChange(code, scale) {
+  const numericScale = Number(scale);
+  if (!Number.isFinite(numericScale)) return;
+  appState.answers.set(code, numericScale);
   updateProgress();
 }
 
@@ -275,7 +311,11 @@ async function onSubmit() {
       userId: appState.profile.userId,
       sessionId: appState.sessionId,
       version: appState.version,
-      answers: Array.from(appState.answers.entries()).map(([code, key]) => ({ code, key })),
+      answers: Array.from(appState.answers.entries()).map(([code, scale]) => ({
+        code,
+        scale,
+        scaleMax: 6,
+      })),
     };
 
     const response = await fetch('/api/diagnosis/submit', {
@@ -352,6 +392,25 @@ function hideToast() {
   if (showToast._timer) clearTimeout(showToast._timer);
 }
 
+function bindLikertShortcuts() {
+  if (bindLikertShortcuts._bound) return;
+  bindLikertShortcuts._bound = true;
+
+  document.addEventListener('keydown', (event) => {
+    if (!LIKERT_SHORTCUT_KEYS.has(event.key)) return;
+    const active = document.activeElement;
+    if (!active || typeof active.closest !== 'function') return;
+    const container = active.closest('[data-likert-container]');
+    if (!container) return;
+    const input = container.querySelector(`input[value="${event.key}"]`);
+    if (!input) return;
+    event.preventDefault();
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.focus();
+  });
+}
+
 /* ---------- fetch utils ---------- */
 
 async function createFetchError(response) {
@@ -372,22 +431,37 @@ async function createFetchError(response) {
 }
 
 async function fetchDiagnosisPayload() {
-  const response = await fetch('/api/diagnosis', {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-    cache: 'no-store',
-    credentials: 'same-origin',
-  });
-  const text = await response.text();
-  console.log('[diagnosis] GET /api/diagnosis', response.status, text.slice(0, 200));
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${text}`);
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    console.error('[diagnosis] JSON parse error', e);
-    throw new Error('診断データの形式が不正です');
+  const questions = await fetchLocalQuestions();
+  return { version: null, questions };
+}
+
+async function fetchLocalQuestions() {
+  let lastError;
+  for (const path of QUESTION_SOURCE_PATHS) {
+    try {
+      const response = await fetch(path, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        lastError = new Error(`HTTP ${response.status}: ${path}`);
+        continue;
+      }
+      const data = await response.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error('質問データの形式が不正です');
+      }
+      return data.map((item, index) => ({
+        code: item.code || item.id || `Q${index + 1}`,
+        text: String(item.text ?? ''),
+      }));
+    } catch (error) {
+      lastError = error;
+      console.warn('[diagnosis] failed to load questions from', path, error);
+    }
   }
+  throw lastError || new Error('質問データを読み込めませんでした');
 }
 
 function shortenMessage(message) {
