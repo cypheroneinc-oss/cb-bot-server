@@ -131,6 +131,11 @@ async function loadQuestions() {
     appState.version = payload.version ?? null;
     appState.questions = questions;
     appState.answers.clear();
+    appState.submitting = false;
+    elements.submitContent.textContent = '送信する';
+    elements.retryButton.classList.add('hidden');
+    elements.submitButton.classList.remove('hidden');
+    elements.shareButton.classList.add('hidden');
     elements.questions.removeAttribute('aria-busy');
     renderQuestions();
     updateProgress();
@@ -171,6 +176,9 @@ function renderQuestions() {
       input.id = choiceId;
       input.value = choice.key;
       input.required = true;
+      if (appState.answers.get(question.code) === choice.key) {
+        input.checked = true;
+      }
       input.addEventListener('change', () => handleAnswerChange(question.code, choice.key));
 
       const label = document.createElement('label');
@@ -214,6 +222,7 @@ function updateProgress() {
   const percent = total === 0 ? 0 : (answered / total) * 100;
   elements.progressFill.style.width = `${percent}%`;
   elements.progressFill.parentElement?.setAttribute('aria-valuenow', answered.toString());
+  elements.progressFill.parentElement?.setAttribute('aria-valuemax', total.toString());
 
   const canSubmit = answered === total && total > 0 && !appState.submitting;
   elements.submitButton.disabled = !canSubmit;
