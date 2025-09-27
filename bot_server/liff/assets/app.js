@@ -183,6 +183,7 @@ function renderQuestions() {
     list.dataset.likertContainer = 'true';
     list.setAttribute('role', 'radiogroup');
     list.setAttribute('aria-labelledby', headingId);
+    list.tabIndex = 0;
 
     const previousSelection = appState.answers.get(question.code);
 

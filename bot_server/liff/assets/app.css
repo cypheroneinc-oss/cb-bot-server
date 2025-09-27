@@ -167,7 +167,7 @@ button {
 }
 
 .likert-diamond {
-  --likert-size: 48px;
+  --likert-size: 40px;
   width: var(--likert-size);
   height: var(--likert-size);
   border-radius: 18px;
@@ -206,6 +206,20 @@ button {
 
 .likert-option.size-small .likert-diamond {
   --likert-size: 40px;
+}
+
+@media (max-width: 767px) {
+  .likert-option.size-large .likert-diamond {
+    --likert-size: 48px;
+  }
+
+  .likert-option.size-medium .likert-diamond {
+    --likert-size: 40px;
+  }
+
+  .likert-option.size-small .likert-diamond {
+    --likert-size: 34px;
+  }
 }
 
 .likert-caption {
