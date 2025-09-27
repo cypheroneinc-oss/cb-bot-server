@@ -2,7 +2,7 @@ name: questions-consistency
 
 on:
   push:
-    branches: [ main ]   # developでも走らせたいなら [ main, develop ] に
+    branches: [ main ]
   pull_request:
 
 jobs:
@@ -17,12 +17,9 @@ jobs:
       run:
         working-directory: bot_server
 
-    # ★ Secrets を job レベルで注入
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      # 読み取りだけなら ANON を推奨。スクリプトが Service Role を要求するなら下を使う
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-      # SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
       - name: Checkout
@@ -31,11 +28,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 20      # ★ cache設定は付けない
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install        # ★ lock無しなら npm ci は使わない
 
       - name: Verify questions dataset
         run: npm run check:questions
