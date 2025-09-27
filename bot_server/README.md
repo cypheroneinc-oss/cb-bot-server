@@ -27,45 +27,96 @@ npm install
 \i db/schema.sql
 ```
 
-4. DB 先行セットアップ
+4. 質問セットはリポジトリ管理
 
-   1. `public.questions` テーブル（`code`/`text`/`choices`/`sort_order`）を以下の SQL で用意します。
-
-      ```sql
-      create table if not exists public.questions (
-        code text primary key,
-        text text not null,
-        choices jsonb not null,
-        sort_order integer not null unique
-      );
-      ```
-
-   2. Row Level Security を有効化し、匿名ロールからの参照を許可します。
-
-      ```sql
-      alter table public.questions enable row level security;
-      create policy "Anon read questions" on public.questions for select using (true);
-      ```
-
-   3. `data/questions.v1.js` の 25 問を `public.questions` に upsert します（例: Supabase Table Editor で JSON インポート、または SQL の `insert ... on conflict`）。`code` が `Q1`〜`Q25`、`sort_order` が 1〜25 になるよう整備してください。
-
-   4. 以下の SQL で整合性を確認します。
-
-      ```sql
-      select code, sort_order from public.questions order by sort_order;
-      ```
-
-      さらに、`npm run check:questions` でコード側のデータセットと件数・ソートが一致しているか検証できます。
+   - `data/questions.v1.js` と `lib/questions/index.js` が `/api/diagnosis` で配信する 25 問の唯一のソースです。Supabase 側にテーブルを用意する必要はありません（管理用途で同期する場合は `scripts/check-questions-consistency.ts` を利用できます）。
 
 5. Vercel にデプロイし、`/line/webhook` を LINE Developers Console の Webhook URL に設定します。
 
 ## エンドポイント
 
 - `POST /line/webhook` – LINE 署名検証・セッション払い出し
-- `GET /diagnosis` – 質問リスト（`?v=1` でバージョン指定）
-- `POST /diagnosis/submit` – 回答受領・採点・保存
+- `GET /api/diagnosis` – 質問リスト（`?v=1` でバージョン指定）
+- `POST /api/diagnosis/submit` – 回答受領・採点・保存
 - `GET /share/:session_id` – シェアカード HTML（`vercel.json` の rewrite 経由）
 - `GET /diagnosis` – Web UI（`/api/diagnosis-ui` で HTML を返却）
+
+### サンプル
+
+#### `GET /api/diagnosis`
+
+```json
+{
+  "version": 1,
+  "count": 25,
+  "questions": [
+    {
+      "code": "Q1",
+      "text": "授業でグループ発表の役割を決めるとき、どう動く？",
+      "choices": [
+        { "key": "A", "label": "みんなの前でサッと手を挙げて進める" },
+        { "key": "B", "label": "裏で進行表を作って迷わないよう整える" },
+        { "key": "C", "label": "じっくり考えて自分に合う役割を静かに選ぶ" }
+      ]
+    }
+  ]
+}
+```
+
+#### `POST /api/diagnosis/submit`
+
+リクエスト
+
+```json
+{
+  "userId": "Uxxxxxxxx",
+  "sessionId": null,
+  "version": 1,
+  "answers": [
+    { "code": "Q1", "key": "A" },
+    { "code": "Q2", "key": "A" },
+    { "code": "Q3", "key": "A" }
+    // ... 省略（計25問）
+  ]
+}
+```
+
+レスポンス
+
+```json
+{
+  "ok": true,
+  "sessionId": "session-123",
+  "cluster": "challenge",
+  "heroSlug": "oda",
+  "imageUrl": "https://example.com/image.png",
+  "factorScores": {
+    "mbti": 0,
+    "safety": 19,
+    "workstyle": 11,
+    "motivation": 15,
+    "ng": 6,
+    "sync": 15,
+    "total": 66
+  },
+  "total": 66,
+  "result": {
+    "version": 1,
+    "cluster": "challenge",
+    "heroSlug": "oda",
+    "factorScores": {
+      "mbti": 0,
+      "safety": 19,
+      "workstyle": 11,
+      "motivation": 15,
+      "ng": 6,
+      "sync": 15,
+      "total": 66
+    },
+    "total": 66
+  }
+}
+```
 
 ## テスト
 

@@ -1,53 +1,73 @@
-const LIFF_ID = window.__LIFF_ID__;
-const BASE_URL = window.__APP_BASE_URL__ || window.location.origin;
+const LIFF_ID = resolveLiffId();
+const BASE_URL = resolveBaseUrl();
 
-const questionsContainer = document.getElementById('questions');
-const progressFill = document.getElementById('progressFill');
-const answeredCountEl = document.getElementById('answeredCount');
-const remainingCountEl = document.getElementById('remainingCount');
-const submitButton = document.getElementById('submitButton');
-const submitContent = document.getElementById('submitContent');
-const shareButton = document.getElementById('shareButton');
-const toastEl = document.getElementById('toast');
-const retryButton = document.getElementById('retryButton');
-const unansweredAlert = document.getElementById('unansweredAlert');
-const resultCard = document.getElementById('resultCard');
-const resultUser = document.getElementById('resultUser');
-const resultCluster = document.getElementById('resultCluster');
-const resultHero = document.getElementById('resultHero');
+const CLUSTER_LABELS = {
+  challenge: 'チャレンジ',
+  creative: 'クリエイティブ',
+  support: 'サポート',
+  strategy: 'ストラテジー',
+};
 
-const DEFAULT_TOTAL = 25;
-let totalQuestions = DEFAULT_TOTAL;
+const appState = {
+  stage: 'boot',
+  version: null,
+  questions: [],
+  answers: new Map(),
+  sessionId: getSessionParam(),
+  submitting: false,
+  profile: { userId: 'debug-user', displayName: 'Debug User' },
+};
 
-shareButton.disabled = true;
-
-let liffProfile = { userId: 'debug-user', displayName: 'Debug User' };
-let fetchedQuestions = [];
-const answers = new Map();
-let currentSessionId = getSessionParam();
-let isSubmitting = false;
+const elements = {
+  app: document.getElementById('app'),
+  questions: document.getElementById('questions'),
+  progressFill: document.getElementById('progressFill'),
+  answeredCount: document.getElementById('answeredCount'),
+  remainingCount: document.getElementById('remainingCount'),
+  submitButton: document.getElementById('submitButton'),
+  submitContent: document.getElementById('submitContent'),
+  shareButton: document.getElementById('shareButton'),
+  toast: document.getElementById('toast'),
+  retryButton: document.getElementById('retryButton'),
+  unansweredAlert: document.getElementById('unansweredAlert'),
+  resultCard: document.getElementById('resultCard'),
+  resultUser: document.getElementById('resultUser'),
+  resultCluster: document.getElementById('resultCluster'),
+  resultHero: document.getElementById('resultHero'),
+};
 
 init();
 
-function resolveLiffId(prefilled) {
-  if (prefilled) return prefilled;
+function resolveLiffId() {
+  const fromWindow = window.__LIFF_ID__;
+  if (fromWindow) return fromWindow;
   const meta = document.querySelector('meta[name="liff-id"]');
-  if (meta?.content) return meta.content;
-  const fallback = document.querySelector('[data-liff-id]')?.dataset?.liffId;
-  if (fallback) return fallback;
-  throw new Error('LIFF ID is not configured');
+  if (meta?.content) return meta.content.trim();
+  return '';
+}
+
+function resolveBaseUrl() {
+  const fromWindow = window.__APP_BASE_URL__;
+  if (fromWindow) return fromWindow;
+  const meta = document.querySelector('meta[name="app-base-url"]');
+  if (meta?.content) {
+    const trimmed = meta.content.trim();
+    if (trimmed) return trimmed;
+  }
+  return window.location.origin;
 }
 
 async function init() {
+  bindFooterActions();
+  renderSkeleton();
   try {
     await ensureLiff();
+    await loadQuestions();
   } catch (error) {
-    console.error('LIFF init error', error);
-    showToast('LIFFの初期化に失敗しました。アプリを再起動してください', true);
+    console.error('[liff] init failed', error);
+    showToast('LIFFの初期化に失敗しました。時間をおいて再試行してください', true);
+    showErrorCard('LIFFの初期化に失敗しました。電波の良い場所で再試行してください。');
   }
-
-  bindFooterActions();
-  await loadQuestions();
 }
 
 function getSessionParam() {
@@ -57,15 +77,14 @@ function getSessionParam() {
 
 async function ensureLiff() {
   if (window.liff) {
-    const liffId = resolveLiffId(LIFF_ID);
-    await window.liff.init({ liffId });
-    console.log('[liff] init OK'); // なぜ: 本番で初期化成功を即座に確認するため
+    await window.liff.init({ liffId: LIFF_ID || undefined, withLoginOnExternalBrowser: true });
+    console.log('[liff] init OK');
     if (!window.liff.isLoggedIn()) {
       window.liff.login();
-      return new Promise(() => {});
+      await new Promise(() => {});
     }
     const profile = await window.liff.getProfile();
-    liffProfile = {
+    appState.profile = {
       userId: profile.userId,
       displayName: profile.displayName || 'LINEユーザー',
     };
@@ -75,61 +94,64 @@ async function ensureLiff() {
 }
 
 function bindFooterActions() {
-  submitButton.addEventListener('click', onSubmit);
-  retryButton.addEventListener('click', () => {
+  elements.submitButton.addEventListener('click', onSubmit);
+  elements.retryButton.addEventListener('click', () => {
     hideToast();
-    retryButton.classList.add('hidden');
+    elements.retryButton.classList.add('hidden');
+    renderSkeleton();
     loadQuestions();
   });
-  shareButton.addEventListener('click', () => {
-    if (currentSessionId) {
-      window.location.href = `${BASE_URL}/share/${currentSessionId}`;
-    }
+  elements.shareButton.addEventListener('click', () => {
+    if (!appState.sessionId) return;
+    window.location.href = `${BASE_URL}/share/${appState.sessionId}`;
   });
 }
 
-async function loadQuestions() {
-  questionsContainer.innerHTML = '';
-  questionsContainer.setAttribute('aria-busy', 'true');
-  const loading = document.createElement('div');
-  loading.className = 'question-card';
-  loading.innerHTML = '<p>読み込み中…</p>';
-  questionsContainer.appendChild(loading);
+function renderSkeleton() {
+  elements.questions.innerHTML = '';
+  elements.questions.setAttribute('aria-busy', 'true');
+  const skeletonCard = document.createElement('section');
+  skeletonCard.className = 'question-card skeleton';
+  skeletonCard.innerHTML = `
+    <div class="skeleton-line skeleton-title"></div>
+    <div class="skeleton-line"></div>
+    <div class="skeleton-line"></div>
+    <div class="skeleton-line"></div>
+  `;
+  elements.questions.appendChild(skeletonCard);
+}
 
+async function loadQuestions() {
   try {
     const payload = await fetchDiagnosisPayload();
-    const receivedQuestions = Array.isArray(payload?.questions)
-      ? payload.questions
-      : Array.isArray(payload)
-      ? payload
-      : [];
-    if (!receivedQuestions.length) {
+    const questions = Array.isArray(payload?.questions) ? payload.questions : [];
+    if (!questions.length) {
       throw new Error('診断データが取得できませんでした');
     }
-    fetchedQuestions = receivedQuestions;
-    totalQuestions = fetchedQuestions.length || DEFAULT_TOTAL;
-    answers.clear();
-    updateProgress();
+    appState.version = payload.version ?? null;
+    appState.questions = questions;
+    appState.answers.clear();
+    elements.questions.removeAttribute('aria-busy');
     renderQuestions();
-    questionsContainer.removeAttribute('aria-busy');
+    updateProgress();
+    hideToast();
   } catch (error) {
-    console.error('[diagnosis] load failed', error); // なぜ: API障害時に DevTools から即追跡するため
-    questionsContainer.innerHTML = '';
-    const card = document.createElement('div');
-    card.className = 'question-card';
-    card.innerHTML = '<p>通信に失敗しました。電波の良い場所で再試行してください。</p>';
-    questionsContainer.appendChild(card);
-    showToast(error.message || '読み込みに失敗しました', true, error.errorId);
-    retryButton.classList.remove('hidden');
+    console.error('[diagnosis] load failed', error);
+    showToast(error.message || '読み込みに失敗しました', true);
+    showErrorCard('通信に失敗しました。電波の良い場所で再試行してください。');
+    elements.retryButton.classList.remove('hidden');
   }
 }
 
 function renderQuestions() {
-  questionsContainer.innerHTML = '';
-  fetchedQuestions.forEach((question, index) => {
+  elements.questions.innerHTML = '';
+  elements.questions.classList.remove('hidden');
+  elements.resultCard.classList.add('hidden');
+
+  appState.questions.forEach((question, index) => {
     const card = document.createElement('section');
     card.className = 'question-card';
-    card.setAttribute('data-question-id', question.question_id);
+    card.dataset.questionCode = question.code;
 
     const heading = document.createElement('h2');
     heading.textContent = `${index + 1}. ${question.text}`;
@@ -138,18 +160,18 @@ function renderQuestions() {
     const list = document.createElement('div');
     list.className = 'choices';
 
-    question.choices.forEach((choice) => {
-      const choiceId = `${question.question_id}-${choice.key}`;
+    (question.choices ?? []).forEach((choice) => {
+      const choiceId = `${question.code}-${choice.key}`;
       const wrapper = document.createElement('div');
       wrapper.className = 'choice';
 
       const input = document.createElement('input');
       input.type = 'radio';
-      input.name = question.question_id;
+      input.name = question.code;
       input.id = choiceId;
       input.value = choice.key;
       input.required = true;
-      input.addEventListener('change', () => handleAnswerChange(question.question_id, choice.key));
+      input.addEventListener('change', () => handleAnswerChange(question.code, choice.key));
 
       const label = document.createElement('label');
       label.setAttribute('for', choiceId);
@@ -157,13 +179,12 @@ function renderQuestions() {
       const title = document.createElement('span');
       title.className = 'choice-title';
       title.textContent = choice.label;
-
       label.appendChild(title);
 
-      if (choice.desc) {
+      if (choice.description) {
         const desc = document.createElement('span');
         desc.className = 'choice-desc';
-        desc.textContent = choice.desc;
+        desc.textContent = choice.description;
         label.appendChild(desc);
       }
 
@@ -173,71 +194,78 @@ function renderQuestions() {
     });
 
     card.appendChild(list);
-    questionsContainer.appendChild(card);
+    elements.questions.appendChild(card);
   });
 }
 
-function handleAnswerChange(questionId, choiceKey) {
-  answers.set(questionId, choiceKey);
+function handleAnswerChange(code, key) {
+  appState.answers.set(code, key);
   updateProgress();
 }
 
 function updateProgress() {
-  const answeredCount = answers.size;
-  const remaining = Math.max(totalQuestions - answeredCount, 0);
-  answeredCountEl.textContent = answeredCount.toString();
-  remainingCountEl.textContent = remaining.toString();
-  const percent = totalQuestions === 0 ? 0 : (answeredCount / totalQuestions) * 100;
-  progressFill.style.width = `${percent}%`;
-  progressFill.parentElement?.setAttribute('aria-valuenow', answeredCount.toString());
-  updateSubmitState();
+  const total = appState.questions.length || 25;
+  const answered = appState.answers.size;
+  const remaining = Math.max(total - answered, 0);
+
+  elements.answeredCount.textContent = answered.toString();
+  elements.remainingCount.textContent = remaining.toString();
+
+  const percent = total === 0 ? 0 : (answered / total) * 100;
+  elements.progressFill.style.width = `${percent}%`;
+  elements.progressFill.parentElement?.setAttribute('aria-valuenow', answered.toString());
+
+  const canSubmit = answered === total && total > 0 && !appState.submitting;
+  elements.submitButton.disabled = !canSubmit;
+
   updateUnansweredAlert();
 }
 
-function updateSubmitState() {
-  const canSubmit = answers.size === totalQuestions && totalQuestions > 0 && !isSubmitting;
-  submitButton.disabled = !canSubmit;
-}
-
 function updateUnansweredAlert() {
-  if (answers.size === totalQuestions && totalQuestions > 0) {
-    unansweredAlert.style.display = 'none';
+  const total = appState.questions.length;
+  if (!total) {
+    elements.unansweredAlert.classList.add('hidden');
     return;
   }
-  if (!fetchedQuestions.length) {
-    unansweredAlert.style.display = 'none';
+
+  if (appState.answers.size === total) {
+    elements.unansweredAlert.classList.add('hidden');
     return;
   }
-  const missing = fetchedQuestions
-    .map((q, idx) => ({ question: q, index: idx }))
-    .filter(({ question }) => !answers.has(question.question_id))
+
+  const missing = appState.questions
+    .map((question, index) => ({ question, index }))
+    .filter(({ question }) => !appState.answers.has(question.code))
     .map(({ index }) => `Q${index + 1}`);
-  if (missing.length) {
-    unansweredAlert.textContent = `未回答：${missing.join('、')}`;
-    unansweredAlert.style.display = 'block';
-  } else {
-    unansweredAlert.style.display = 'none';
+
+  if (!missing.length) {
+    elements.unansweredAlert.classList.add('hidden');
+    return;
   }
+
+  elements.unansweredAlert.textContent = `未回答：${missing.join('、')}`;
+  elements.unansweredAlert.classList.remove('hidden');
 }
 
 async function onSubmit() {
-  if (answers.size !== totalQuestions || isSubmitting) {
+  if (appState.submitting) return;
+
+  if (appState.answers.size !== appState.questions.length) {
     updateUnansweredAlert();
     showToast('未回答の質問があります', true);
     return;
   }
-  isSubmitting = true;
-  updateSubmitState();
-  submitContent.innerHTML = '<span class="spinner" aria-hidden="true"></span>';
+
+  appState.submitting = true;
+  elements.submitButton.disabled = true;
+  elements.submitContent.innerHTML = '<span class="spinner" aria-hidden="true"></span>';
 
   try {
     const payload = {
-      userId: liffProfile.userId,
-      sessionId: currentSessionId,
-      answers: Array.from(answers.entries()).map(([question_id, choice_key]) => ({
-        question_id,
-        choice_key,
-      })),
+      userId: appState.profile.userId,
+      sessionId: appState.sessionId,
+      version: appState.version,
+      answers: Array.from(appState.answers.entries()).map(([code, key]) => ({ code, key })),
     };
 
     const response = await fetch('/api/diagnosis/submit', {
@@ -252,55 +280,65 @@ async function onSubmit() {
     }
 
     const result = await response.json();
-    currentSessionId = result.sessionId || currentSessionId;
+    appState.sessionId = result.sessionId || appState.sessionId;
     showResult(result);
     hideToast();
   } catch (error) {
-    console.error('Submit failed', error);
+    console.error('[diagnosis] submit failed', error);
     showToast(error.message || '送信に失敗しました', true, error.errorId);
-    retryButton.classList.remove('hidden');
+    elements.retryButton.classList.remove('hidden');
   } finally {
-    isSubmitting = false;
-    submitContent.textContent = '送信する';
-    updateSubmitState();
+    appState.submitting = false;
+    elements.submitContent.textContent = '送信する';
+    updateProgress();
   }
 }
 
 function showResult(result) {
-  questionsContainer.classList.add('hidden');
-  unansweredAlert.style.display = 'none';
-  resultCard.style.display = 'block';
-  submitButton.classList.add('hidden');
-  retryButton.classList.add('hidden');
-  shareButton.classList.remove('hidden');
+  elements.questions.classList.add('hidden');
+  elements.unansweredAlert.classList.add('hidden');
+  elements.resultCard.classList.remove('hidden');
+  elements.submitButton.classList.add('hidden');
+  elements.retryButton.classList.add('hidden');
+  elements.shareButton.classList.remove('hidden');
 
-  const cluster = result.cluster ? `タイプ：${result.cluster}` : '';
-  const hero = result.heroSlug ? `推しキャラ：${result.heroSlug}` : '';
+  const payload = result.result ?? result;
+  const cluster = payload?.cluster ?? result.cluster;
+  const heroSlug = payload?.heroSlug ?? result.heroSlug;
 
-  resultUser.textContent = `${liffProfile.displayName} さん、おつかれさま。`;
-  resultCluster.textContent = cluster;
-  resultHero.textContent = hero;
+  const clusterLabel = cluster ? `タイプ：${CLUSTER_LABELS[cluster] ?? cluster}` : '';
+  const heroLabel = heroSlug ? `推しキャラ：${heroSlug}` : '';
 
-  if (result.sessionId) {
-    shareButton.disabled = false;
-  } else {
-    shareButton.disabled = true;
-  }
+  elements.resultUser.textContent = `${appState.profile.displayName} さん、おつかれさま。`;
+  elements.resultCluster.textContent = clusterLabel;
+  elements.resultHero.textContent = heroLabel;
+
+  elements.shareButton.disabled = !appState.sessionId;
+}
+
+function showErrorCard(message) {
+  elements.questions.innerHTML = '';
+  const card = document.createElement('section');
+  card.className = 'question-card';
+  card.innerHTML = `<p>${message}</p>`;
+  elements.questions.appendChild(card);
 }
 
 function showToast(message, isError = false, errorId) {
   const displayMessage = shortenMessage(message);
-  toastEl.textContent = errorId ? `${displayMessage} (ID: ${errorId})` : displayMessage;
-  toastEl.classList.toggle('error', Boolean(isError));
-  toastEl.style.display = 'block';
+  elements.toast.textContent = errorId
+    ? `${displayMessage} (ID: ${errorId})`
+    : displayMessage;
+  elements.toast.classList.toggle('error', Boolean(isError));
+  elements.toast.classList.remove('hidden');
   clearTimeout(showToast._timer);
   showToast._timer = setTimeout(() => {
-    toastEl.style.display = 'none';
+    elements.toast.classList.add('hidden');
   }, 4000);
 }
 
 function hideToast() {
-  toastEl.style.display = 'none';
+  elements.toast.classList.add('hidden');
   if (showToast._timer) {
     clearTimeout(showToast._timer);
   }
@@ -309,16 +347,19 @@ function hideToast() {
 async function createFetchError(response) {
   let message = `通信に失敗しました (${response.status})`;
   let errorId;
+  const text = await response.text();
   try {
-    const data = await response.json();
-    if (data && data.errorId) {
+    const data = text ? JSON.parse(text) : {};
+    if (data?.errorId) {
       errorId = data.errorId;
     }
-    if (data && data.message) {
+    if (data?.message) {
       message = data.message;
+    } else if (data?.error) {
+      message = data.error;
     }
-  } catch (err) {
-    // ignore JSON parse error
+  } catch (parseError) {
+    message = text || message;
   }
   const error = new Error(message);
   if (errorId) {
@@ -335,7 +376,7 @@ async function fetchDiagnosisPayload() {
     credentials: 'same-origin',
   });
   const text = await response.text();
-  console.log('[diagnosis] GET /api/diagnosis', response.status, text.slice(0, 200)); // なぜ: ステータスとレスポンス冒頭を記録し原因特定を早めるため
+  console.log('[diagnosis] GET /api/diagnosis', response.status, text.slice(0, 200));
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${text}`);
   }
@@ -353,5 +394,5 @@ async function fetchDiagnosisPayload() {
 function shortenMessage(message) {
   const text = String(message || '');
   if (text.length <= 80) return text;
-  return `…${text.slice(-80)}`; // なぜ: 長文エラーでも末尾を伝えつつ UI を圧迫しないため
+  return `…${text.slice(-80)}`;
 }

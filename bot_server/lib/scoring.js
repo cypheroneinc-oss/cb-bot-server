@@ -1,8 +1,13 @@
 import crypto from 'node:crypto';
-import { getQuestions, getQuestionById } from './questions.js';
+import {
+  DATASET_VERSION,
+  getQuestionByCode,
+  getQuestionDataset,
+  listQuestionCodes,
+} from './questions/index.js';
 
-const QUESTION_VERSION = 1;
-const QUESTION_IDS = getQuestions(QUESTION_VERSION).map((q) => q.id);
+const QUESTION_VERSION = DATASET_VERSION;
+const QUESTION_IDS = listQuestionCodes(QUESTION_VERSION);
 
 const SAFETY_MATRIX = new Map([
 ['high:high', 12],
@@ -61,9 +66,9 @@ if (!Array.isArray(answers)) {
 throw new Error('Answers must be an array');
 }
 
-if (answers.length !== expectedQuestionCount) {
-throw new Error(Exactly ${expectedQuestionCount} answers are required);
-}
+  if (answers.length !== expectedQuestionCount) {
+    throw new Error(`Exactly ${expectedQuestionCount} answers are required`);
+  }
 
 const seenQuestions = new Set();
 const selection = [];
@@ -91,7 +96,7 @@ if (!QUESTION_IDS.includes(questionId)) {
   throw new Error(`Unknown question id: ${questionId}`);
 }
 
-const question = getQuestionById(questionId);
+const question = getQuestionByCode(questionId);
 const choice = question.choices.find((c) => c.key === choiceKey);
 if (!choice) {
   throw new Error(`Unknown choice ${choiceKey} for question ${questionId}`);
@@ -190,7 +195,7 @@ let max = 0;
 for (const { question, choice } of relevant) {
 const { tags = {}, w = 1 } = choice;
 const bigFive = tags.BigFive ?? {};
-const key = ${bigFive.agreeableness ?? 'mid'}:${bigFive.extraversion ?? 'mid'};
+    const key = `${bigFive.agreeableness ?? 'mid'}:${bigFive.extraversion ?? 'mid'}`;
 raw += (SAFETY_MATRIX.get(key) ?? 8) * w;
 
 const maxForQuestion = Math.max(
@@ -574,7 +579,10 @@ heroSlug
 };
 }
 
-export function scoreAndMapToHero(answers, questionDataset = getQuestions(QUESTION_VERSION)) {
+export function scoreAndMapToHero(
+  answers,
+  questionDataset = getQuestionDataset(QUESTION_VERSION)
+) {
 const questionMap = new Map(questionDataset.map((question) => [question.id, question]));
 
 const normalized = answers.map((answer) => {
