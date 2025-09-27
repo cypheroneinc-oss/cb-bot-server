@@ -184,55 +184,105 @@
         gap: 14px;
       }
 
-      .choice {
+      .choices.likert-scale {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .likert-choice {
         position: relative;
-      }
-
-      .choice input {
-        position: absolute;
-        opacity: 0;
-      }
-
-      .choice label {
         display: flex;
         flex-direction: column;
-        gap: 6px;
-        border-radius: 18px;
-        padding: 16px 18px;
-        background: rgba(255, 255, 255, 0.52);
-        border: 1px solid rgba(137, 224, 255, 0.4);
-        min-height: 58px;
+        align-items: center;
+        flex: 1 1 0;
+        min-width: 0;
+        max-width: 120px;
+      }
+
+      .likert-input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .likert-option {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
         cursor: pointer;
-        transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
-        box-shadow: 0 12px 34px rgba(14, 37, 51, 0.1);
-      }
-
-      .choice label:hover {
-        background: rgba(255, 255, 255, 0.7);
-        box-shadow: 0 18px 48px rgba(137, 224, 255, 0.24);
-        transform: translateY(-2px);
-      }
-
-      .choice input:focus-visible + label {
-        outline: none;
-        box-shadow: 0 0 0 4px rgba(137, 224, 255, 0.55);
-      }
-
-      .choice input:checked + label {
-        border-color: var(--accent);
-        background: rgba(255, 255, 255, 0.82);
-        box-shadow: 0 20px 48px rgba(57, 210, 192, 0.3);
-      }
-
-      .choice-title {
-        font-weight: 600;
-        font-size: 1.04rem;
-        color: var(--fg);
-      }
-
-      .choice-desc {
+        text-align: center;
         color: var(--muted);
-        font-size: 0.94rem;
+        transition: color 0.25s ease;
+      }
+
+      .likert-diamond {
+        --likert-size: 48px;
+        width: var(--likert-size);
+        height: var(--likert-size);
+        border-radius: 22px;
+        border: 2px solid rgba(137, 224, 255, 0.35);
+        background: rgba(255, 255, 255, 0.38);
+        transform: rotate(45deg);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease,
+          background 0.25s ease;
+      }
+
+      .likert-option:hover .likert-diamond {
+        background: rgba(137, 224, 255, 0.48);
+        box-shadow: 0 18px 44px rgba(137, 224, 255, 0.28);
+        transform: rotate(45deg) translateY(-2px);
+      }
+
+      .likert-input:focus-visible + .likert-option .likert-diamond {
+        box-shadow: 0 0 0 4px rgba(137, 224, 255, 0.55), 0 12px 34px rgba(14, 37, 51, 0.1);
+      }
+
+      .likert-input:checked + .likert-option {
+        color: var(--fg);
+        font-weight: 600;
+      }
+
+      .likert-input:checked + .likert-option .likert-diamond {
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+        border-color: transparent;
+        transform: rotate(45deg) scale(1.06) translateY(-4px);
+        box-shadow: 0 26px 60px rgba(57, 210, 192, 0.28), 0 12px 34px rgba(137, 224, 255, 0.26),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.75);
+      }
+
+      .likert-diamond-value {
+        transform: rotate(-45deg);
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        color: #0e2533;
+      }
+
+      .likert-option.size-large .likert-diamond {
+        --likert-size: 56px;
+      }
+
+      .likert-option.size-medium .likert-diamond {
+        --likert-size: 48px;
+      }
+
+      .likert-option.size-small .likert-diamond {
+        --likert-size: 40px;
+      }
+
+      .likert-caption {
+        font-size: 0.9rem;
+        color: var(--muted);
+        min-height: 2.2em;
+        display: inline-block;
       }
 
       .footer {
@@ -388,83 +438,43 @@
           border-bottom-right-radius: 28px;
         }
       }
-     /* === Selected choice: float & emphasis =============================== */
+     /* === Selected diamond emphasis & motion ============================= */
 
-/* 浮遊のやわらかい上下動（選択時だけ） */
-@keyframes float-breath {
-  0%   { transform: translateY(-2px) scale(1.015); opacity: 0.98; }
-  50%  { transform: translateY(-5px) scale(1.02);  opacity: 1; }
-  100% { transform: translateY(-2px) scale(1.015); opacity: 0.98; }
+@keyframes diamond-float {
+  0% {
+    transform: rotate(45deg) scale(1.05) translateY(-4px);
+  }
+  50% {
+    transform: rotate(45deg) scale(1.07) translateY(-6px);
+  }
+  100% {
+    transform: rotate(45deg) scale(1.05) translateY(-4px);
+  }
 }
 
-/* 選択時の強調（shadow/gradient/inner-glow + バッジ） */
-.choice input:checked + label {
-  border-color: transparent; /* 枠は下のborder-imageで描く */
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow:
-    0 22px 52px rgba(57, 210, 192, 0.28),      /* ミントの外側影 */
-    0 8px 22px rgba(137, 224, 255, 0.22),      /* スカイの補助影 */
-    inset 0 0 0 1px rgba(255,255,255,0.7);     /* うっすら内側 */
-  transform: translateY(-4px) scale(1.02);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
-  border-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%) 1;
-  border-width: 1px;
-  border-style: solid;
-  position: relative;
-  animation: float-breath 3.2s ease-in-out infinite;
+.likert-input:checked + .likert-option .likert-diamond {
+  animation: diamond-float 3.2s ease-in-out infinite;
 }
 
-/* 角にチェックの浮遊バッジ */
-.choice input:checked + label::after {
-  content: "✓";
+.likert-input:checked + .likert-option .likert-diamond::after {
+  content: '';
   position: absolute;
-  top: -10px;
-  right: -10px;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: 14px;
-  box-shadow: 0 10px 24px rgba(137, 224, 255, 0.45);
-}
-
-/* 内側のやわらかいグロー（にじみ） */
-.choice input:checked + label::before {
-  content: "";
-  position: absolute;
-  inset: -6px;
-  border-radius: 22px;
-  background: radial-gradient(60% 60% at 70% 30%, rgba(137,224,255,0.35), rgba(57,210,192,0.18) 60%, transparent 70%);
-  filter: blur(10px);
+  inset: -10px;
+  border-radius: 26px;
+  background: radial-gradient(65% 65% at 70% 30%, rgba(255, 255, 255, 0.5), rgba(137, 224, 255, 0.3) 60%,
+      transparent 75%);
+  filter: blur(14px);
   z-index: -1;
 }
 
-/* ホバー時は選択済みの浮遊を少しだけ強める（非選択より強調） */
-.choice input:checked + label:hover {
-  transform: translateY(-6px) scale(1.025);
-  box-shadow:
-    0 26px 60px rgba(57,210,192,0.32),
-    0 12px 28px rgba(137,224,255,0.26),
-    inset 0 0 0 1px rgba(255,255,255,0.75);
-}
-
-/* キーボード操作のフォーカスもはっきり */
-.choice input:focus-visible + label {
+.likert-input:focus-visible + .likert-option .likert-diamond {
   outline: none;
-  box-shadow:
-    0 0 0 4px rgba(137,224,255,0.55),
-    0 12px 34px rgba(14,37,51,0.1);
 }
 
-/* モーションを減らすユーザー設定に配慮 */
 @media (prefers-reduced-motion: reduce) {
-  .choice input:checked + label {
+  .likert-input:checked + .likert-option .likert-diamond {
     animation: none;
-    transform: translateY(-3px) scale(1.015);
+    transform: rotate(45deg) scale(1.04) translateY(-4px);
   }
 }
 

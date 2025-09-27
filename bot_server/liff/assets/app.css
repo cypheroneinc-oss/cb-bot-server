@@ -117,50 +117,103 @@ button {
   gap: 12px;
 }
 
-.choice {
+.choices.likert-scale {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.likert-choice {
   position: relative;
-}
-
-.choice input {
-  position: absolute;
-  opacity: 0;
-}
-
-.choice label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  border-radius: 14px;
-  padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  min-height: 52px;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 96px;
+}
+
+.likert-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.likert-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
-}
-
-.choice label:hover {
-  background: rgba(0, 209, 255, 0.12);
-}
-
-.choice input:focus-visible + label {
-  outline: none;
-  box-shadow: var(--ring);
-}
-
-.choice input:checked + label {
-  border-color: var(--accent);
-  background: rgba(0, 209, 255, 0.18);
-}
-
-.choice-title {
-  font-weight: 600;
-  font-size: 1rem;
-}
-
-.choice-desc {
+  text-align: center;
   color: var(--muted);
-  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.likert-option:hover .likert-diamond {
+  background: rgba(0, 209, 255, 0.12);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+}
+
+.likert-input:focus-visible + .likert-option .likert-diamond {
+  box-shadow: var(--ring), 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+.likert-input:checked + .likert-option {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.likert-diamond {
+  --likert-size: 48px;
+  width: var(--likert-size);
+  height: var(--likert-size);
+  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.04);
+  transform: rotate(45deg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.likert-input:checked + .likert-option .likert-diamond {
+  background: linear-gradient(135deg, rgba(0, 209, 255, 0.85), rgba(0, 209, 255, 0.55));
+  border-color: var(--accent);
+  transform: rotate(45deg) scale(1.06);
+  box-shadow: 0 0 0 4px rgba(0, 209, 255, 0.25), 0 18px 36px rgba(0, 0, 0, 0.35);
+}
+
+.likert-diamond-value {
+  transform: rotate(-45deg);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+}
+
+.likert-option.size-large .likert-diamond {
+  --likert-size: 56px;
+}
+
+.likert-option.size-medium .likert-diamond {
+  --likert-size: 48px;
+}
+
+.likert-option.size-small .likert-diamond {
+  --likert-size: 40px;
+}
+
+.likert-caption {
+  font-size: 0.82rem;
+  line-height: 1.2;
+  display: inline-block;
+  min-height: 2.2em;
+  max-width: 110px;
 }
 
 .footer {

@@ -9,6 +9,17 @@ const CLUSTER_LABELS = {
   strategy: 'ストラテジー',
 };
 
+const LIKERT_OPTIONS = [
+  { value: 1, label: 'とてもそう思う', size: 'large' },
+  { value: 2, label: 'かなりそう思う', size: 'medium' },
+  { value: 3, label: '少しそう思う', size: 'small' },
+  { value: 4, label: '少しそう思わない', size: 'small' },
+  { value: 5, label: 'かなりそう思わない', size: 'medium' },
+  { value: 6, label: '全くそう思わない', size: 'large' },
+];
+
+const LIKERT_SHORTCUT_KEYS = new Set(['1', '2', '3', '4', '5', '6']);
+
 const appState = {
   version: null,
   questions: [],
@@ -80,6 +91,7 @@ async function ensureLiff() {
 
 async function init() {
   bindFooterActions();
+  bindLikertShortcuts();
   renderSkeleton();
   try {
     await ensureLiff();
@@ -161,44 +173,57 @@ function renderQuestions() {
     card.dataset.questionCode = question.code;
 
     const heading = document.createElement('h2');
+    const headingId = `${question.code}-title`;
+    heading.id = headingId;
     heading.textContent = `${index + 1}. ${question.text}`;
     card.appendChild(heading);
 
     const list = document.createElement('div');
-    list.className = 'choices';
+    list.className = 'choices likert-scale';
+    list.dataset.likertContainer = 'true';
+    list.setAttribute('role', 'radiogroup');
+    list.setAttribute('aria-labelledby', headingId);
 
-    (question.choices ?? []).forEach((choice) => {
-      // 期待フォーマット: { key, label, description? }
-      const choiceId = `${question.code}-${choice.key}`;
+    const previousSelection = appState.answers.get(question.code);
+
+    LIKERT_OPTIONS.forEach((option) => {
+      const choiceId = `${question.code}-scale-${option.value}`;
 
       const wrapper = document.createElement('div');
-      wrapper.className = 'choice';
+      wrapper.className = 'likert-choice';
 
       const input = document.createElement('input');
       input.type = 'radio';
       input.name = question.code;
       input.id = choiceId;
-      input.value = choice.key;
+      input.value = String(option.value);
       input.required = true;
-      if (appState.answers.get(question.code) === choice.key) {
+      input.className = 'likert-input';
+      if (Number(previousSelection) === option.value) {
         input.checked = true;
       }
-      input.addEventListener('change', () => handleAnswerChange(question.code, choice.key));
+      input.addEventListener('change', () => handleAnswerChange(question.code, option.value));
 
       const label = document.createElement('label');
       label.setAttribute('for', choiceId);
+      label.className = `likert-option size-${option.size}`;
+      label.setAttribute('aria-label', `${option.label} (${option.value})`);
 
-      const title = document.createElement('span');
-      title.className = 'choice-title';
-      title.textContent = choice.label;
-      label.appendChild(title);
+      const diamond = document.createElement('span');
+      diamond.className = 'likert-diamond';
+      diamond.setAttribute('aria-hidden', 'true');
 
-      if (choice.description) {
-        const desc = document.createElement('span');
-        desc.className = 'choice-desc';
-        desc.textContent = choice.description;
-        label.appendChild(desc);
-      }
+      const diamondValue = document.createElement('span');
+      diamondValue.className = 'likert-diamond-value';
+      diamondValue.textContent = String(option.value);
+      diamond.appendChild(diamondValue);
+
+      const caption = document.createElement('span');
+      caption.className = 'likert-caption';
+      caption.textContent = option.label;
+
+      label.appendChild(diamond);
+      label.appendChild(caption);
 
       wrapper.appendChild(input);
       wrapper.appendChild(label);
@@ -212,8 +237,10 @@ function renderQuestions() {
 
 /* ---------- state & submit ---------- */
 
-function handleAnswerChange(code, key) {
-  appState.answers.set(code, key);
+function handleAnswerChange(code, scale) {
+  const numericScale = Number(scale);
+  if (!Number.isFinite(numericScale)) return;
+  appState.answers.set(code, numericScale);
   updateProgress();
 }
 
@@ -275,7 +302,11 @@ async function onSubmit() {
       userId: appState.profile.userId,
       sessionId: appState.sessionId,
       version: appState.version,
-      answers: Array.from(appState.answers.entries()).map(([code, key]) => ({ code, key })),
+      answers: Array.from(appState.answers.entries()).map(([code, scale]) => ({
+        code,
+        scale,
+        scaleMax: 6,
+      })),
     };
 
     const response = await fetch('/api/diagnosis/submit', {
@@ -350,6 +381,25 @@ function showToast(message, isError = false, errorId) {
 function hideToast() {
   elements.toast.classList.add('hidden');
   if (showToast._timer) clearTimeout(showToast._timer);
+}
+
+function bindLikertShortcuts() {
+  if (bindLikertShortcuts._bound) return;
+  bindLikertShortcuts._bound = true;
+
+  document.addEventListener('keydown', (event) => {
+    if (!LIKERT_SHORTCUT_KEYS.has(event.key)) return;
+    const active = document.activeElement;
+    if (!active || typeof active.closest !== 'function') return;
+    const container = active.closest('[data-likert-container]');
+    if (!container) return;
+    const input = container.querySelector(`input[value="${event.key}"]`);
+    if (!input) return;
+    event.preventDefault();
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.focus();
+  });
 }
 
 /* ---------- fetch utils ---------- */
