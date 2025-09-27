@@ -388,6 +388,86 @@
           border-bottom-right-radius: 28px;
         }
       }
+     /* === Selected choice: float & emphasis =============================== */
+
+/* 浮遊のやわらかい上下動（選択時だけ） */
+@keyframes float-breath {
+  0%   { transform: translateY(-2px) scale(1.015); opacity: 0.98; }
+  50%  { transform: translateY(-5px) scale(1.02);  opacity: 1; }
+  100% { transform: translateY(-2px) scale(1.015); opacity: 0.98; }
+}
+
+/* 選択時の強調（shadow/gradient/inner-glow + バッジ） */
+.choice input:checked + label {
+  border-color: transparent; /* 枠は下のborder-imageで描く */
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 22px 52px rgba(57, 210, 192, 0.28),      /* ミントの外側影 */
+    0 8px 22px rgba(137, 224, 255, 0.22),      /* スカイの補助影 */
+    inset 0 0 0 1px rgba(255,255,255,0.7);     /* うっすら内側 */
+  transform: translateY(-4px) scale(1.02);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
+  border-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%) 1;
+  border-width: 1px;
+  border-style: solid;
+  position: relative;
+  animation: float-breath 3.2s ease-in-out infinite;
+}
+
+/* 角にチェックの浮遊バッジ */
+.choice input:checked + label::after {
+  content: "✓";
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 10px 24px rgba(137, 224, 255, 0.45);
+}
+
+/* 内側のやわらかいグロー（にじみ） */
+.choice input:checked + label::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 22px;
+  background: radial-gradient(60% 60% at 70% 30%, rgba(137,224,255,0.35), rgba(57,210,192,0.18) 60%, transparent 70%);
+  filter: blur(10px);
+  z-index: -1;
+}
+
+/* ホバー時は選択済みの浮遊を少しだけ強める（非選択より強調） */
+.choice input:checked + label:hover {
+  transform: translateY(-6px) scale(1.025);
+  box-shadow:
+    0 26px 60px rgba(57,210,192,0.32),
+    0 12px 28px rgba(137,224,255,0.26),
+    inset 0 0 0 1px rgba(255,255,255,0.75);
+}
+
+/* キーボード操作のフォーカスもはっきり */
+.choice input:focus-visible + label {
+  outline: none;
+  box-shadow:
+    0 0 0 4px rgba(137,224,255,0.55),
+    0 12px 34px rgba(14,37,51,0.1);
+}
+
+/* モーションを減らすユーザー設定に配慮 */
+@media (prefers-reduced-motion: reduce) {
+  .choice input:checked + label {
+    animation: none;
+    transform: translateY(-3px) scale(1.015);
+  }
+}
+
     </style>
   </head>
   <body>
