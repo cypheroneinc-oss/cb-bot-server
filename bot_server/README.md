@@ -1,6 +1,6 @@
 # Co-Sync6 診断サーバー
 
-Vercel Serverless Functions 上で動作する LINE 連携診断ワークフローです。25問の質問に回答すると Co-Sync6 の 6 因子を採点し、4 クラスター／16 偉人にマッピングした結果を LINE Flex Message として返却します。
+Vercel Serverless Functions 上で動作する LINE 連携診断ワークフローです。25問の質問に回答すると Co-Sync6 の 6 因子を採点し、4 クラスタ／16 偉人にマッピングした結果を LINE Flex Message として返却します。
 
 ## セットアップ
 
@@ -27,7 +27,37 @@ npm install
 \i db/schema.sql
 ```
 
-4. Vercel にデプロイし、`/line/webhook` を LINE Developers Console の Webhook URL に設定します。
+4. DB 先行セットアップ
+
+   1. `public.questions` テーブル（`code`/`text`/`choices`/`sort_order`）を以下の SQL で用意します。
+
+      ```sql
+      create table if not exists public.questions (
+        code text primary key,
+        text text not null,
+        choices jsonb not null,
+        sort_order integer not null unique
+      );
+      ```
+
+   2. Row Level Security を有効化し、匿名ロールからの参照を許可します。
+
+      ```sql
+      alter table public.questions enable row level security;
+      create policy "Anon read questions" on public.questions for select using (true);
+      ```
+
+   3. `data/questions.v1.js` の 25 問を `public.questions` に upsert します（例: Supabase Table Editor で JSON インポート、または SQL の `insert ... on conflict`）。`code` が `Q1`〜`Q25`、`sort_order` が 1〜25 になるよう整備してください。
+
+   4. 以下の SQL で整合性を確認します。
+
+      ```sql
+      select code, sort_order from public.questions order by sort_order;
+      ```
+
+      さらに、`npm run check:questions` でコード側のデータセットと件数・ソートが一致しているか検証できます。
+
+5. Vercel にデプロイし、`/line/webhook` を LINE Developers Console の Webhook URL に設定します。
 
 ## エンドポイント
 
