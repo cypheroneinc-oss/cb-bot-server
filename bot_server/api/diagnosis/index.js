@@ -1,20 +1,37 @@
-import { getQuestions } from '../../lib/questions.js';
-import { QUESTION_VERSION } from '../../lib/scoring.js';
+import { createClient } from '@supabase/supabase-js';
+
+export const config = { runtime: 'nodejs' }; // なぜ: Edge では Supabase SDK が動作しないため
+
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value) throw new Error(`ENV ${name} is missing`);
+  return value;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
-    res.status(405).json({ error: 'Method Not Allowed' });
-    return;
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { v } = req.query ?? {};
-  const version = Number(v ?? QUESTION_VERSION);
+  try {
+    const supabase = createClient(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_ANON_KEY'));
 
-  if (!Number.isInteger(version) || version !== QUESTION_VERSION) {
-    res.status(400).json({ error: 'Unsupported question set version' });
-    return;
+    const { data, error } = await supabase
+      .from('questions')
+      .select('*')
+      .order('order', { ascending: true })
+      .limit(25);
+
+    if (error) {
+      console.error('[diagnosis] supabase error', error); // なぜ: 失敗要因をログで即把握するため
+      return res
+        .status(500)
+        .json({ error: error.message, code: error.code || 'SUPABASE_ERROR' });
+    }
+
+    return res.status(200).json({ questions: data || [] });
+  } catch (error) {
+    console.error('[diagnosis] fatal', error); // なぜ: 想定外例外の痕跡を残すため
+    return res.status(500).json({ error: error?.message || String(error), code: 'FATAL' });
   }
-
-  const questions = getQuestions(version);
-  res.status(200).json({ version, questions });
 }
