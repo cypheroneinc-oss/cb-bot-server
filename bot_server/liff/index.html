@@ -10,12 +10,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
 
-    <!-- LIFF placeholders (必要に応じて直値注入でもOK) -->
+    <!-- LIFF placeholders -->
     <meta name="liff-id" content="2008019437-Jxwm33XM" />
     <meta name="app-base-url" content="https://cb-bot-server-v7rg.vercel.app" />
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script>
-      // window 経由の注入にも対応（どちらか片方でOK）
       window.__LIFF_ID__ = '2008019437-Jxwm33XM';
       window.__APP_BASE_URL__ = 'https://cb-bot-server-v7rg.vercel.app';
     </script>
@@ -35,11 +34,11 @@
       <p class="status"><strong id="answeredCount">0</strong>/25 件回答済み</p>
 
       <div class="load-error hidden" id="loadError" role="alert" aria-live="polite"></div>
-
       <div class="alert hidden" id="unansweredAlert" role="status" aria-live="polite"></div>
 
       <main class="questions" id="questions" aria-live="polite"></main>
 
+      <!-- === 診断結果カード（新フォーマット） === -->
       <section class="result-card hidden" id="resultCard" aria-live="polite">
         <header class="result-header">
           <h1>診断が完了したよ</h1>
@@ -56,8 +55,10 @@
           </div>
         </div>
 
-        <p class="result-summary" id="resultSummary"></p>
+        <!-- 偉人コピー（1行） -->
+        <p class="result-summary" id="resultHeroCopy"></p>
 
+        <!-- シェアカード -->
         <section class="share-preview">
           <img id="resultShareImage" alt="シェアカードプレビュー" />
           <button type="button" class="secondary" id="downloadShareButton">カード画像を保存</button>
@@ -74,28 +75,38 @@
           <p class="share-note">Instagram / Threads では画像を保存して投稿してください。</p>
         </section>
 
+        <!-- 🌟 個性 -->
         <section class="narrative-section">
-          <h3>あなただけの読み解き</h3>
-          <div class="narrative-grid">
-            <div class="narrative-block">
-              <h4>強み</h4>
-              <ul id="resultStrengths"></ul>
-            </div>
-            <div class="narrative-block">
-              <h4>相性が悪い環境</h4>
-              <ul id="resultMisfit"></ul>
-            </div>
-            <div class="narrative-block">
-              <h4>活かし方</h4>
-              <ul id="resultHowToUse"></ul>
-            </div>
-            <div class="narrative-block">
-              <h4>次の一歩</h4>
-              <ul id="resultNextAction"></ul>
-            </div>
-          </div>
+          <h3>🌟 個性</h3>
+          <h4 id="resultPersonalityTitle" class="result-subtitle"></h4>
+          <div id="resultPersonalityBody" class="result-paragraphs"></div>
         </section>
 
+        <!-- ⚡ 活躍シーン -->
+        <section class="narrative-section">
+          <h3>⚡ 活躍シーン</h3>
+          <ul id="resultScenes"></ul>
+        </section>
+
+        <!-- 🐣 成長のヒント -->
+        <section class="narrative-section">
+          <h3>🐣 成長のヒント</h3>
+          <ul id="resultTips"></ul>
+        </section>
+
+        <!-- 🔥 個性が発揮される職業 -->
+        <section class="narrative-section">
+          <h3>🔥 個性が発揮される職業</h3>
+          <ul id="resultJobs" class="jobs-list"></ul>
+        </section>
+
+        <!-- 🧪 化学反応 -->
+        <section class="narrative-section">
+          <h3>🧪 化学反応</h3>
+          <ol id="resultReactions"></ol>
+        </section>
+
+        <!-- スコア（任意／バックエンドが返す場合のみ） -->
         <section class="result-scores">
           <h3>スコアサマリー</h3>
           <div id="resultScores"></div>
