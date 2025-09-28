@@ -1,3 +1,4 @@
+// filename: bot_server/liff/assets/app.js
 // LIFF + 診断UI ロジック（repo質問 / DB非依存）
 const LIFF_ID = resolveLiffId();
 const BASE_URL = resolveBaseUrl();
@@ -24,7 +25,7 @@ const QUESTION_SOURCE_PATHS = ['./data/questions.v1.json', '../data/questions.v1
 const appState = {
   version: null,
   questions: [],
-  answers: new Map(),              // Map<code, key>
+  answers: new Map(), // Map<code, scale>
   sessionId: getSessionParam(),
   submitting: false,
   profile: { userId: 'debug-user', displayName: 'Debug User' },
@@ -53,13 +54,16 @@ init();
 /* ---------- boot & helpers ---------- */
 
 function resolveLiffId() {
+  // どちらの名前でも拾えるように二重対応
   if (window.__LIFF_ID__) return String(window.__LIFF_ID__).trim();
+  if (window.LIFF_ID) return String(window.LIFF_ID).trim();
   const meta = document.querySelector('meta[name="liff-id"]');
   return meta?.content?.trim() || '';
 }
 
 function resolveBaseUrl() {
   if (window.__APP_BASE_URL__) return String(window.__APP_BASE_URL__).trim();
+  if (window.APP_BASE_URL) return String(window.APP_BASE_URL).trim();
   const meta = document.querySelector('meta[name="app-base-url"]');
   const v = (meta?.content || '').trim();
   return v || window.location.origin;
