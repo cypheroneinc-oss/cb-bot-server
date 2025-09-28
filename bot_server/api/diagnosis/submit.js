@@ -34,9 +34,7 @@ const MOTIVATION_KEYS = [
 
 function toNumeric(value) {
   const numeric = Number(value ?? 0);
-  if (!Number.isFinite(numeric)) {
-    return 0;
-  }
+  if (!Number.isFinite(numeric)) return 0;
   return Math.round(numeric * 100) / 100;
 }
 
@@ -57,20 +55,35 @@ function buildScoresBreakdown(counts = {}) {
 
 function resolveBaseUrl() {
   const explicit = process.env.APP_BASE_URL?.trim();
-  if (explicit) {
-    return explicit.replace(/\/$/, '');
-  }
+  if (explicit) return explicit.replace(/\/$/, '');
   const vercel = process.env.VERCEL_URL?.trim();
   if (vercel) {
     const prefix = vercel.startsWith('http') ? vercel : `https://${vercel}`;
     return prefix.replace(/\/$/, '');
   }
   const site = process.env.BASE_URL?.trim();
-  if (site) {
-    return site.replace(/\/$/, '');
-  }
+  if (site) return site.replace(/\/$/, '');
   return 'https://example.com';
 }
+
+// --- 追加: バージョンエイリアス解決 ----------------------------
+function normalizeQuestionVersion(input) {
+  // 受け入れるキー名のゆらぎ：version / questionSetVersion
+  const raw = input == null ? '' : String(input).trim();
+  if (!raw) return QUESTION_VERSION;
+
+  const v = raw.toLowerCase();
+
+  // v1 / 1 を現行版のエイリアスとして受理（移行互換）
+  const aliases = new Map([
+    ['v1', String(QUESTION_VERSION).toLowerCase()],
+    ['1', String(QUESTION_VERSION).toLowerCase()],
+    [String(QUESTION_VERSION).toLowerCase(), String(QUESTION_VERSION).toLowerCase()],
+  ]);
+
+  return aliases.get(v) ?? v;
+}
+// ----------------------------------------------------------------
 
 function normalizeAnswer(answer) {
   const code =
@@ -105,48 +118,27 @@ function validateAnswers(rawAnswers, requestId) {
   for (const rawAnswer of rawAnswers) {
     const { code, key, scale, scaleMax } = normalizeAnswer(rawAnswer);
     if (typeof code !== 'string') {
-      return {
-        ok: false,
-        error: 'Invalid answer format',
-        errorId: requestId,
-      };
+      return { ok: false, error: 'Invalid answer format', errorId: requestId };
     }
 
     if (seen.has(code)) {
-      return {
-        ok: false,
-        error: `Duplicate answer for ${code}`,
-        errorId: requestId,
-      };
+      return { ok: false, error: `Duplicate answer for ${code}`, errorId: requestId };
     }
     seen.add(code);
 
     const question = QUESTION_MAP.get(code);
     if (!question) {
-      return {
-        ok: false,
-        error: `Unknown question id: ${code}`,
-        errorId: requestId,
-      };
+      return { ok: false, error: `Unknown question id: ${code}`, errorId: requestId };
     }
 
     const numericScale = scale === null ? null : Number(scale);
     const numericScaleMax = scaleMax === null ? null : Number(scaleMax);
 
     if (numericScale !== null && !Number.isFinite(numericScale)) {
-      return {
-        ok: false,
-        error: `Invalid scale value for ${code}`,
-        errorId: requestId,
-      };
+      return { ok: false, error: `Invalid scale value for ${code}`, errorId: requestId };
     }
-
     if (numericScaleMax !== null && !Number.isFinite(numericScaleMax)) {
-      return {
-        ok: false,
-        error: `Invalid scaleMax value for ${code}`,
-        errorId: requestId,
-      };
+      return { ok: false, error: `Invalid scaleMax value for ${code}`, errorId: requestId };
     }
 
     let resolvedKey = key;
@@ -156,42 +148,24 @@ function validateAnswers(rawAnswers, requestId) {
 
     if (typeof resolvedKey !== 'string') {
       if (!Number.isFinite(resolvedScale)) {
-        return {
-          ok: false,
-          error: `Scale required for ${code}`,
-          errorId: requestId,
-        };
+        return { ok: false, error: `Scale required for ${code}`, errorId: requestId };
       }
       const mapped = mapLikertToChoice({ questionId: code, scale: resolvedScale, scaleMax: resolvedScaleMax });
       if (!mapped || typeof mapped.choiceKey !== 'string') {
-        return {
-          ok: false,
-          error: `Invalid scale for ${code}`,
-          errorId: requestId,
-        };
+        return { ok: false, error: `Invalid scale for ${code}`, errorId: requestId };
       }
       resolvedKey = mapped.choiceKey;
       weight = mapped.w;
-      if (!Number.isFinite(resolvedScaleMax)) {
-        resolvedScaleMax = 6;
-      }
+      if (!Number.isFinite(resolvedScaleMax)) resolvedScaleMax = 6;
     }
 
     const match = question.choices.some((choice) => choice.key === resolvedKey);
     if (!match) {
-      return {
-        ok: false,
-        error: `Unknown choice ${resolvedKey} for ${code}`,
-        errorId: requestId,
-      };
+      return { ok: false, error: `Unknown choice ${resolvedKey} for ${code}`, errorId: requestId };
     }
 
     if (!Number.isFinite(resolvedScale)) {
-      return {
-        ok: false,
-        error: `Scale required for ${code}`,
-        errorId: requestId,
-      };
+      return { ok: false, error: `Scale required for ${code}`, errorId: requestId };
     }
 
     const scaleMaxForStore = Number.isFinite(resolvedScaleMax) ? resolvedScaleMax : 6;
@@ -201,11 +175,7 @@ function validateAnswers(rawAnswers, requestId) {
   }
 
   if (normalized.length !== EXPECTED_COUNT) {
-    return {
-      ok: false,
-      error: 'answers must cover all questions',
-      errorId: requestId,
-    };
+    return { ok: false, error: 'answers must cover all questions', errorId: requestId };
   }
 
   return { ok: true, normalized, persistencePayload };
@@ -228,35 +198,31 @@ export function createSubmitHandler({
 
     try {
       const body = req.body ?? {};
-      const { userId, sessionId: inputSessionId, answers, version } = body;
+      // version のキー名ゆらぎに対応
+      const incomingVersionRaw = body.version ?? body.questionSetVersion ?? null;
+      const resolvedIncomingVersion = normalizeQuestionVersion(incomingVersionRaw);
+
+      const { userId, sessionId: inputSessionId, answers } = body;
 
       if (!userId) {
-        return res
-          .status(400)
-          .json({ ok: false, error: 'userId required', errorId: requestId });
+        return res.status(400).json({ ok: false, error: 'userId required', errorId: requestId });
       }
-
       if (inputSessionId && typeof inputSessionId !== 'string') {
-        return res.status(400).json({
-          ok: false,
-          error: 'sessionId must be a string',
-          errorId: requestId,
-        });
+        return res.status(400).json({ ok: false, error: 'sessionId must be a string', errorId: requestId });
       }
 
-      const questionVersion = version ?? QUESTION_VERSION;
-      if (questionVersion !== QUESTION_VERSION) {
+      // 期待する現行版
+      const expectedVersion = String(QUESTION_VERSION).toLowerCase();
+      if (resolvedIncomingVersion !== expectedVersion) {
         return res.status(400).json({
           ok: false,
-          error: 'Unsupported question set version',
+          error: `Unsupported question set version (expected: "${expectedVersion}", got: "${resolvedIncomingVersion || 'none'}")`,
           errorId: requestId,
         });
       }
 
       const validation = validateAnswers(answers, requestId);
-      if (!validation.ok) {
-        return res.status(400).json(validation);
-      }
+      if (!validation.ok) return res.status(400).json(validation);
 
       const { normalized, persistencePayload } = validation;
 
@@ -328,9 +294,7 @@ export function createSubmitHandler({
       });
     } catch (error) {
       console.error('[diagnosis:submit]', requestId, error);
-      return res
-        .status(500)
-        .json({ ok: false, error: 'internal', errorId: requestId });
+      return res.status(500).json({ ok: false, error: 'internal', errorId: requestId });
     }
   };
 }
