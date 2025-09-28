@@ -1,7 +1,8 @@
-// filename: bot_server/liff/assets/app.js
 // LIFF + 診断UI ロジック（repo質問 / DB非依存）
 const LIFF_ID = resolveLiffId();
 const BASE_URL = resolveBaseUrl();
+
+const QUESTION_VERSION = 2;
 
 const CLUSTER_LABELS = {
   challenge: 'チャレンジ',
@@ -23,12 +24,14 @@ const LIKERT_SHORTCUT_KEYS = new Set(['1', '2', '3', '4', '5', '6']);
 const QUESTION_SOURCE_PATHS = ['./data/questions.v1.json', '../data/questions.v1.json'];
 
 const appState = {
-  version: null,
+  version: QUESTION_VERSION,
   questions: [],
-  answers: new Map(), // Map<code, scale>
+  answers: new Map(),              // Map<code, scale>
   sessionId: getSessionParam(),
   submitting: false,
   profile: { userId: 'debug-user', displayName: 'Debug User' },
+  result: null,
+  reviewing: false,
 };
 
 const elements = {
@@ -42,11 +45,27 @@ const elements = {
   shareButton: document.getElementById('shareButton'),
   toast: document.getElementById('toast'),
   retryButton: document.getElementById('retryButton'),
+  retakeButton: document.getElementById('retakeButton'),
+  reviewButton: document.getElementById('reviewButton'),
+  resultActions: document.getElementById('resultActions'),
   unansweredAlert: document.getElementById('unansweredAlert'),
   resultCard: document.getElementById('resultCard'),
-  resultUser: document.getElementById('resultUser'),
-  resultCluster: document.getElementById('resultCluster'),
-  resultHero: document.getElementById('resultHero'),
+  resultSub: document.getElementById('resultSub'),
+  resultClusterTag: document.getElementById('resultClusterTag'),
+  resultHeroName: document.getElementById('resultHeroName'),
+  resultHeroImage: document.getElementById('resultHeroImage'),
+  resultSummary: document.getElementById('resultSummary'),
+  resultStrengths: document.getElementById('resultStrengths'),
+  resultMisfit: document.getElementById('resultMisfit'),
+  resultHowToUse: document.getElementById('resultHowToUse'),
+  resultNextAction: document.getElementById('resultNextAction'),
+  resultScores: document.getElementById('resultScores'),
+  resultShareImage: document.getElementById('resultShareImage'),
+  downloadShareButton: document.getElementById('downloadShareButton'),
+  shareLineButton: document.getElementById('shareLineButton'),
+  shareWebButton: document.getElementById('shareWebButton'),
+  shareXButton: document.getElementById('shareXButton'),
+  shareCopyButton: document.getElementById('shareCopyButton'),
 };
 
 init();
@@ -54,16 +73,13 @@ init();
 /* ---------- boot & helpers ---------- */
 
 function resolveLiffId() {
-  // どちらの名前でも拾えるように二重対応
   if (window.__LIFF_ID__) return String(window.__LIFF_ID__).trim();
-  if (window.LIFF_ID) return String(window.LIFF_ID).trim();
   const meta = document.querySelector('meta[name="liff-id"]');
   return meta?.content?.trim() || '';
 }
 
 function resolveBaseUrl() {
   if (window.__APP_BASE_URL__) return String(window.__APP_BASE_URL__).trim();
-  if (window.APP_BASE_URL) return String(window.APP_BASE_URL).trim();
   const meta = document.querySelector('meta[name="app-base-url"]');
   const v = (meta?.content || '').trim();
   return v || window.location.origin;
@@ -117,10 +133,18 @@ function bindFooterActions() {
     renderSkeleton();
     loadQuestions();
   });
-  elements.shareButton.addEventListener('click', () => {
-    if (!appState.sessionId) return;
-    window.location.href = `${BASE_URL}/share/${appState.sessionId}`;
-  });
+  elements.shareButton.addEventListener('click', handlePrimaryShare);
+  elements.retakeButton?.addEventListener('click', retakeDiagnosis);
+  elements.reviewButton?.addEventListener('click', toggleReview);
+  elements.downloadShareButton?.addEventListener('click', handleDownloadShareCard);
+  bindShareButtons();
+}
+
+function bindShareButtons() {
+  elements.shareLineButton?.addEventListener('click', handleLineShare);
+  elements.shareWebButton?.addEventListener('click', handleWebShare);
+  elements.shareXButton?.addEventListener('click', handleXShare);
+  elements.shareCopyButton?.addEventListener('click', handleCopyLink);
 }
 
 /* ---------- load & render ---------- */
@@ -145,15 +169,19 @@ async function loadQuestions() {
     const qs = Array.isArray(payload?.questions) ? payload.questions : [];
     if (!qs.length) throw new Error('診断データが取得できませんでした');
 
-    appState.version = payload.version ?? null;
+    appState.version = payload.version ?? QUESTION_VERSION;
     appState.questions = qs;
     appState.answers.clear();
     appState.submitting = false;
+    appState.result = null;
+    appState.reviewing = false;
 
     elements.submitContent.textContent = '送信する';
     elements.retryButton.classList.add('hidden');
     elements.submitButton.classList.remove('hidden');
     elements.shareButton.classList.add('hidden');
+    elements.resultActions?.classList.add('hidden');
+    elements.resultCard.classList.add('hidden');
     elements.loadError.classList.add('hidden');
     elements.loadError.textContent = '';
 
@@ -362,26 +390,45 @@ async function onSubmit() {
 
 /* ---------- result & feedback ---------- */
 
-function showResult(result) {
+function showResult(rawResult) {
+  const normalized = normalizeResult(rawResult);
+  appState.result = normalized;
+  appState.sessionId = normalized.sessionId ?? appState.sessionId;
+  appState.reviewing = false;
+
   elements.questions.classList.add('hidden');
   elements.unansweredAlert.classList.add('hidden');
   elements.resultCard.classList.remove('hidden');
+  elements.resultActions?.classList.remove('hidden');
   elements.submitButton.classList.add('hidden');
   elements.retryButton.classList.add('hidden');
   elements.shareButton.classList.remove('hidden');
+  elements.shareButton.disabled = false;
 
-  const payload = result.result ?? result;
-  const cluster = payload?.cluster ?? result.cluster;
-  const heroSlug = payload?.heroSlug ?? result.heroSlug;
+  const displayName = appState.profile.displayName || 'あなた';
+  elements.resultSub.textContent = `${displayName}、結果をまとめたよ。`;
 
-  const clusterLabel = cluster ? `タイプ：${CLUSTER_LABELS[cluster] ?? cluster}` : '';
-  const heroLabel = heroSlug ? `推しキャラ：${heroSlug}` : '';
+  const headline = normalized.share.copy.headline || `あなたは${normalized.hero.name}！`;
+  elements.resultHeroName.textContent = headline;
+  elements.resultClusterTag.textContent = normalized.cluster.label
+    ? `#${normalized.cluster.label}`
+    : '';
 
-  elements.resultUser.textContent = `${appState.profile.displayName} さん、おつかれさま。`;
-  elements.resultCluster.textContent = clusterLabel;
-  elements.resultHero.textContent = heroLabel;
+  elements.resultHeroImage.src = normalized.hero.avatarUrl;
+  elements.resultHeroImage.alt = normalized.hero.name;
+  elements.resultSummary.textContent = normalized.narrative.summary1line;
 
-  elements.shareButton.disabled = !appState.sessionId;
+  renderNarrativeList(elements.resultStrengths, normalized.narrative.strengths);
+  renderNarrativeList(elements.resultMisfit, normalized.narrative.misfit_env);
+  renderNarrativeList(elements.resultHowToUse, normalized.narrative.how_to_use);
+  renderNarrativeList(elements.resultNextAction, normalized.narrative.next_action);
+  renderScores(normalized.scores);
+
+  elements.resultShareImage.src = normalized.share.cardImageUrl;
+  elements.resultShareImage.alt = `${normalized.hero.name}のシェアカード`;
+  elements.downloadShareButton.disabled = !normalized.share.cardImageUrl;
+  elements.reviewButton.textContent = '回答を見直す';
+  elements.questions.classList.add('hidden');
 }
 
 function showErrorCard(message) {
@@ -429,6 +476,253 @@ function bindLikertShortcuts() {
 
 /* ---------- fetch utils ---------- */
 
+function normalizeResult(result) {
+  const cluster = result?.cluster ?? {};
+  const hero = result?.hero ?? {};
+  const share = result?.share ?? {};
+  const narrative = result?.narrative ?? {};
+  const scores = result?.scores ?? {};
+
+  const clusterKey = cluster.key ?? cluster ?? null;
+  const clusterLabel = cluster.label ?? CLUSTER_LABELS[clusterKey] ?? '';
+  const heroSlug = hero.slug ?? result?.heroSlug ?? '';
+  const heroName = hero.name ?? 'ヒーロータイプ';
+  const heroImage = hero.avatarUrl ?? 'https://placehold.co/512x512?text=HERO';
+  const shareCopy = share.copy ?? {};
+  const shareUrl = share.url ?? `${BASE_URL}/share/${result?.sessionId ?? appState.sessionId ?? ''}`;
+  const cardImageUrl = share.cardImageUrl ?? heroImage;
+  const summaryText = narrative.summary1line ?? shareCopy.summary ?? '';
+
+  return {
+    sessionId: result?.sessionId ?? appState.sessionId,
+    cluster: { key: clusterKey, label: clusterLabel },
+    hero: { slug: heroSlug, name: heroName, avatarUrl: heroImage },
+    share: {
+      url: shareUrl,
+      cardImageUrl,
+      copy: {
+        headline: shareCopy.headline ?? `あなたは${heroName}！`,
+        summary: shareCopy.summary ?? summaryText,
+      },
+    },
+    narrative: {
+      summary1line: summaryText,
+      strengths: Array.isArray(narrative.strengths) ? narrative.strengths : [],
+      misfit_env: Array.isArray(narrative.misfit_env) ? narrative.misfit_env : [],
+      how_to_use: Array.isArray(narrative.how_to_use) ? narrative.how_to_use : [],
+      next_action: Array.isArray(narrative.next_action) ? narrative.next_action : [],
+    },
+    scores,
+  };
+}
+
+function renderNarrativeList(target, items) {
+  if (!target) return;
+  target.innerHTML = '';
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) {
+    const placeholder = document.createElement('li');
+    placeholder.textContent = '準備中';
+    target.appendChild(placeholder);
+    return;
+  }
+  list.forEach((item) => {
+    const li = document.createElement('li');
+    li.textContent = item;
+    target.appendChild(li);
+  });
+}
+
+function renderScores(scores) {
+  if (!elements.resultScores) return;
+  elements.resultScores.innerHTML = '';
+  if (!scores || typeof scores !== 'object') {
+    elements.resultScores.textContent = 'スコアを集計中です。';
+    return;
+  }
+
+  const groups = [
+    { key: 'MBTI', label: 'MBTIバランス' },
+    { key: 'WorkStyle', label: 'ワークスタイル' },
+    { key: 'Motivation', label: 'モチベーション' },
+  ];
+
+  groups.forEach(({ key, label }) => {
+    const values = scores[key] ?? {};
+    const entries = Object.entries(values);
+    if (!entries.length) {
+      return;
+    }
+    const section = document.createElement('div');
+    section.className = 'score-block';
+
+    const heading = document.createElement('h4');
+    heading.textContent = label;
+    section.appendChild(heading);
+
+    const list = document.createElement('dl');
+    list.className = 'score-list';
+
+    entries.forEach(([itemKey, value]) => {
+      const dt = document.createElement('dt');
+      dt.textContent = itemKey;
+      const dd = document.createElement('dd');
+      dd.textContent = formatScoreValue(value);
+      list.appendChild(dt);
+      list.appendChild(dd);
+    });
+
+    section.appendChild(list);
+    elements.resultScores.appendChild(section);
+  });
+}
+
+function formatScoreValue(value) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) return '0';
+  if (Math.abs(numeric - Math.round(numeric)) < 0.01) {
+    return String(Math.round(numeric));
+  }
+  return numeric.toFixed(2);
+}
+
+async function handlePrimaryShare() {
+  if (!appState.result) {
+    showToast('共有できる結果がありません', true);
+    return;
+  }
+  if (window.liff?.shareTargetPicker) {
+    await handleLineShare();
+    return;
+  }
+  if (navigator.share) {
+    await handleWebShare();
+    return;
+  }
+  await handleCopyLink();
+}
+
+async function handleLineShare() {
+  const share = appState.result?.share;
+  if (!share) {
+    showToast('シェア情報が準備中です', true);
+    return;
+  }
+  if (!window.liff?.shareTargetPicker) {
+    showToast('LINEアプリからのシェアに対応していません', true);
+    return;
+  }
+  const text = `${share.copy.headline}\n${share.copy.summary}\n${share.url}`;
+  try {
+    await window.liff.shareTargetPicker([{ type: 'text', text }]);
+    showToast('LINEにシェアしました');
+  } catch (error) {
+    if (error?.code !== 'USER_CANCEL') {
+      console.error('[share] line error', error);
+      showToast('LINEシェアに失敗しました', true);
+    }
+  }
+}
+
+async function handleWebShare() {
+  const share = appState.result?.share;
+  if (!share) {
+    showToast('シェア情報が準備中です', true);
+    return;
+  }
+  if (!navigator.share) {
+    await handleCopyLink();
+    return;
+  }
+  try {
+    await navigator.share({
+      title: share.copy.headline,
+      text: share.copy.summary,
+      url: share.url,
+    });
+  } catch (error) {
+    if (error?.name !== 'AbortError') {
+      console.error('[share] web error', error);
+      showToast('端末の共有に失敗しました', true);
+    }
+  }
+}
+
+function handleXShare() {
+  const share = appState.result?.share;
+  if (!share) {
+    showToast('シェア情報が準備中です', true);
+    return;
+  }
+  const text = `${share.copy.headline}\n${share.copy.summary}`;
+  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(
+    share.url
+  )}`;
+  window.open(intent, '_blank', 'noopener');
+}
+
+async function handleCopyLink() {
+  const share = appState.result?.share;
+  if (!share) {
+    showToast('シェア情報が準備中です', true);
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(share.url);
+    showToast('リンクをコピーしました');
+  } catch (error) {
+    console.error('[share] copy error', error);
+    showToast('リンクのコピーに失敗しました', true);
+  }
+}
+
+function handleDownloadShareCard() {
+  const imageUrl = appState.result?.share?.cardImageUrl;
+  if (!imageUrl) {
+    showToast('共有カードがまだありません', true);
+    return;
+  }
+  const link = document.createElement('a');
+  link.href = imageUrl;
+  link.download = 'diagnosis-share.png';
+  link.rel = 'noopener';
+  link.target = '_blank';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function retakeDiagnosis() {
+  appState.answers.clear();
+  appState.result = null;
+  appState.reviewing = false;
+  appState.sessionId = undefined;
+  elements.resultCard.classList.add('hidden');
+  elements.resultActions?.classList.add('hidden');
+  elements.shareButton.classList.add('hidden');
+  elements.submitButton.classList.remove('hidden');
+  elements.questions.classList.remove('hidden');
+  renderQuestions();
+  updateProgress();
+  elements.questions.scrollTop = 0;
+}
+
+function toggleReview() {
+  if (!appState.result) {
+    return;
+  }
+  appState.reviewing = !appState.reviewing;
+  if (appState.reviewing) {
+    elements.questions.classList.remove('hidden');
+    elements.reviewButton.textContent = '結果に戻る';
+    elements.questions.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    elements.questions.classList.add('hidden');
+    elements.reviewButton.textContent = '回答を見直す';
+    elements.resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
 async function createFetchError(response) {
   let message = `通信に失敗しました (${response.status})`;
   let errorId;
@@ -448,7 +742,7 @@ async function createFetchError(response) {
 
 async function fetchDiagnosisPayload() {
   const questions = await fetchLocalQuestions();
-  return { version: null, questions };
+  return { version: QUESTION_VERSION, questions };
 }
 
 async function fetchLocalQuestions() {

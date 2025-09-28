@@ -6,30 +6,17 @@
       {
         "key": "POS",
         "tags": {
-          "MBTI": [
-            "E"
-          ],
-          "WorkStyle": [
-            "speed",
-            "improv"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "MBTI": ["E"],
+          "WorkStyle": ["speed", "improv"],
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "MBTI": [
-            "I"
-          ],
-          "WorkStyle": [
-            "careful"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "MBTI": ["I"],
+          "WorkStyle": ["careful"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
@@ -41,29 +28,16 @@
       {
         "key": "POS",
         "tags": {
-          "MBTI": [
-            "N"
-          ],
-          "WorkStyle": [
-            "improv",
-            "intuitive"
-          ],
-          "CLUSTER_HINT": [
-            "creative",
-            "challenge"
-          ]
+          "MBTI": ["N"],
+          "WorkStyle": ["improv", "intuitive"],
+          "CLUSTER_HINT": ["creative", "challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "structured",
-            "logical"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured", "logical"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
@@ -75,24 +49,15 @@
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "achieve",
-            "autonomy"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["achieve", "autonomy"],
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "careful"
-          ],
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "WorkStyle": ["careful"],
+          "CLUSTER_HINT": ["support"]
         }
       }
     ]
@@ -104,24 +69,15 @@
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "structured",
-            "logical"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured", "logical"],
+          "CLUSTER_HINT": ["strategy"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "improv"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "WorkStyle": ["improv"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
@@ -133,24 +89,15 @@
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "improv",
-            "intuitive"
-          ],
-          "CLUSTER_HINT": [
-            "creative"
-          ]
+          "WorkStyle": ["improv", "intuitive"],
+          "CLUSTER_HINT": ["creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
@@ -162,30 +109,17 @@
       {
         "key": "POS",
         "tags": {
-          "Sync": [
-            "high_tension",
-            "tsukkomi"
-          ],
-          "BigFive": {
-            "extraversion": "high"
-          },
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Sync": ["high_tension", "tsukkomi"],
+          "BigFive": { "extraversion": "high" },
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Sync": [
-            "relaxed"
-          ],
-          "BigFive": {
-            "extraversion": "low"
-          },
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "Sync": ["relaxed"],
+          "BigFive": { "extraversion": "low" },
+          "CLUSTER_HINT": ["support"]
         }
       }
     ]
@@ -197,27 +131,16 @@
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "connection",
-            "contribution"
-          ],
-          "WorkStyle": [
-            "careful"
-          ],
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "Motivation": ["connection", "contribution"],
+          "WorkStyle": ["careful"],
+          "CLUSTER_HINT": ["support"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "autonomy"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["autonomy"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
@@ -229,25 +152,15 @@
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "structured",
-            "careful"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured", "careful"],
+          "CLUSTER_HINT": ["strategy"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "improv",
-            "speed"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "WorkStyle": ["improv", "speed"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
@@ -259,27 +172,16 @@
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "intuitive",
-            "improv"
-          ],
-          "Motivation": [
-            "curiosity"
-          ],
-          "CLUSTER_HINT": [
-            "creative"
-          ]
+          "WorkStyle": ["intuitive", "improv"],
+          "Motivation": ["curiosity"],
+          "CLUSTER_HINT": ["creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
@@ -291,23 +193,15 @@
       {
         "key": "POS",
         "tags": {
-          "BigFive": {
-            "agreeableness": "high"
-          },
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "BigFive": { "agreeableness": "high" },
+          "CLUSTER_HINT": ["support"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "BigFive": {
-            "agreeableness": "low"
-          },
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "BigFive": { "agreeableness": "low" },
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
@@ -319,24 +213,15 @@
       {
         "key": "POS",
         "tags": {
-          "NG": [
-            "instant_reply"
-          ],
-          "CLUSTER_HINT": [
-            "strategy",
-            "creative"
-          ]
+          "NG": ["instant_reply"],
+          "CLUSTER_HINT": ["strategy", "creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "speed"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "WorkStyle": ["speed"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
@@ -348,24 +233,15 @@
       {
         "key": "POS",
         "tags": {
-          "NG": [
-            "pressure"
-          ],
-          "CLUSTER_HINT": [
-            "support",
-            "creative"
-          ]
+          "NG": ["pressure"],
+          "CLUSTER_HINT": ["support", "creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
@@ -377,30 +253,17 @@
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "logical",
-            "structured"
-          ],
-          "MBTI": [
-            "T"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["logical", "structured"],
+          "MBTI": ["T"],
+          "CLUSTER_HINT": ["strategy"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "MBTI": [
-            "N"
-          ],
-          "WorkStyle": [
-            "intuitive"
-          ],
-          "CLUSTER_HINT": [
-            "creative"
-          ]
+          "MBTI": ["N"],
+          "WorkStyle": ["intuitive"],
+          "CLUSTER_HINT": ["creative"]
         }
       }
     ]
@@ -412,31 +275,17 @@
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "autonomy",
-            "curiosity",
-            "growth"
-          ],
-          "MBTI": [
-            "I"
-          ],
-          "CLUSTER_HINT": [
-            "creative"
-          ]
+          "Motivation": ["autonomy", "curiosity", "growth"],
+          "MBTI": ["I"],
+          "CLUSTER_HINT": ["creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "connection"
-          ],
-          "Sync": [
-            "high_tension"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["connection"],
+          "Sync": ["high_tension"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
@@ -448,29 +297,16 @@
       {
         "key": "POS",
         "tags": {
-          "Sync": [
-            "high_tension",
-            "tsukkomi"
-          ],
-          "MBTI": [
-            "E"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Sync": ["high_tension", "tsukkomi"],
+          "MBTI": ["E"],
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Sync": [
-            "relaxed",
-            "logical_cool"
-          ],
-          "CLUSTER_HINT": [
-            "strategy",
-            "support"
-          ]
+          "Sync": ["relaxed", "logical_cool"],
+          "CLUSTER_HINT": ["strategy", "support"]
         }
       }
     ]
@@ -482,28 +318,16 @@
       {
         "key": "POS",
         "tags": {
-          "NG": [
-            "monotony",
-            "no_change"
-          ],
-          "CLUSTER_HINT": [
-            "creative",
-            "challenge"
-          ]
+          "NG": ["monotony", "no_change"],
+          "CLUSTER_HINT": ["creative", "challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "security"
-          ],
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "Motivation": ["security"],
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
@@ -515,30 +339,17 @@
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "autonomy"
-          ],
-          "NG": [
-            "no_autonomy"
-          ],
-          "CLUSTER_HINT": [
-            "challenge",
-            "creative"
-          ]
+          "Motivation": ["autonomy"],
+          "NG": ["no_autonomy"],
+          "CLUSTER_HINT": ["challenge", "creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "structured"
-          ],
-          "Motivation": [
-            "security"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured"],
+          "Motivation": ["security"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
@@ -550,25 +361,15 @@
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "contribution",
-            "connection"
-          ],
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "Motivation": ["contribution", "connection"],
+          "CLUSTER_HINT": ["support"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "achieve",
-            "autonomy"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["achieve", "autonomy"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
@@ -580,28 +381,16 @@
       {
         "key": "POS",
         "tags": {
-          "Sync": [
-            "logical_cool"
-          ],
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "Sync": ["logical_cool"],
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Sync": [
-            "high_tension",
-            "natural"
-          ],
-          "CLUSTER_HINT": [
-            "challenge",
-            "support"
-          ]
+          "Sync": ["high_tension", "natural"],
+          "CLUSTER_HINT": ["challenge", "support"]
         }
       }
     ]
@@ -613,30 +402,17 @@
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "curiosity",
-            "growth"
-          ],
-          "MBTI": [
-            "N"
-          ],
-          "CLUSTER_HINT": [
-            "creative"
-          ]
+          "Motivation": ["curiosity", "growth"],
+          "MBTI": ["N"],
+          "CLUSTER_HINT": ["creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "security"
-          ],
-          "MBTI": [
-            "J"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "Motivation": ["security"],
+          "MBTI": ["J"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
@@ -648,27 +424,15 @@
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "intuitive",
-            "improv"
-          ],
-          "CLUSTER_HINT": [
-            "creative",
-            "challenge"
-          ]
+          "WorkStyle": ["intuitive", "improv"],
+          "CLUSTER_HINT": ["creative", "challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "careful",
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "support",
-            "strategy"
-          ]
+          "WorkStyle": ["careful", "structured"],
+          "CLUSTER_HINT": ["support", "strategy"]
         }
       }
     ]
@@ -680,29 +444,17 @@
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "achieve"
-          ],
-          "MBTI": [
-            "E"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["achieve"],
+          "MBTI": ["E"],
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "contribution"
-          ],
-          "WorkStyle": [
-            "careful"
-          ],
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "Motivation": ["contribution"],
+          "WorkStyle": ["careful"],
+          "CLUSTER_HINT": ["support"]
         }
       }
     ]
@@ -714,29 +466,17 @@
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "security"
-          ],
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "Motivation": ["security"],
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "autonomy"
-          ],
-          "WorkStyle": [
-            "improv"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["autonomy"],
+          "WorkStyle": ["improv"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
@@ -748,29 +488,16 @@
       {
         "key": "POS",
         "tags": {
-          "Sync": [
-            "relaxed",
-            "natural"
-          ],
-          "Motivation": [
-            "connection"
-          ],
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "Sync": ["relaxed", "natural"],
+          "Motivation": ["connection"],
+          "CLUSTER_HINT": ["support"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Sync": [
-            "high_tension",
-            "logical_cool"
-          ],
-          "CLUSTER_HINT": [
-            "challenge",
-            "strategy"
-          ]
+          "Sync": ["high_tension", "logical_cool"],
+          "CLUSTER_HINT": ["challenge", "strategy"]
         }
       }
     ]
@@ -782,26 +509,15 @@
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "achieve",
-            "approval"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["achieve", "approval"],
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "contribution",
-            "security"
-          ],
-          "CLUSTER_HINT": [
-            "support",
-            "strategy"
-          ]
+          "Motivation": ["contribution", "security"],
+          "CLUSTER_HINT": ["support", "strategy"]
         }
       }
     ]

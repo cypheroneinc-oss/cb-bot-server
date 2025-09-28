@@ -1,146 +1,143 @@
+import crypto from 'node:crypto';
 import { getSupabaseAdmin } from './supabase.js';
 
-export async function createOrReuseSession({ userId, version = 1 }) {
-if (!userId) {
-throw new Error('userId is required to create a session');
+function generateSessionId() {
+  return crypto.randomUUID?.() ?? `local-${Date.now()}`;
 }
 
-const supabase = getSupabaseAdmin();
-
-const existing = await supabase
-.from('diagnostic_sessions')
-.select('id')
-.eq('user_id', userId)
-.eq('question_set_version', version)
-.is('finished_at', null)
-.order('started_at', { ascending: false })
-.limit(1)
-.maybeSingle();
-
-if (existing.error && existing.error.code !== 'PGRST116') {
-throw existing.error;
+function resolveSupabase() {
+  try {
+    return getSupabaseAdmin();
+  } catch (error) {
+    if (error?.message?.includes('Missing SUPABASE_URL')) {
+      console.warn('[supabase] Not configured, skipping persistence');
+      return null;
+    }
+    throw error;
+  }
 }
 
-if (existing.data?.id) {
-return { sessionId: existing.data.id };
-}
+export async function createOrReuseSession({ userId, version = 2, client = 'liff' }) {
+  if (!userId) {
+    throw new Error('userId is required to create a session');
+  }
 
-const inserted = await supabase
-.from('diagnostic_sessions')
-.insert({ user_id: userId, question_set_version: version })
-.select('id')
-.single();
+  const supabase = resolveSupabase();
+  if (!supabase) {
+    return { sessionId: generateSessionId() };
+  }
 
-if (inserted.error) {
-throw inserted.error;
-}
+  const payload = { user_id: userId, version, client };
+  const { data, error } = await supabase
+    .from('diagnosis_sessions')
+    .insert(payload)
+    .select('session_id')
+    .single();
 
-return { sessionId: inserted.data.id };
+  if (error) {
+    throw error;
+  }
+
+  return { sessionId: data.session_id };
 }
 
 export async function saveAnswers({ sessionId, answers }) {
-if (!sessionId) {
-throw new Error('sessionId is required to save answers');
+  if (!sessionId) {
+    throw new Error('sessionId is required to save answers');
+  }
+
+  if (!Array.isArray(answers)) {
+    throw new Error('answers must be an array');
+  }
+
+  const supabase = resolveSupabase();
+  if (!supabase) {
+    return;
+  }
+
+  await supabase.from('diagnosis_answers').delete().eq('session_id', sessionId);
+
+  if (!answers.length) {
+    return;
+  }
+
+  const rows = answers.map(({ qid, scale, scale_max, choice }) => {
+    if (typeof scale !== 'number' || typeof scale_max !== 'number') {
+      throw new Error('scale and scale_max are required to persist answers');
+    }
+
+    return {
+      session_id: sessionId,
+      qid,
+      scale,
+      scale_max,
+      choice,
+    };
+  });
+
+  const { error } = await supabase.from('diagnosis_answers').insert(rows);
+  if (error) {
+    throw error;
+  }
 }
 
-const supabase = getSupabaseAdmin();
+export async function saveResult({
+  sessionId,
+  cluster,
+  heroSlug,
+  heroName,
+  scores,
+  shareCardUrl,
+}) {
+  if (!sessionId) {
+    throw new Error('sessionId is required to save result');
+  }
+  if (!cluster || !heroSlug || !heroName) {
+    throw new Error('cluster, heroSlug, and heroName are required');
+  }
 
-await supabase.from('answers').delete().eq('session_id', sessionId);
+  const supabase = resolveSupabase();
+  if (!supabase) {
+    return;
+  }
 
-if (!Array.isArray(answers) || answers.length === 0) {
-return;
-}
+  const payload = {
+    session_id: sessionId,
+    cluster_key: cluster,
+    hero_slug: heroSlug,
+    hero_name: heroName,
+    scores,
+    share_card_url: shareCardUrl ?? null,
+  };
 
-const payload = answers.map(({ question_id, choice_key }) => ({
-session_id: sessionId,
-question_id,
-choice_key
-}));
+  const { error } = await supabase
+    .from('diagnosis_results')
+    .upsert(payload, { onConflict: 'session_id' });
 
-const { error } = await supabase.from('answers').insert(payload);
-if (error) {
-throw error;
-}
-}
-
-export async function saveScores({ sessionId, factorScores, total }) {
-if (!sessionId) {
-throw new Error('sessionId is required to save scores');
-}
-
-if (!factorScores) {
-throw new Error('factorScores are required to save scores');
-}
-
-const supabase = getSupabaseAdmin();
-
-const payload = {
-session_id: sessionId,
-mbti: factorScores.mbti,
-safety: factorScores.safety,
-workstyle: factorScores.workstyle,
-motivation: factorScores.motivation,
-ng: factorScores.ng,
-sync: factorScores.sync,
-total: total ?? factorScores.total ?? 0
-};
-
-const { error } = await supabase
-.from('scores')
-.upsert(payload, { onConflict: 'session_id' });
-
-if (error) {
-throw error;
-}
-}
-
-export async function saveResult({ sessionId, cluster, heroSlug }) {
-if (!sessionId) {
-throw new Error('sessionId is required to save result');
-}
-
-if (!cluster || !heroSlug) {
-throw new Error('cluster and heroSlug are required');
-}
-
-const supabase = getSupabaseAdmin();
-
-const { error } = await supabase
-.from('result_assignments')
-.upsert(
-{ session_id: sessionId, cluster, hero_slug: heroSlug },
-{ onConflict: 'session_id' }
-);
-
-if (error) {
-throw error;
-}
+  if (error) {
+    throw error;
+  }
 }
 
 export async function getShareCardImage(heroSlug) {
-if (!heroSlug) {
-return null;
-}
+  if (!heroSlug) {
+    return null;
+  }
 
-try {
-const supabase = getSupabaseAdmin();
+  const supabase = resolveSupabase();
+  if (!supabase) {
+    return null;
+  }
 
-const { data, error } = await supabase
-  .from('share_card_assets')
-  .select('image_url')
-  .eq('hero_slug', heroSlug)
-  .maybeSingle();
+  const { data, error } = await supabase
+    .from('share_card_assets')
+    .select('image_url')
+    .eq('hero_slug', heroSlug)
+    .maybeSingle();
 
-if (error && error.code !== 'PGRST116') {
-  throw error;
-}
+  if (error && error.code !== 'PGRST116') {
+    throw error;
+  }
 
-return data?.image_url ?? null;
-} catch (error) {
-if (error?.message?.includes('Missing SUPABASE_URL')) {
-console.warn('[shareCard] Supabase not configured');
-return null;
-}
-throw error;
-}
+  return data?.image_url ?? null;
 }

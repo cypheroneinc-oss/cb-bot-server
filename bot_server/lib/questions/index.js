@@ -1,6 +1,6 @@
 import rawQuestions from '../../data/questions.v1.js';
 
-export const DATASET_VERSION = 1;
+export const DATASET_VERSION = 2;
 
 function normalizeChoice(choice) {
   const description = choice.desc ?? choice.description ?? '';
