@@ -100,7 +100,6 @@ async function ensureLiff() {
   console.log('[liff] init OK', { inClient: window.liff.isInClient(), loggedIn: window.liff.isLoggedIn() });
   if (!window.liff.isLoggedIn()) {
     window.liff.login();
-    // halt further execution on this page load
     await new Promise(() => {});
   }
   const profile = await window.liff.getProfile();
@@ -186,8 +185,10 @@ async function loadQuestions() {
   elements.shareButton.classList.add('hidden');
   elements.resultActions?.classList.add('hidden');
   elements.resultCard.classList.add('hidden');
-  elements.loadError.classList.add('hidden');
-  elements.loadError.textContent = '';
+  elements.loadError?.classList.add('hidden');
+  if (elements.loadError) {
+    elements.loadError.textContent = '';
+  }
 
   elements.questions.removeAttribute('aria-busy');
   renderQuestions();
@@ -655,9 +656,7 @@ function handleXShare() {
     return;
   }
   const text = `${share.copy.headline}\n${share.copy.summary}`;
-  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(
-    share.url
-  )}`;
+  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(share.url)}`;
   window.open(intent, '_blank', 'noopener');
 }
 
