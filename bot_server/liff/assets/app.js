@@ -1,3 +1,4 @@
+// filename: bot_server/liff/assets/app.js
 // LIFF + 診断UI ロジック（repo質問 / DB非依存）
 const LIFF_ID = resolveLiffId();
 const BASE_URL = resolveBaseUrl();
@@ -225,17 +226,7 @@ function renderQuestions() {
       diamond.className = 'likert-diamond';
       diamond.setAttribute('aria-hidden', 'true');
 
-      const diamondValue = document.createElement('span');
-      diamondValue.className = 'likert-diamond-value';
-      diamondValue.textContent = String(option.value);
-      diamond.appendChild(diamondValue);
-
-      const caption = document.createElement('span');
-      caption.className = 'likert-caption';
-      caption.textContent = option.label;
-
       label.appendChild(diamond);
-      label.appendChild(caption);
 
       wrapper.appendChild(input);
       wrapper.appendChild(label);
@@ -243,6 +234,28 @@ function renderQuestions() {
     });
 
     card.appendChild(list);
+
+    const legend = document.createElement('div');
+    legend.className = 'likert-legend';
+    legend.setAttribute('aria-hidden', 'true');
+
+    const legendLeft = document.createElement('span');
+    legendLeft.className = 'legend-left';
+    legendLeft.textContent = 'とてもそう思う';
+
+    const legendBar = document.createElement('span');
+    legendBar.className = 'legend-bar';
+    legendBar.setAttribute('role', 'presentation');
+
+    const legendRight = document.createElement('span');
+    legendRight.className = 'legend-right';
+    legendRight.textContent = '全くそう思わない';
+
+    legend.appendChild(legendLeft);
+    legend.appendChild(legendBar);
+    legend.appendChild(legendRight);
+
+    card.appendChild(legend);
     elements.questions.appendChild(card);
   });
 }
