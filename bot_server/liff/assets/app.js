@@ -1,8 +1,10 @@
+import QUESTIONS from '../../data/questions.v1.js';
+
 // LIFF + 診断UI ロジック（repo質問 / DB非依存）
 const LIFF_ID = resolveLiffId();
 const BASE_URL = resolveBaseUrl();
 
-const QUESTION_VERSION = 2;
+const QUESTION_VERSION = 'v1';
 
 const CLUSTER_LABELS = {
   challenge: 'チャレンジ',
@@ -21,7 +23,6 @@ const LIKERT_OPTIONS = [
 ];
 
 const LIKERT_SHORTCUT_KEYS = new Set(['1', '2', '3', '4', '5', '6']);
-const QUESTION_SOURCE_PATHS = ['./data/questions.v1.json', '../data/questions.v1.json'];
 
 const appState = {
   version: QUESTION_VERSION,
@@ -99,7 +100,6 @@ async function ensureLiff() {
   console.log('[liff] init OK', { inClient: window.liff.isInClient(), loggedIn: window.liff.isLoggedIn() });
   if (!window.liff.isLoggedIn()) {
     window.liff.login();
-    // halt further execution on this page load
     await new Promise(() => {});
   }
   const profile = await window.liff.getProfile();
@@ -164,42 +164,36 @@ function renderSkeleton() {
 }
 
 async function loadQuestions() {
-  try {
-    const payload = await fetchDiagnosisPayload();
-    const qs = Array.isArray(payload?.questions) ? payload.questions : [];
-    if (!qs.length) throw new Error('診断データが取得できませんでした');
-
-    appState.version = payload.version ?? QUESTION_VERSION;
-    appState.questions = qs;
-    appState.answers.clear();
-    appState.submitting = false;
-    appState.result = null;
-    appState.reviewing = false;
-
-    elements.submitContent.textContent = '送信する';
-    elements.retryButton.classList.add('hidden');
-    elements.submitButton.classList.remove('hidden');
-    elements.shareButton.classList.add('hidden');
-    elements.resultActions?.classList.add('hidden');
-    elements.resultCard.classList.add('hidden');
-    elements.loadError.classList.add('hidden');
-    elements.loadError.textContent = '';
-
-    elements.questions.removeAttribute('aria-busy');
-    renderQuestions();
-    updateProgress();
-    hideToast();
-  } catch (error) {
-    console.error('[diagnosis] load failed', error);
-    elements.questions.removeAttribute('aria-busy');
-    elements.loadError.textContent = error.message || '質問データの読み込みに失敗しました。';
-    elements.loadError.classList.remove('hidden');
-    elements.submitButton.disabled = true;
-    elements.questions.innerHTML = '';
-    showErrorCard('通信に失敗しました。電波の良い場所で再試行してください。');
-    showToast(error.message || '読み込みに失敗しました', true);
-    elements.retryButton.classList.remove('hidden');
+  const qs = QUESTIONS.map((item, index) => ({
+    code: item.id || item.code || `Q${index + 1}`,
+    text: String(item.text ?? ''),
+  }));
+  if (!qs.length) {
+    throw new Error('診断データが取得できませんでした');
   }
+
+  appState.version = QUESTION_VERSION;
+  appState.questions = qs;
+  appState.answers.clear();
+  appState.submitting = false;
+  appState.result = null;
+  appState.reviewing = false;
+
+  elements.submitContent.textContent = '送信する';
+  elements.retryButton.classList.add('hidden');
+  elements.submitButton.classList.remove('hidden');
+  elements.shareButton.classList.add('hidden');
+  elements.resultActions?.classList.add('hidden');
+  elements.resultCard.classList.add('hidden');
+  elements.loadError?.classList.add('hidden');
+  if (elements.loadError) {
+    elements.loadError.textContent = '';
+  }
+
+  elements.questions.removeAttribute('aria-busy');
+  renderQuestions();
+  updateProgress();
+  hideToast();
 }
 
 function renderQuestions() {
@@ -354,12 +348,13 @@ async function onSubmit() {
     const payload = {
       userId: appState.profile.userId,
       sessionId: appState.sessionId,
-      version: appState.version,
+      version: QUESTION_VERSION,
       answers: Array.from(appState.answers.entries()).map(([code, scale]) => ({
         code,
         scale,
         scaleMax: 6,
       })),
+      meta: { liff: true },
     };
 
     const response = await fetch('/api/diagnosis/submit', {
@@ -370,7 +365,10 @@ async function onSubmit() {
     });
 
     if (!response.ok) {
-      throw await createFetchError(response);
+      const error = await createFetchError(response);
+      console.error('[diagnosis] submit failed', response.status, error.message);
+      alert('Submit failed. Please try again.');
+      throw error;
     }
 
     const result = await response.json();
@@ -379,6 +377,9 @@ async function onSubmit() {
     hideToast();
   } catch (error) {
     console.error('[diagnosis] submit failed', error);
+    if (!error || !error.__alertShown) {
+      alert('Submit failed. Please try again.');
+    }
     showToast(error.message || '送信に失敗しました', true, error.errorId);
     elements.retryButton.classList.remove('hidden');
   } finally {
@@ -655,9 +656,7 @@ function handleXShare() {
     return;
   }
   const text = `${share.copy.headline}\n${share.copy.summary}`;
-  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(
-    share.url
-  )}`;
+  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(share.url)}`;
   window.open(intent, '_blank', 'noopener');
 }
 
@@ -737,41 +736,8 @@ async function createFetchError(response) {
   }
   const error = new Error(message);
   if (errorId) error.errorId = errorId;
+  error.__alertShown = true;
   return error;
-}
-
-async function fetchDiagnosisPayload() {
-  const questions = await fetchLocalQuestions();
-  return { version: QUESTION_VERSION, questions };
-}
-
-async function fetchLocalQuestions() {
-  let lastError;
-  for (const path of QUESTION_SOURCE_PATHS) {
-    try {
-      const response = await fetch(path, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-        cache: 'no-store',
-      });
-      if (!response.ok) {
-        lastError = new Error(`HTTP ${response.status}: ${path}`);
-        continue;
-      }
-      const data = await response.json();
-      if (!Array.isArray(data) || data.length === 0) {
-        throw new Error('質問データの形式が不正です');
-      }
-      return data.map((item, index) => ({
-        code: item.code || item.id || `Q${index + 1}`,
-        text: String(item.text ?? ''),
-      }));
-    } catch (error) {
-      lastError = error;
-      console.warn('[diagnosis] failed to load questions from', path, error);
-    }
-  }
-  throw lastError || new Error('質問データを読み込めませんでした');
 }
 
 function shortenMessage(message) {
