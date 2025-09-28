@@ -2,6 +2,8 @@
 const LIFF_ID = resolveLiffId();
 const BASE_URL = resolveBaseUrl();
 
+const QUESTION_VERSION = 2;
+
 const CLUSTER_LABELS = {
   challenge: 'チャレンジ',
   creative: 'クリエイティブ',
@@ -9,13 +11,27 @@ const CLUSTER_LABELS = {
   strategy: 'ストラテジー',
 };
 
+const LIKERT_OPTIONS = [
+  { value: 1, label: 'とてもそう思う', size: 'large' },
+  { value: 2, label: 'かなりそう思う', size: 'medium' },
+  { value: 3, label: '少しそう思う', size: 'small' },
+  { value: 4, label: '少しそう思わない', size: 'small' },
+  { value: 5, label: 'かなりそう思わない', size: 'medium' },
+  { value: 6, label: '全くそう思わない', size: 'large' },
+];
+
+const LIKERT_SHORTCUT_KEYS = new Set(['1', '2', '3', '4', '5', '6']);
+const QUESTION_SOURCE_PATHS = ['./data/questions.v1.json', '../data/questions.v1.json'];
+
 const appState = {
-  version: null,
+  version: QUESTION_VERSION,
   questions: [],
   answers: new Map(),              // Map<code, key>
   sessionId: getSessionParam(),
   submitting: false,
   profile: { userId: 'debug-user', displayName: 'Debug User' },
+  result: null,
+  reviewing: false,
 };
 
 const elements = {
@@ -23,16 +39,33 @@ const elements = {
   progressFill: document.getElementById('progressFill'),
   answeredCount: document.getElementById('answeredCount'),
   remainingCount: document.getElementById('remainingCount'),
+  loadError: document.getElementById('loadError'),
   submitButton: document.getElementById('submitButton'),
   submitContent: document.getElementById('submitContent'),
   shareButton: document.getElementById('shareButton'),
   toast: document.getElementById('toast'),
   retryButton: document.getElementById('retryButton'),
+  retakeButton: document.getElementById('retakeButton'),
+  reviewButton: document.getElementById('reviewButton'),
+  resultActions: document.getElementById('resultActions'),
   unansweredAlert: document.getElementById('unansweredAlert'),
   resultCard: document.getElementById('resultCard'),
-  resultUser: document.getElementById('resultUser'),
-  resultCluster: document.getElementById('resultCluster'),
-  resultHero: document.getElementById('resultHero'),
+  resultSub: document.getElementById('resultSub'),
+  resultClusterTag: document.getElementById('resultClusterTag'),
+  resultHeroName: document.getElementById('resultHeroName'),
+  resultHeroImage: document.getElementById('resultHeroImage'),
+  resultSummary: document.getElementById('resultSummary'),
+  resultStrengths: document.getElementById('resultStrengths'),
+  resultMisfit: document.getElementById('resultMisfit'),
+  resultHowToUse: document.getElementById('resultHowToUse'),
+  resultNextAction: document.getElementById('resultNextAction'),
+  resultScores: document.getElementById('resultScores'),
+  resultShareImage: document.getElementById('resultShareImage'),
+  downloadShareButton: document.getElementById('downloadShareButton'),
+  shareLineButton: document.getElementById('shareLineButton'),
+  shareWebButton: document.getElementById('shareWebButton'),
+  shareXButton: document.getElementById('shareXButton'),
+  shareCopyButton: document.getElementById('shareCopyButton'),
 };
 
 init();
@@ -80,6 +113,7 @@ async function ensureLiff() {
 
 async function init() {
   bindFooterActions();
+  bindLikertShortcuts();
   renderSkeleton();
   try {
     await ensureLiff();
@@ -99,10 +133,18 @@ function bindFooterActions() {
     renderSkeleton();
     loadQuestions();
   });
-  elements.shareButton.addEventListener('click', () => {
-    if (!appState.sessionId) return;
-    window.location.href = `${BASE_URL}/share/${appState.sessionId}`;
-  });
+  elements.shareButton.addEventListener('click', handlePrimaryShare);
+  elements.retakeButton?.addEventListener('click', retakeDiagnosis);
+  elements.reviewButton?.addEventListener('click', toggleReview);
+  elements.downloadShareButton?.addEventListener('click', handleDownloadShareCard);
+  bindShareButtons();
+}
+
+function bindShareButtons() {
+  elements.shareLineButton?.addEventListener('click', handleLineShare);
+  elements.shareWebButton?.addEventListener('click', handleWebShare);
+  elements.shareXButton?.addEventListener('click', handleXShare);
+  elements.shareCopyButton?.addEventListener('click', handleCopyLink);
 }
 
 /* ---------- load & render ---------- */
@@ -127,15 +169,21 @@ async function loadQuestions() {
     const qs = Array.isArray(payload?.questions) ? payload.questions : [];
     if (!qs.length) throw new Error('診断データが取得できませんでした');
 
-    appState.version = payload.version ?? null;
+    appState.version = payload.version ?? QUESTION_VERSION;
     appState.questions = qs;
     appState.answers.clear();
     appState.submitting = false;
+    appState.result = null;
+    appState.reviewing = false;
 
     elements.submitContent.textContent = '送信する';
     elements.retryButton.classList.add('hidden');
     elements.submitButton.classList.remove('hidden');
     elements.shareButton.classList.add('hidden');
+    elements.resultActions?.classList.add('hidden');
+    elements.resultCard.classList.add('hidden');
+    elements.loadError.classList.add('hidden');
+    elements.loadError.textContent = '';
 
     elements.questions.removeAttribute('aria-busy');
     renderQuestions();
@@ -143,6 +191,10 @@ async function loadQuestions() {
     hideToast();
   } catch (error) {
     console.error('[diagnosis] load failed', error);
+    elements.questions.removeAttribute('aria-busy');
+    elements.loadError.textContent = error.message || '質問データの読み込みに失敗しました。';
+    elements.loadError.classList.remove('hidden');
+    elements.submitButton.disabled = true;
     elements.questions.innerHTML = '';
     showErrorCard('通信に失敗しました。電波の良い場所で再試行してください。');
     showToast(error.message || '読み込みに失敗しました', true);
@@ -161,44 +213,48 @@ function renderQuestions() {
     card.dataset.questionCode = question.code;
 
     const heading = document.createElement('h2');
+    const headingId = `${question.code}-title`;
+    heading.id = headingId;
     heading.textContent = `${index + 1}. ${question.text}`;
     card.appendChild(heading);
 
     const list = document.createElement('div');
-    list.className = 'choices';
+    list.className = 'choices likert-scale';
+    list.dataset.likertContainer = 'true';
+    list.setAttribute('role', 'radiogroup');
+    list.setAttribute('aria-labelledby', headingId);
+    list.tabIndex = 0;
 
-    (question.choices ?? []).forEach((choice) => {
-      // 期待フォーマット: { key, label, description? }
-      const choiceId = `${question.code}-${choice.key}`;
+    const previousSelection = appState.answers.get(question.code);
+
+    LIKERT_OPTIONS.forEach((option) => {
+      const choiceId = `${question.code}-scale-${option.value}`;
 
       const wrapper = document.createElement('div');
-      wrapper.className = 'choice';
+      wrapper.className = 'likert-choice';
 
       const input = document.createElement('input');
       input.type = 'radio';
       input.name = question.code;
       input.id = choiceId;
-      input.value = choice.key;
+      input.value = String(option.value);
       input.required = true;
-      if (appState.answers.get(question.code) === choice.key) {
+      input.className = 'likert-input';
+      if (Number(previousSelection) === option.value) {
         input.checked = true;
       }
-      input.addEventListener('change', () => handleAnswerChange(question.code, choice.key));
+      input.addEventListener('change', () => handleAnswerChange(question.code, option.value));
 
       const label = document.createElement('label');
       label.setAttribute('for', choiceId);
+      label.className = `likert-option size-${option.size}`;
+      label.setAttribute('aria-label', `${option.label} (${option.value})`);
 
-      const title = document.createElement('span');
-      title.className = 'choice-title';
-      title.textContent = choice.label;
-      label.appendChild(title);
+      const diamond = document.createElement('span');
+      diamond.className = 'likert-diamond';
+      diamond.setAttribute('aria-hidden', 'true');
 
-      if (choice.description) {
-        const desc = document.createElement('span');
-        desc.className = 'choice-desc';
-        desc.textContent = choice.description;
-        label.appendChild(desc);
-      }
+      label.appendChild(diamond);
 
       wrapper.appendChild(input);
       wrapper.appendChild(label);
@@ -206,14 +262,38 @@ function renderQuestions() {
     });
 
     card.appendChild(list);
+
+    const legend = document.createElement('div');
+    legend.className = 'likert-legend';
+    legend.setAttribute('aria-hidden', 'true');
+
+    const legendLeft = document.createElement('span');
+    legendLeft.className = 'legend-left';
+    legendLeft.textContent = 'とてもそう思う';
+
+    const legendBar = document.createElement('span');
+    legendBar.className = 'legend-bar';
+    legendBar.setAttribute('role', 'presentation');
+
+    const legendRight = document.createElement('span');
+    legendRight.className = 'legend-right';
+    legendRight.textContent = '全くそう思わない';
+
+    legend.appendChild(legendLeft);
+    legend.appendChild(legendBar);
+    legend.appendChild(legendRight);
+
+    card.appendChild(legend);
     elements.questions.appendChild(card);
   });
 }
 
 /* ---------- state & submit ---------- */
 
-function handleAnswerChange(code, key) {
-  appState.answers.set(code, key);
+function handleAnswerChange(code, scale) {
+  const numericScale = Number(scale);
+  if (!Number.isFinite(numericScale)) return;
+  appState.answers.set(code, numericScale);
   updateProgress();
 }
 
@@ -275,7 +355,11 @@ async function onSubmit() {
       userId: appState.profile.userId,
       sessionId: appState.sessionId,
       version: appState.version,
-      answers: Array.from(appState.answers.entries()).map(([code, key]) => ({ code, key })),
+      answers: Array.from(appState.answers.entries()).map(([code, scale]) => ({
+        code,
+        scale,
+        scaleMax: 6,
+      })),
     };
 
     const response = await fetch('/api/diagnosis/submit', {
@@ -306,26 +390,45 @@ async function onSubmit() {
 
 /* ---------- result & feedback ---------- */
 
-function showResult(result) {
+function showResult(rawResult) {
+  const normalized = normalizeResult(rawResult);
+  appState.result = normalized;
+  appState.sessionId = normalized.sessionId ?? appState.sessionId;
+  appState.reviewing = false;
+
   elements.questions.classList.add('hidden');
   elements.unansweredAlert.classList.add('hidden');
   elements.resultCard.classList.remove('hidden');
+  elements.resultActions?.classList.remove('hidden');
   elements.submitButton.classList.add('hidden');
   elements.retryButton.classList.add('hidden');
   elements.shareButton.classList.remove('hidden');
+  elements.shareButton.disabled = false;
 
-  const payload = result.result ?? result;
-  const cluster = payload?.cluster ?? result.cluster;
-  const heroSlug = payload?.heroSlug ?? result.heroSlug;
+  const displayName = appState.profile.displayName || 'あなた';
+  elements.resultSub.textContent = `${displayName}、結果をまとめたよ。`;
 
-  const clusterLabel = cluster ? `タイプ：${CLUSTER_LABELS[cluster] ?? cluster}` : '';
-  const heroLabel = heroSlug ? `推しキャラ：${heroSlug}` : '';
+  const headline = normalized.share.copy.headline || `あなたは${normalized.hero.name}！`;
+  elements.resultHeroName.textContent = headline;
+  elements.resultClusterTag.textContent = normalized.cluster.label
+    ? `#${normalized.cluster.label}`
+    : '';
 
-  elements.resultUser.textContent = `${appState.profile.displayName} さん、おつかれさま。`;
-  elements.resultCluster.textContent = clusterLabel;
-  elements.resultHero.textContent = heroLabel;
+  elements.resultHeroImage.src = normalized.hero.avatarUrl;
+  elements.resultHeroImage.alt = normalized.hero.name;
+  elements.resultSummary.textContent = normalized.narrative.summary1line;
 
-  elements.shareButton.disabled = !appState.sessionId;
+  renderNarrativeList(elements.resultStrengths, normalized.narrative.strengths);
+  renderNarrativeList(elements.resultMisfit, normalized.narrative.misfit_env);
+  renderNarrativeList(elements.resultHowToUse, normalized.narrative.how_to_use);
+  renderNarrativeList(elements.resultNextAction, normalized.narrative.next_action);
+  renderScores(normalized.scores);
+
+  elements.resultShareImage.src = normalized.share.cardImageUrl;
+  elements.resultShareImage.alt = `${normalized.hero.name}のシェアカード`;
+  elements.downloadShareButton.disabled = !normalized.share.cardImageUrl;
+  elements.reviewButton.textContent = '回答を見直す';
+  elements.questions.classList.add('hidden');
 }
 
 function showErrorCard(message) {
@@ -352,7 +455,273 @@ function hideToast() {
   if (showToast._timer) clearTimeout(showToast._timer);
 }
 
+function bindLikertShortcuts() {
+  if (bindLikertShortcuts._bound) return;
+  bindLikertShortcuts._bound = true;
+
+  document.addEventListener('keydown', (event) => {
+    if (!LIKERT_SHORTCUT_KEYS.has(event.key)) return;
+    const active = document.activeElement;
+    if (!active || typeof active.closest !== 'function') return;
+    const container = active.closest('[data-likert-container]');
+    if (!container) return;
+    const input = container.querySelector(`input[value="${event.key}"]`);
+    if (!input) return;
+    event.preventDefault();
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.focus();
+  });
+}
+
 /* ---------- fetch utils ---------- */
+
+function normalizeResult(result) {
+  const cluster = result?.cluster ?? {};
+  const hero = result?.hero ?? {};
+  const share = result?.share ?? {};
+  const narrative = result?.narrative ?? {};
+  const scores = result?.scores ?? {};
+
+  const clusterKey = cluster.key ?? cluster ?? null;
+  const clusterLabel = cluster.label ?? CLUSTER_LABELS[clusterKey] ?? '';
+  const heroSlug = hero.slug ?? result?.heroSlug ?? '';
+  const heroName = hero.name ?? 'ヒーロータイプ';
+  const heroImage = hero.avatarUrl ?? 'https://placehold.co/512x512?text=HERO';
+  const shareCopy = share.copy ?? {};
+  const shareUrl = share.url ?? `${BASE_URL}/share/${result?.sessionId ?? appState.sessionId ?? ''}`;
+  const cardImageUrl = share.cardImageUrl ?? heroImage;
+  const summaryText = narrative.summary1line ?? shareCopy.summary ?? '';
+
+  return {
+    sessionId: result?.sessionId ?? appState.sessionId,
+    cluster: { key: clusterKey, label: clusterLabel },
+    hero: { slug: heroSlug, name: heroName, avatarUrl: heroImage },
+    share: {
+      url: shareUrl,
+      cardImageUrl,
+      copy: {
+        headline: shareCopy.headline ?? `あなたは${heroName}！`,
+        summary: shareCopy.summary ?? summaryText,
+      },
+    },
+    narrative: {
+      summary1line: summaryText,
+      strengths: Array.isArray(narrative.strengths) ? narrative.strengths : [],
+      misfit_env: Array.isArray(narrative.misfit_env) ? narrative.misfit_env : [],
+      how_to_use: Array.isArray(narrative.how_to_use) ? narrative.how_to_use : [],
+      next_action: Array.isArray(narrative.next_action) ? narrative.next_action : [],
+    },
+    scores,
+  };
+}
+
+function renderNarrativeList(target, items) {
+  if (!target) return;
+  target.innerHTML = '';
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) {
+    const placeholder = document.createElement('li');
+    placeholder.textContent = '準備中';
+    target.appendChild(placeholder);
+    return;
+  }
+  list.forEach((item) => {
+    const li = document.createElement('li');
+    li.textContent = item;
+    target.appendChild(li);
+  });
+}
+
+function renderScores(scores) {
+  if (!elements.resultScores) return;
+  elements.resultScores.innerHTML = '';
+  if (!scores || typeof scores !== 'object') {
+    elements.resultScores.textContent = 'スコアを集計中です。';
+    return;
+  }
+
+  const groups = [
+    { key: 'MBTI', label: 'MBTIバランス' },
+    { key: 'WorkStyle', label: 'ワークスタイル' },
+    { key: 'Motivation', label: 'モチベーション' },
+  ];
+
+  groups.forEach(({ key, label }) => {
+    const values = scores[key] ?? {};
+    const entries = Object.entries(values);
+    if (!entries.length) {
+      return;
+    }
+    const section = document.createElement('div');
+    section.className = 'score-block';
+
+    const heading = document.createElement('h4');
+    heading.textContent = label;
+    section.appendChild(heading);
+
+    const list = document.createElement('dl');
+    list.className = 'score-list';
+
+    entries.forEach(([itemKey, value]) => {
+      const dt = document.createElement('dt');
+      dt.textContent = itemKey;
+      const dd = document.createElement('dd');
+      dd.textContent = formatScoreValue(value);
+      list.appendChild(dt);
+      list.appendChild(dd);
+    });
+
+    section.appendChild(list);
+    elements.resultScores.appendChild(section);
+  });
+}
+
+function formatScoreValue(value) {
+  const numeric = Number(value ?? 0);
+  if (!Number.isFinite(numeric)) return '0';
+  if (Math.abs(numeric - Math.round(numeric)) < 0.01) {
+    return String(Math.round(numeric));
+  }
+  return numeric.toFixed(2);
+}
+
+async function handlePrimaryShare() {
+  if (!appState.result) {
+    showToast('共有できる結果がありません', true);
+    return;
+  }
+  if (window.liff?.shareTargetPicker) {
+    await handleLineShare();
+    return;
+  }
+  if (navigator.share) {
+    await handleWebShare();
+    return;
+  }
+  await handleCopyLink();
+}
+
+async function handleLineShare() {
+  const share = appState.result?.share;
+  if (!share) {
+    showToast('シェア情報が準備中です', true);
+    return;
+  }
+  if (!window.liff?.shareTargetPicker) {
+    showToast('LINEアプリからのシェアに対応していません', true);
+    return;
+  }
+  const text = `${share.copy.headline}\n${share.copy.summary}\n${share.url}`;
+  try {
+    await window.liff.shareTargetPicker([{ type: 'text', text }]);
+    showToast('LINEにシェアしました');
+  } catch (error) {
+    if (error?.code !== 'USER_CANCEL') {
+      console.error('[share] line error', error);
+      showToast('LINEシェアに失敗しました', true);
+    }
+  }
+}
+
+async function handleWebShare() {
+  const share = appState.result?.share;
+  if (!share) {
+    showToast('シェア情報が準備中です', true);
+    return;
+  }
+  if (!navigator.share) {
+    await handleCopyLink();
+    return;
+  }
+  try {
+    await navigator.share({
+      title: share.copy.headline,
+      text: share.copy.summary,
+      url: share.url,
+    });
+  } catch (error) {
+    if (error?.name !== 'AbortError') {
+      console.error('[share] web error', error);
+      showToast('端末の共有に失敗しました', true);
+    }
+  }
+}
+
+function handleXShare() {
+  const share = appState.result?.share;
+  if (!share) {
+    showToast('シェア情報が準備中です', true);
+    return;
+  }
+  const text = `${share.copy.headline}\n${share.copy.summary}`;
+  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(
+    share.url
+  )}`;
+  window.open(intent, '_blank', 'noopener');
+}
+
+async function handleCopyLink() {
+  const share = appState.result?.share;
+  if (!share) {
+    showToast('シェア情報が準備中です', true);
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(share.url);
+    showToast('リンクをコピーしました');
+  } catch (error) {
+    console.error('[share] copy error', error);
+    showToast('リンクのコピーに失敗しました', true);
+  }
+}
+
+function handleDownloadShareCard() {
+  const imageUrl = appState.result?.share?.cardImageUrl;
+  if (!imageUrl) {
+    showToast('共有カードがまだありません', true);
+    return;
+  }
+  const link = document.createElement('a');
+  link.href = imageUrl;
+  link.download = 'diagnosis-share.png';
+  link.rel = 'noopener';
+  link.target = '_blank';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function retakeDiagnosis() {
+  appState.answers.clear();
+  appState.result = null;
+  appState.reviewing = false;
+  appState.sessionId = undefined;
+  elements.resultCard.classList.add('hidden');
+  elements.resultActions?.classList.add('hidden');
+  elements.shareButton.classList.add('hidden');
+  elements.submitButton.classList.remove('hidden');
+  elements.questions.classList.remove('hidden');
+  renderQuestions();
+  updateProgress();
+  elements.questions.scrollTop = 0;
+}
+
+function toggleReview() {
+  if (!appState.result) {
+    return;
+  }
+  appState.reviewing = !appState.reviewing;
+  if (appState.reviewing) {
+    elements.questions.classList.remove('hidden');
+    elements.reviewButton.textContent = '結果に戻る';
+    elements.questions.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    elements.questions.classList.add('hidden');
+    elements.reviewButton.textContent = '回答を見直す';
+    elements.resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
 
 async function createFetchError(response) {
   let message = `通信に失敗しました (${response.status})`;
@@ -372,22 +741,37 @@ async function createFetchError(response) {
 }
 
 async function fetchDiagnosisPayload() {
-  const response = await fetch('/api/diagnosis', {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
-    cache: 'no-store',
-    credentials: 'same-origin',
-  });
-  const text = await response.text();
-  console.log('[diagnosis] GET /api/diagnosis', response.status, text.slice(0, 200));
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${text}`);
-  if (!text) return {};
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    console.error('[diagnosis] JSON parse error', e);
-    throw new Error('診断データの形式が不正です');
+  const questions = await fetchLocalQuestions();
+  return { version: QUESTION_VERSION, questions };
+}
+
+async function fetchLocalQuestions() {
+  let lastError;
+  for (const path of QUESTION_SOURCE_PATHS) {
+    try {
+      const response = await fetch(path, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        lastError = new Error(`HTTP ${response.status}: ${path}`);
+        continue;
+      }
+      const data = await response.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error('質問データの形式が不正です');
+      }
+      return data.map((item, index) => ({
+        code: item.code || item.id || `Q${index + 1}`,
+        text: String(item.text ?? ''),
+      }));
+    } catch (error) {
+      lastError = error;
+      console.warn('[diagnosis] failed to load questions from', path, error);
+    }
   }
+  throw lastError || new Error('質問データを読み込めませんでした');
 }
 
 function shortenMessage(message) {
