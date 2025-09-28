@@ -1,17 +1,10 @@
 import QUESTIONS from '../../data/questions.v1.js';
+import { getHeroNarrative, getHeroProfile, getClusterLabel } from '../../lib/result-content.js';
 
-// LIFF + 診断UI ロジック（repo質問 / DB非依存）
 const LIFF_ID = resolveLiffId();
 const BASE_URL = resolveBaseUrl();
 
 const QUESTION_VERSION = 'v1';
-
-const CLUSTER_LABELS = {
-  challenge: 'チャレンジ',
-  creative: 'クリエイティブ',
-  support: 'サポート',
-  strategy: 'ストラテジー',
-};
 
 const LIKERT_OPTIONS = [
   { value: 1, label: 'とてもそう思う', size: 'large' },
@@ -27,7 +20,7 @@ const LIKERT_SHORTCUT_KEYS = new Set(['1', '2', '3', '4', '5', '6']);
 const appState = {
   version: QUESTION_VERSION,
   questions: [],
-  answers: new Map(),              // Map<code, scale>
+  answers: new Map(),
   sessionId: getSessionParam(),
   submitting: false,
   profile: { userId: 'debug-user', displayName: 'Debug User' },
@@ -49,24 +42,34 @@ const elements = {
   retakeButton: document.getElementById('retakeButton'),
   reviewButton: document.getElementById('reviewButton'),
   resultActions: document.getElementById('resultActions'),
-  unansweredAlert: document.getElementById('unansweredAlert'),
+
+  // result card
   resultCard: document.getElementById('resultCard'),
   resultSub: document.getElementById('resultSub'),
   resultClusterTag: document.getElementById('resultClusterTag'),
   resultHeroName: document.getElementById('resultHeroName'),
   resultHeroImage: document.getElementById('resultHeroImage'),
-  resultSummary: document.getElementById('resultSummary'),
-  resultStrengths: document.getElementById('resultStrengths'),
-  resultMisfit: document.getElementById('resultMisfit'),
-  resultHowToUse: document.getElementById('resultHowToUse'),
-  resultNextAction: document.getElementById('resultNextAction'),
-  resultScores: document.getElementById('resultScores'),
+
+  // NEW: hero copy + sections
+  resultHeroCopy: document.getElementById('resultHeroCopy'),
+  resultPersonalityTitle: document.getElementById('resultPersonalityTitle'),
+  resultPersonalityBody: document.getElementById('resultPersonalityBody'),
+  resultScenes: document.getElementById('resultScenes'),
+  resultTips: document.getElementById('resultTips'),
+  resultJobs: document.getElementById('resultJobs'),
+  resultReactions: document.getElementById('resultReactions'),
+
+  // share
   resultShareImage: document.getElementById('resultShareImage'),
   downloadShareButton: document.getElementById('downloadShareButton'),
   shareLineButton: document.getElementById('shareLineButton'),
   shareWebButton: document.getElementById('shareWebButton'),
   shareXButton: document.getElementById('shareXButton'),
   shareCopyButton: document.getElementById('shareCopyButton'),
+
+  // optional scores
+  resultScores: document.getElementById('resultScores'),
+  unansweredAlert: document.getElementById('unansweredAlert'),
 };
 
 init();
@@ -97,7 +100,6 @@ async function ensureLiff() {
     return;
   }
   await window.liff.init({ liffId: LIFF_ID || undefined, withLoginOnExternalBrowser: true });
-  console.log('[liff] init OK', { inClient: window.liff.isInClient(), loggedIn: window.liff.isLoggedIn() });
   if (!window.liff.isLoggedIn()) {
     window.liff.login();
     await new Promise(() => {});
@@ -186,9 +188,7 @@ async function loadQuestions() {
   elements.resultActions?.classList.add('hidden');
   elements.resultCard.classList.add('hidden');
   elements.loadError?.classList.add('hidden');
-  if (elements.loadError) {
-    elements.loadError.textContent = '';
-  }
+  if (elements.loadError) elements.loadError.textContent = '';
 
   elements.questions.removeAttribute('aria-busy');
   renderQuestions();
@@ -223,7 +223,6 @@ function renderQuestions() {
 
     LIKERT_OPTIONS.forEach((option) => {
       const choiceId = `${question.code}-scale-${option.value}`;
-
       const wrapper = document.createElement('div');
       wrapper.className = 'likert-choice';
 
@@ -234,9 +233,7 @@ function renderQuestions() {
       input.value = String(option.value);
       input.required = true;
       input.className = 'likert-input';
-      if (Number(previousSelection) === option.value) {
-        input.checked = true;
-      }
+      if (Number(previousSelection) === option.value) input.checked = true;
       input.addEventListener('change', () => handleAnswerChange(question.code, option.value));
 
       const label = document.createElement('label');
@@ -249,7 +246,6 @@ function renderQuestions() {
       diamond.setAttribute('aria-hidden', 'true');
 
       label.appendChild(diamond);
-
       wrapper.appendChild(input);
       wrapper.appendChild(label);
       list.appendChild(wrapper);
@@ -312,14 +308,9 @@ function updateProgress() {
 
 function updateUnansweredAlert() {
   const total = appState.questions.length;
-  if (!total) {
-    elements.unansweredAlert.classList.add('hidden');
-    return;
-  }
-  if (appState.answers.size === total) {
-    elements.unansweredAlert.classList.add('hidden');
-    return;
-  }
+  if (!total) return elements.unansweredAlert.classList.add('hidden');
+  if (appState.answers.size === total) return elements.unansweredAlert.classList.add('hidden');
+
   const missing = appState.questions
     .map((q, i) => ({ q, i }))
     .filter(({ q }) => !appState.answers.has(q.code))
@@ -350,9 +341,7 @@ async function onSubmit() {
       sessionId: appState.sessionId,
       version: QUESTION_VERSION,
       answers: Array.from(appState.answers.entries()).map(([code, scale]) => ({
-        code,
-        scale,
-        scaleMax: 6,
+        code, scale, scaleMax: 6,
       })),
       meta: { liff: true },
     };
@@ -371,15 +360,40 @@ async function onSubmit() {
       throw error;
     }
 
-    const result = await response.json();
-    appState.sessionId = result.sessionId || appState.sessionId;
-    showResult(result);
+    const backend = await response.json();
+    appState.sessionId = backend.sessionId || appState.sessionId;
+
+    // ---- 正規化：サーバーがslug等を返す前提。必要に応じてローカル辞書で補完 ----
+    const slug = backend?.heroSlug || backend?.hero?.slug || '';
+    const profile = slug ? getHeroProfile(slug) : { name: backend?.hero?.name || 'ヒーロータイプ', avatarUrl: backend?.hero?.avatarUrl };
+    const narrative = slug ? getHeroNarrative(slug) : (backend?.narrative ?? {});
+    const clusterKey = backend?.cluster?.key ?? backend?.cluster ?? profile?.cluster ?? '';
+    const share = backend?.share ?? {};
+    const shareUrl = share.url ?? `${BASE_URL}/share/${backend?.sessionId ?? appState.sessionId ?? ''}`;
+    const cardImageUrl = share.cardImageUrl ?? profile.avatarUrl;
+
+    const normalized = {
+      sessionId: backend?.sessionId ?? appState.sessionId,
+      cluster: { key: clusterKey, label: getClusterLabel?.(clusterKey) || '' },
+      hero: { slug, name: profile.name, avatarUrl: profile.avatarUrl },
+      share: {
+        url: shareUrl,
+        cardImageUrl,
+        copy: {
+          headline: share.copy?.headline ?? `あなたは${profile.name}！`,
+          summary: share.copy?.summary ?? narrative?.hero_copy ?? '',
+        },
+      },
+      narrative, // ← hero_copy / personality / scenes / tips / jobs.suited[] / reactions[]
+      scores: backend?.scores ?? {},
+    };
+
+    appState.result = normalized;
+    showResult(normalized);
     hideToast();
   } catch (error) {
     console.error('[diagnosis] submit failed', error);
-    if (!error || !error.__alertShown) {
-      alert('Submit failed. Please try again.');
-    }
+    if (!error || !error.__alertShown) alert('Submit failed. Please try again.');
     showToast(error.message || '送信に失敗しました', true, error.errorId);
     elements.retryButton.classList.remove('hidden');
   } finally {
@@ -391,12 +405,7 @@ async function onSubmit() {
 
 /* ---------- result & feedback ---------- */
 
-function showResult(rawResult) {
-  const normalized = normalizeResult(rawResult);
-  appState.result = normalized;
-  appState.sessionId = normalized.sessionId ?? appState.sessionId;
-  appState.reviewing = false;
-
+function showResult(result) {
   elements.questions.classList.add('hidden');
   elements.unansweredAlert.classList.add('hidden');
   elements.resultCard.classList.remove('hidden');
@@ -409,27 +418,35 @@ function showResult(rawResult) {
   const displayName = appState.profile.displayName || 'あなた';
   elements.resultSub.textContent = `${displayName}、結果をまとめたよ。`;
 
-  const headline = normalized.share.copy.headline || `あなたは${normalized.hero.name}！`;
+  const headline = result.share.copy.headline || `あなたは${result.hero.name}！`;
   elements.resultHeroName.textContent = headline;
-  elements.resultClusterTag.textContent = normalized.cluster.label
-    ? `#${normalized.cluster.label}`
-    : '';
 
-  elements.resultHeroImage.src = normalized.hero.avatarUrl;
-  elements.resultHeroImage.alt = normalized.hero.name;
-  elements.resultSummary.textContent = normalized.narrative.summary1line;
+  elements.resultClusterTag.textContent = result.cluster.label ? `#${result.cluster.label}` : '';
+  elements.resultHeroImage.src = result.hero.avatarUrl || 'https://placehold.co/512x512?text=HERO';
+  elements.resultHeroImage.alt = result.hero.name || 'ヒーロー';
 
-  renderNarrativeList(elements.resultStrengths, normalized.narrative.strengths);
-  renderNarrativeList(elements.resultMisfit, normalized.narrative.misfit_env);
-  renderNarrativeList(elements.resultHowToUse, normalized.narrative.how_to_use);
-  renderNarrativeList(elements.resultNextAction, normalized.narrative.next_action);
-  renderScores(normalized.scores);
+  // NEW: 偉人コピー
+  elements.resultHeroCopy.textContent = result.narrative?.hero_copy ?? '';
 
-  elements.resultShareImage.src = normalized.share.cardImageUrl;
-  elements.resultShareImage.alt = `${normalized.hero.name}のシェアカード`;
-  elements.downloadShareButton.disabled = !normalized.share.cardImageUrl;
-  elements.reviewButton.textContent = '回答を見直す';
-  elements.questions.classList.add('hidden');
+  // NEW: 個性
+  elements.resultPersonalityTitle.textContent = result.narrative?.personality?.title ?? '';
+  fillParagraphs(elements.resultPersonalityBody, result.narrative?.personality?.paragraphs ?? []);
+
+  // NEW: 活躍シーン / 成長のヒント / 化学反応
+  renderList(elements.resultScenes, result.narrative?.scenes ?? []);
+  renderList(elements.resultTips, result.narrative?.tips ?? []);
+  renderOrdered(elements.resultReactions, result.narrative?.reactions ?? []);
+
+  // NEW: 職業（name — blurb）
+  renderJobs(elements.resultJobs, result.narrative?.jobs?.suited ?? []);
+
+  // シェア
+  elements.resultShareImage.src = result.share.cardImageUrl || result.hero.avatarUrl || '';
+  elements.resultShareImage.alt = `${result.hero.name}のシェアカード`;
+  elements.downloadShareButton.disabled = !result.share.cardImageUrl;
+
+  // スコア（任意）
+  renderScores(result.scores);
 }
 
 function showErrorCard(message) {
@@ -440,99 +457,78 @@ function showErrorCard(message) {
   elements.questions.appendChild(card);
 }
 
-function showToast(message, isError = false, errorId) {
-  const displayMessage = shortenMessage(message);
-  elements.toast.textContent = errorId ? `${displayMessage} (ID: ${errorId})` : displayMessage;
-  elements.toast.classList.toggle('error', Boolean(isError));
-  elements.toast.classList.remove('hidden');
-  clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => {
-    elements.toast.classList.add('hidden');
-  }, 4000);
-}
+/* ---------- small render utils ---------- */
 
-function hideToast() {
-  elements.toast.classList.add('hidden');
-  if (showToast._timer) clearTimeout(showToast._timer);
-}
-
-function bindLikertShortcuts() {
-  if (bindLikertShortcuts._bound) return;
-  bindLikertShortcuts._bound = true;
-
-  document.addEventListener('keydown', (event) => {
-    if (!LIKERT_SHORTCUT_KEYS.has(event.key)) return;
-    const active = document.activeElement;
-    if (!active || typeof active.closest !== 'function') return;
-    const container = active.closest('[data-likert-container]');
-    if (!container) return;
-    const input = container.querySelector(`input[value="${event.key}"]`);
-    if (!input) return;
-    event.preventDefault();
-    input.checked = true;
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-    input.focus();
-  });
-}
-
-/* ---------- fetch utils ---------- */
-
-function normalizeResult(result) {
-  const cluster = result?.cluster ?? {};
-  const hero = result?.hero ?? {};
-  const share = result?.share ?? {};
-  const narrative = result?.narrative ?? {};
-  const scores = result?.scores ?? {};
-
-  const clusterKey = cluster.key ?? cluster ?? null;
-  const clusterLabel = cluster.label ?? CLUSTER_LABELS[clusterKey] ?? '';
-  const heroSlug = hero.slug ?? result?.heroSlug ?? '';
-  const heroName = hero.name ?? 'ヒーロータイプ';
-  const heroImage = hero.avatarUrl ?? 'https://placehold.co/512x512?text=HERO';
-  const shareCopy = share.copy ?? {};
-  const shareUrl = share.url ?? `${BASE_URL}/share/${result?.sessionId ?? appState.sessionId ?? ''}`;
-  const cardImageUrl = share.cardImageUrl ?? heroImage;
-  const summaryText = narrative.summary1line ?? shareCopy.summary ?? '';
-
-  return {
-    sessionId: result?.sessionId ?? appState.sessionId,
-    cluster: { key: clusterKey, label: clusterLabel },
-    hero: { slug: heroSlug, name: heroName, avatarUrl: heroImage },
-    share: {
-      url: shareUrl,
-      cardImageUrl,
-      copy: {
-        headline: shareCopy.headline ?? `あなたは${heroName}！`,
-        summary: shareCopy.summary ?? summaryText,
-      },
-    },
-    narrative: {
-      summary1line: summaryText,
-      strengths: Array.isArray(narrative.strengths) ? narrative.strengths : [],
-      misfit_env: Array.isArray(narrative.misfit_env) ? narrative.misfit_env : [],
-      how_to_use: Array.isArray(narrative.how_to_use) ? narrative.how_to_use : [],
-      next_action: Array.isArray(narrative.next_action) ? narrative.next_action : [],
-    },
-    scores,
-  };
-}
-
-function renderNarrativeList(target, items) {
+function renderList(target, items) {
   if (!target) return;
   target.innerHTML = '';
   const list = Array.isArray(items) ? items : [];
   if (!list.length) {
-    const placeholder = document.createElement('li');
-    placeholder.textContent = '準備中';
-    target.appendChild(placeholder);
+    target.appendChild(createLi('準備中'));
     return;
   }
-  list.forEach((item) => {
+  list.forEach((t) => target.appendChild(createLi(t)));
+}
+
+function renderOrdered(target, items) {
+  if (!target) return;
+  target.innerHTML = '';
+  const list = Array.isArray(items) ? items : [];
+  if (!list.length) {
     const li = document.createElement('li');
-    li.textContent = item;
+    li.textContent = '準備中';
+    target.appendChild(li);
+    return;
+  }
+  list.forEach((t) => {
+    const li = document.createElement('li');
+    li.textContent = t;
     target.appendChild(li);
   });
 }
+
+function renderJobs(target, jobs) {
+  if (!target) return;
+  target.innerHTML = '';
+  const arr = Array.isArray(jobs) ? jobs : [];
+  if (!arr.length) {
+    target.appendChild(createLi('準備中'));
+    return;
+  }
+  arr.forEach(({ name, blurb }) => {
+    const li = document.createElement('li');
+    const wrap = document.createElement('div');
+    wrap.className = 'job';
+    const n = document.createElement('span');
+    n.className = 'job__name';
+    n.textContent = name || '';
+    const sep = document.createTextNode(' — ');
+    const b = document.createElement('span');
+    b.className = 'job__blurb';
+    b.textContent = blurb || '';
+    wrap.append(n, sep, b);
+    li.appendChild(wrap);
+    target.appendChild(li);
+  });
+}
+
+function fillParagraphs(container, paras) {
+  if (!container) return;
+  container.innerHTML = '';
+  (Array.isArray(paras) ? paras : []).forEach((t) => {
+    const p = document.createElement('p');
+    p.textContent = t;
+    container.appendChild(p);
+  });
+}
+
+function createLi(text) {
+  const li = document.createElement('li');
+  li.textContent = text;
+  return li;
+}
+
+/* ---------- scores (optional) ---------- */
 
 function renderScores(scores) {
   if (!elements.resultScores) return;
@@ -541,19 +537,15 @@ function renderScores(scores) {
     elements.resultScores.textContent = 'スコアを集計中です。';
     return;
   }
-
   const groups = [
     { key: 'MBTI', label: 'MBTIバランス' },
     { key: 'WorkStyle', label: 'ワークスタイル' },
     { key: 'Motivation', label: 'モチベーション' },
   ];
-
   groups.forEach(({ key, label }) => {
     const values = scores[key] ?? {};
     const entries = Object.entries(values);
-    if (!entries.length) {
-      return;
-    }
+    if (!entries.length) return;
     const section = document.createElement('div');
     section.className = 'score-block';
 
@@ -581,145 +573,50 @@ function renderScores(scores) {
 function formatScoreValue(value) {
   const numeric = Number(value ?? 0);
   if (!Number.isFinite(numeric)) return '0';
-  if (Math.abs(numeric - Math.round(numeric)) < 0.01) {
-    return String(Math.round(numeric));
-  }
+  if (Math.abs(numeric - Math.round(numeric)) < 0.01) return String(Math.round(numeric));
   return numeric.toFixed(2);
 }
 
-async function handlePrimaryShare() {
-  if (!appState.result) {
-    showToast('共有できる結果がありません', true);
-    return;
-  }
-  if (window.liff?.shareTargetPicker) {
-    await handleLineShare();
-    return;
-  }
-  if (navigator.share) {
-    await handleWebShare();
-    return;
-  }
-  await handleCopyLink();
+/* ---------- share ---------- */
+
+function bindLikertShortcuts() {
+  if (bindLikertShortcuts._bound) return;
+  bindLikertShortcuts._bound = true;
+  document.addEventListener('keydown', (event) => {
+    if (!LIKERT_SHORTCUT_KEYS.has(event.key)) return;
+    const active = document.activeElement;
+    if (!active || typeof active.closest !== 'function') return;
+    const container = active.closest('[data-likert-container]');
+    if (!container) return;
+    const input = container.querySelector(`input[value="${event.key}"]`);
+    if (!input) return;
+    event.preventDefault();
+    input.checked = true;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    input.focus();
+  });
 }
 
-async function handleLineShare() {
-  const share = appState.result?.share;
-  if (!share) {
-    showToast('シェア情報が準備中です', true);
-    return;
-  }
-  if (!window.liff?.shareTargetPicker) {
-    showToast('LINEアプリからのシェアに対応していません', true);
-    return;
-  }
-  const text = `${share.copy.headline}\n${share.copy.summary}\n${share.url}`;
-  try {
-    await window.liff.shareTargetPicker([{ type: 'text', text }]);
-    showToast('LINEにシェアしました');
-  } catch (error) {
-    if (error?.code !== 'USER_CANCEL') {
-      console.error('[share] line error', error);
-      showToast('LINEシェアに失敗しました', true);
-    }
-  }
+function shortenMessage(message) {
+  const text = String(message || '');
+  if (text.length <= 80) return text;
+  return `…${text.slice(-80)}`;
 }
 
-async function handleWebShare() {
-  const share = appState.result?.share;
-  if (!share) {
-    showToast('シェア情報が準備中です', true);
-    return;
-  }
-  if (!navigator.share) {
-    await handleCopyLink();
-    return;
-  }
-  try {
-    await navigator.share({
-      title: share.copy.headline,
-      text: share.copy.summary,
-      url: share.url,
-    });
-  } catch (error) {
-    if (error?.name !== 'AbortError') {
-      console.error('[share] web error', error);
-      showToast('端末の共有に失敗しました', true);
-    }
-  }
+function showToast(message, isError = false, errorId) {
+  const displayMessage = shortenMessage(message);
+  elements.toast.textContent = errorId ? `${displayMessage} (ID: ${errorId})` : displayMessage;
+  elements.toast.classList.toggle('error', Boolean(isError));
+  elements.toast.classList.remove('hidden');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => {
+    elements.toast.classList.add('hidden');
+  }, 4000);
 }
 
-function handleXShare() {
-  const share = appState.result?.share;
-  if (!share) {
-    showToast('シェア情報が準備中です', true);
-    return;
-  }
-  const text = `${share.copy.headline}\n${share.copy.summary}`;
-  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(share.url)}`;
-  window.open(intent, '_blank', 'noopener');
-}
-
-async function handleCopyLink() {
-  const share = appState.result?.share;
-  if (!share) {
-    showToast('シェア情報が準備中です', true);
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(share.url);
-    showToast('リンクをコピーしました');
-  } catch (error) {
-    console.error('[share] copy error', error);
-    showToast('リンクのコピーに失敗しました', true);
-  }
-}
-
-function handleDownloadShareCard() {
-  const imageUrl = appState.result?.share?.cardImageUrl;
-  if (!imageUrl) {
-    showToast('共有カードがまだありません', true);
-    return;
-  }
-  const link = document.createElement('a');
-  link.href = imageUrl;
-  link.download = 'diagnosis-share.png';
-  link.rel = 'noopener';
-  link.target = '_blank';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-function retakeDiagnosis() {
-  appState.answers.clear();
-  appState.result = null;
-  appState.reviewing = false;
-  appState.sessionId = undefined;
-  elements.resultCard.classList.add('hidden');
-  elements.resultActions?.classList.add('hidden');
-  elements.shareButton.classList.add('hidden');
-  elements.submitButton.classList.remove('hidden');
-  elements.questions.classList.remove('hidden');
-  renderQuestions();
-  updateProgress();
-  elements.questions.scrollTop = 0;
-}
-
-function toggleReview() {
-  if (!appState.result) {
-    return;
-  }
-  appState.reviewing = !appState.reviewing;
-  if (appState.reviewing) {
-    elements.questions.classList.remove('hidden');
-    elements.reviewButton.textContent = '結果に戻る';
-    elements.questions.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } else {
-    elements.questions.classList.add('hidden');
-    elements.reviewButton.textContent = '回答を見直す';
-    elements.resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+function hideToast() {
+  elements.toast.classList.add('hidden');
+  if (showToast._timer) clearTimeout(showToast._timer);
 }
 
 async function createFetchError(response) {
@@ -740,8 +637,105 @@ async function createFetchError(response) {
   return error;
 }
 
-function shortenMessage(message) {
-  const text = String(message || '');
-  if (text.length <= 80) return text;
-  return `…${text.slice(-80)}`;
+/* ---------- primary share handlers ---------- */
+
+async function handlePrimaryShare() {
+  if (!appState.result) return showToast('共有できる結果がありません', true);
+  if (window.liff?.shareTargetPicker) return void (await handleLineShare());
+  if (navigator.share) return void (await handleWebShare());
+  await handleCopyLink();
+}
+
+async function handleLineShare() {
+  const share = appState.result?.share;
+  if (!share) return showToast('シェア情報が準備中です', true);
+  if (!window.liff?.shareTargetPicker) return showToast('LINEアプリからのシェアに対応していません', true);
+  const text = `${share.copy.headline}\n${share.copy.summary}\n${share.url}`;
+  try {
+    await window.liff.shareTargetPicker([{ type: 'text', text }]);
+    showToast('LINEにシェアしました');
+  } catch (error) {
+    if (error?.code !== 'USER_CANCEL') {
+      console.error('[share] line error', error);
+      showToast('LINEシェアに失敗しました', true);
+    }
+  }
+}
+
+async function handleWebShare() {
+  const share = appState.result?.share;
+  if (!share) return showToast('シェア情報が準備中です', true);
+  if (!navigator.share) return void (await handleCopyLink());
+  try {
+    await navigator.share({ title: share.copy.headline, text: share.copy.summary, url: share.url });
+  } catch (error) {
+    if (error?.name !== 'AbortError') {
+      console.error('[share] web error', error);
+      showToast('端末の共有に失敗しました', true);
+    }
+  }
+}
+
+function handleXShare() {
+  const share = appState.result?.share;
+  if (!share) return showToast('シェア情報が準備中です', true);
+  const text = `${share.copy.headline}\n${share.copy.summary}`;
+  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(share.url)}`;
+  window.open(intent, '_blank', 'noopener');
+}
+
+async function handleCopyLink() {
+  const share = appState.result?.share;
+  if (!share) return showToast('シェア情報が準備中です', true);
+  try {
+    await navigator.clipboard.writeText(share.url);
+    showToast('リンクをコピーしました');
+  } catch (error) {
+    console.error('[share] copy error', error);
+    showToast('リンクのコピーに失敗しました', true);
+  }
+}
+
+function handleDownloadShareCard() {
+  const imageUrl = appState.result?.share?.cardImageUrl;
+  if (!imageUrl) return showToast('共有カードがまだありません', true);
+  const link = document.createElement('a');
+  link.href = imageUrl;
+  link.download = 'diagnosis-share.png';
+  link.rel = 'noopener';
+  link.target = '_blank';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+/* ---------- retake / review ---------- */
+
+function retakeDiagnosis() {
+  appState.answers.clear();
+  appState.result = null;
+  appState.reviewing = false;
+  appState.sessionId = undefined;
+  elements.resultCard.classList.add('hidden');
+  elements.resultActions?.classList.add('hidden');
+  elements.shareButton.classList.add('hidden');
+  elements.submitButton.classList.remove('hidden');
+  elements.questions.classList.remove('hidden');
+  renderQuestions();
+  updateProgress();
+  elements.questions.scrollTop = 0;
+}
+
+function toggleReview() {
+  if (!appState.result) return;
+  appState.reviewing = !appState.reviewing;
+  if (appState.reviewing) {
+    elements.questions.classList.remove('hidden');
+    elements.reviewButton.textContent = '結果に戻る';
+    elements.questions.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    elements.questions.classList.add('hidden');
+    elements.reviewButton.textContent = '回答を見直す';
+    elements.resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
