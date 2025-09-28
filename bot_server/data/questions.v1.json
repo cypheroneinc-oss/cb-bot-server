@@ -1,98 +1,63 @@
 [
   {
     "id": "Q1",
-    "text": "授業で、前に出て話すのはわりと平気だ。",
+    "text": "授業で、前に出て話すのは割といける。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "MBTI": [
-            "E"
-          ],
-          "WorkStyle": [
-            "speed",
-            "improv"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "MBTI": ["E"],
+          "WorkStyle": ["speed", "improv"],
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "MBTI": [
-            "I"
-          ],
-          "WorkStyle": [
-            "careful"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "MBTI": ["I"],
+          "WorkStyle": ["careful"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
   },
   {
     "id": "Q2",
-    "text": "新しいことは、まずやってみてから考えるタイプだ。",
+    "text": "新しいことは、とりまやってみてから考えるタイプ。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "MBTI": [
-            "N"
-          ],
-          "WorkStyle": [
-            "improv",
-            "intuitive"
-          ],
-          "CLUSTER_HINT": [
-            "creative",
-            "challenge"
-          ]
+          "MBTI": ["N"],
+          "WorkStyle": ["improv", "intuitive"],
+          "CLUSTER_HINT": ["creative", "challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "structured",
-            "logical"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured", "logical"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
   },
   {
     "id": "Q3",
-    "text": "人に頼まれなくても、自分から役割を決めて動ける。",
+    "text": "人に頼まれなくても、自分で役割を考えて動ける。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "achieve",
-            "autonomy"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["achieve", "autonomy"],
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "careful"
-          ],
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "WorkStyle": ["careful"],
+          "CLUSTER_HINT": ["support"]
         }
       }
     ]
@@ -104,88 +69,57 @@
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "structured",
-            "logical"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured", "logical"],
+          "CLUSTER_HINT": ["strategy"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "improv"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "WorkStyle": ["improv"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
   },
   {
     "id": "Q5",
-    "text": "新しいアプリは、説明より先に触って覚える。",
+    "text": "新しいアプリは、トリセツの前にいったん触ってみる。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "improv",
-            "intuitive"
-          ],
-          "CLUSTER_HINT": [
-            "creative"
-          ]
+          "WorkStyle": ["improv", "intuitive"],
+          "CLUSTER_HINT": ["creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
   },
   {
     "id": "Q6",
-    "text": "はじめて会う人とも、すぐ場を明るくできる。",
+    "text": "はじめて会う人と話しても、すぐ場を明るくできる。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "Sync": [
-            "high_tension",
-            "tsukkomi"
-          ],
-          "BigFive": {
-            "extraversion": "high"
-          },
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Sync": ["high_tension", "tsukkomi"],
+          "BigFive": { "extraversion": "high" },
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Sync": [
-            "relaxed"
-          ],
-          "BigFive": {
-            "extraversion": "low"
-          },
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "Sync": ["relaxed"],
+          "BigFive": { "extraversion": "low" },
+          "CLUSTER_HINT": ["support"]
         }
       }
     ]
@@ -197,411 +131,266 @@
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "connection",
-            "contribution"
-          ],
-          "WorkStyle": [
-            "careful"
-          ],
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "Motivation": ["connection", "contribution"],
+          "WorkStyle": ["careful"],
+          "CLUSTER_HINT": ["support"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "autonomy"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["autonomy"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
   },
   {
     "id": "Q8",
-    "text": "長い宿題は、計画を立てて少しずつ進めるのが合っている。",
+    "text": "夏休みの宿題は、計画を立てて少しずつ進める。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "structured",
-            "careful"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured", "careful"],
+          "CLUSTER_HINT": ["strategy"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "improv",
-            "speed"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "WorkStyle": ["improv", "speed"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
   },
   {
     "id": "Q9",
-    "text": "作品づくりは、ひらめきを大事にして形にしていく。",
+    "text": "図工や芸術の作品づくりは、ひらめきから形にしていくほうだ。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "intuitive",
-            "improv"
-          ],
-          "Motivation": [
-            "curiosity"
-          ],
-          "CLUSTER_HINT": [
-            "creative"
-          ]
+          "WorkStyle": ["intuitive", "improv"],
+          "Motivation": ["curiosity"],
+          "CLUSTER_HINT": ["creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
   },
   {
     "id": "Q10",
-    "text": "チームで意見がぶつかっても、落としどころを見つけるのが得意だ。",
+    "text": "チームで意見がぶつかっても、みんなが納得するところを見つけるのが得意だ。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "BigFive": {
-            "agreeableness": "high"
-          },
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "BigFive": { "agreeableness": "high" },
+          "CLUSTER_HINT": ["support"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "BigFive": {
-            "agreeableness": "low"
-          },
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "BigFive": { "agreeableness": "low" },
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
   },
   {
     "id": "Q11",
-    "text": "早い返事や即対応をいつも求められるのは苦手だ。",
+    "text": "ずっと即レスや即対応を求められるのはいやだ。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "NG": [
-            "instant_reply"
-          ],
-          "CLUSTER_HINT": [
-            "strategy",
-            "creative"
-          ]
+          "NG": ["instant_reply"],
+          "CLUSTER_HINT": ["strategy", "creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "speed"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "WorkStyle": ["speed"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
   },
   {
     "id": "Q12",
-    "text": "強く叱られるやり方は、やる気が下がる。",
+    "text": "キツイ言い方で叱られると、やる気が下がっちゃう。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "NG": [
-            "pressure"
-          ],
-          "CLUSTER_HINT": [
-            "support",
-            "creative"
-          ]
+          "NG": ["pressure"],
+          "CLUSTER_HINT": ["support", "creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
   },
   {
     "id": "Q13",
-    "text": "物事は数字や根拠で考えるほうが安心する。",
+    "text": "何かとは数字や根拠で考えるほうが安心できる。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "logical",
-            "structured"
-          ],
-          "MBTI": [
-            "T"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["logical", "structured"],
+          "MBTI": ["T"],
+          "CLUSTER_HINT": ["strategy"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "MBTI": [
-            "N"
-          ],
-          "WorkStyle": [
-            "intuitive"
-          ],
-          "CLUSTER_HINT": [
-            "creative"
-          ]
+          "MBTI": ["N"],
+          "WorkStyle": ["intuitive"],
+          "CLUSTER_HINT": ["creative"]
         }
       }
     ]
   },
   {
     "id": "Q14",
-    "text": "放課後は、一人で好きなことを深くやる時間が好きだ。",
+    "text": "放課後は、一人で好きなことにのめり込む時間が好きだ。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "autonomy",
-            "curiosity",
-            "growth"
-          ],
-          "MBTI": [
-            "I"
-          ],
-          "CLUSTER_HINT": [
-            "creative"
-          ]
+          "Motivation": ["autonomy", "curiosity", "growth"],
+          "MBTI": ["I"],
+          "CLUSTER_HINT": ["creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "connection"
-          ],
-          "Sync": [
-            "high_tension"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["connection"],
+          "Sync": ["high_tension"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
   },
   {
     "id": "Q15",
-    "text": "みんなの前で声を出して雰囲気を上げるのが得意だ。",
+    "text": "みんなの前で声を上げて雰囲気を明るくするのが得意だ。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "Sync": [
-            "high_tension",
-            "tsukkomi"
-          ],
-          "MBTI": [
-            "E"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Sync": ["high_tension", "tsukkomi"],
+          "MBTI": ["E"],
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Sync": [
-            "relaxed",
-            "logical_cool"
-          ],
-          "CLUSTER_HINT": [
-            "strategy",
-            "support"
-          ]
+          "Sync": ["relaxed", "logical_cool"],
+          "CLUSTER_HINT": ["strategy", "support"]
         }
       }
     ]
   },
   {
     "id": "Q16",
-    "text": "いつも同じ作業ばかりだと飽きやすい。",
+    "text": "いつも同じ作業ばかりだと飽きやすいほうだ。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "NG": [
-            "monotony",
-            "no_change"
-          ],
-          "CLUSTER_HINT": [
-            "creative",
-            "challenge"
-          ]
+          "NG": ["monotony", "no_change"],
+          "CLUSTER_HINT": ["creative", "challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "security"
-          ],
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "Motivation": ["security"],
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
   },
   {
     "id": "Q17",
-    "text": "自分のやり方で進める自由がないと、力が出しにくい。",
+    "text": "自由に自分のやり方でできないと、力が出しにくい。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "autonomy"
-          ],
-          "NG": [
-            "no_autonomy"
-          ],
-          "CLUSTER_HINT": [
-            "challenge",
-            "creative"
-          ]
+          "Motivation": ["autonomy"],
+          "NG": ["no_autonomy"],
+          "CLUSTER_HINT": ["challenge", "creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "structured"
-          ],
-          "Motivation": [
-            "security"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "WorkStyle": ["structured"],
+          "Motivation": ["security"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
   },
   {
     "id": "Q18",
-    "text": "誰かの役に立っていると感じると、やる気が出る。",
+    "text": "誰かの役に立っていると感じると、やる気が出てくる。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "contribution",
-            "connection"
-          ],
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "Motivation": ["contribution", "connection"],
+          "CLUSTER_HINT": ["support"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "achieve",
-            "autonomy"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["achieve", "autonomy"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
   },
   {
     "id": "Q19",
-    "text": "大事な場面では、落ち着いて筋道立てて話せる。",
+    "text": "大事な場面では、落ち着いてわかりやすく整理して話せる。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "Sync": [
-            "logical_cool"
-          ],
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "Sync": ["logical_cool"],
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Sync": [
-            "high_tension",
-            "natural"
-          ],
-          "CLUSTER_HINT": [
-            "challenge",
-            "support"
-          ]
+          "Sync": ["high_tension", "natural"],
+          "CLUSTER_HINT": ["challenge", "support"]
         }
       }
     ]
@@ -613,30 +402,17 @@
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "curiosity",
-            "growth"
-          ],
-          "MBTI": [
-            "N"
-          ],
-          "CLUSTER_HINT": [
-            "creative"
-          ]
+          "Motivation": ["curiosity", "growth"],
+          "MBTI": ["N"],
+          "CLUSTER_HINT": ["creative"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "security"
-          ],
-          "MBTI": [
-            "J"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "Motivation": ["security"],
+          "MBTI": ["J"],
+          "CLUSTER_HINT": ["strategy"]
         }
       }
     ]
@@ -648,160 +424,100 @@
       {
         "key": "POS",
         "tags": {
-          "WorkStyle": [
-            "intuitive",
-            "improv"
-          ],
-          "CLUSTER_HINT": [
-            "creative",
-            "challenge"
-          ]
+          "WorkStyle": ["intuitive", "improv"],
+          "CLUSTER_HINT": ["creative", "challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "WorkStyle": [
-            "careful",
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "support",
-            "strategy"
-          ]
+          "WorkStyle": ["careful", "structured"],
+          "CLUSTER_HINT": ["support", "strategy"]
         }
       }
     ]
   },
   {
     "id": "Q22",
-    "text": "必要なら、自分が前に立ってリードしてもいいと思う。",
+    "text": "いざという時、自分が前に立ってリードしてやるって思ってる。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "achieve"
-          ],
-          "MBTI": [
-            "E"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["achieve"],
+          "MBTI": ["E"],
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "contribution"
-          ],
-          "WorkStyle": [
-            "careful"
-          ],
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "Motivation": ["contribution"],
+          "WorkStyle": ["careful"],
+          "CLUSTER_HINT": ["support"]
         }
       }
     ]
   },
   {
     "id": "Q23",
-    "text": "新しいことより、長く続く仕組みを作るのが好きだ。",
+    "text": "新しいことより、長くつづく仕組みを作るのが好きだ。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "security"
-          ],
-          "WorkStyle": [
-            "structured"
-          ],
-          "CLUSTER_HINT": [
-            "strategy"
-          ]
+          "Motivation": ["security"],
+          "WorkStyle": ["structured"],
+          "CLUSTER_HINT": ["strategy"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "autonomy"
-          ],
-          "WorkStyle": [
-            "improv"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["autonomy"],
+          "WorkStyle": ["improv"],
+          "CLUSTER_HINT": ["challenge"]
         }
       }
     ]
   },
   {
     "id": "Q24",
-    "text": "友だちが落ちこんでいたら、静かにそばにいて話を聞く。",
+    "text": "友だちが落ちこんでいたら、静かにそばにいて話を聞いてあげる。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "Sync": [
-            "relaxed",
-            "natural"
-          ],
-          "Motivation": [
-            "connection"
-          ],
-          "CLUSTER_HINT": [
-            "support"
-          ]
+          "Sync": ["relaxed", "natural"],
+          "Motivation": ["connection"],
+          "CLUSTER_HINT": ["support"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Sync": [
-            "high_tension",
-            "logical_cool"
-          ],
-          "CLUSTER_HINT": [
-            "challenge",
-            "strategy"
-          ]
+          "Sync": ["high_tension", "logical_cool"],
+          "CLUSTER_HINT": ["challenge", "strategy"]
         }
       }
     ]
   },
   {
     "id": "Q25",
-    "text": "目標をはっきり決めて、結果にこだわるほうだ。",
+    "text": "目標をはっきり決めて、結果にこだわるタイプだ。",
     "choices": [
       {
         "key": "POS",
         "tags": {
-          "Motivation": [
-            "achieve",
-            "approval"
-          ],
-          "CLUSTER_HINT": [
-            "challenge"
-          ]
+          "Motivation": ["achieve", "approval"],
+          "CLUSTER_HINT": ["challenge"]
         }
       },
       {
         "key": "NEG",
         "tags": {
-          "Motivation": [
-            "contribution",
-            "security"
-          ],
-          "CLUSTER_HINT": [
-            "support",
-            "strategy"
-          ]
+          "Motivation": ["contribution", "security"],
+          "CLUSTER_HINT": ["support", "strategy"]
         }
       }
     ]

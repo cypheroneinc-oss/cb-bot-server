@@ -26,7 +26,7 @@ const QUESTION_SOURCE_PATHS = ['./data/questions.v1.json', '../data/questions.v1
 const appState = {
   version: QUESTION_VERSION,
   questions: [],
-  answers: new Map(),              // Map<code, key>
+  answers: new Map(),              // Map<code, scale>
   sessionId: getSessionParam(),
   submitting: false,
   profile: { userId: 'debug-user', displayName: 'Debug User' },

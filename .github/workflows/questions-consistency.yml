@@ -2,27 +2,36 @@ name: questions-consistency
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
 
 jobs:
   check:
     name: Check Supabase questions consistency
+    # フォークPRはSecretsが渡らないのでスキップ
+    if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     defaults:
       run:
         working-directory: bot_server
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20      # ★ cache設定は付けない
+
       - name: Install dependencies
-        run: npm install
+        run: npm install        # ★ lock無しなら npm ci は使わない
+
       - name: Verify questions dataset
         run: npm run check:questions
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
