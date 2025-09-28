@@ -62,9 +62,9 @@ const NG_CATEGORIES = [
 const CLUSTERS = ['challenge', 'creative', 'support', 'strategy'];
 
 export function aggregateAnswers(answers, { expectedQuestionCount = 25 } = {}) {
-if (!Array.isArray(answers)) {
-throw new Error('Answers must be an array');
-}
+  if (!Array.isArray(answers)) {
+    throw new Error('Answers must be an array');
+  }
 
   if (answers.length !== expectedQuestionCount) {
     throw new Error(`Exactly ${expectedQuestionCount} answers are required`);
@@ -82,8 +82,8 @@ BigFive: { agreeableness: {}, extraversion: {} },
 ClusterHints: {}
 };
 
-for (const answer of answers) {
-const { questionId, choiceKey } = answer ?? {};
+  for (const answer of answers) {
+    const { questionId, choiceKey, w: answerWeight } = answer ?? {};
 if (typeof questionId !== 'string' || typeof choiceKey !== 'string') {
 throw new Error('Each answer must contain questionId and choiceKey');
 }
@@ -97,15 +97,19 @@ if (!QUESTION_IDS.includes(questionId)) {
 }
 
 const question = getQuestionByCode(questionId);
-const choice = question.choices.find((c) => c.key === choiceKey);
-if (!choice) {
-  throw new Error(`Unknown choice ${choiceKey} for question ${questionId}`);
-}
+    let choice = question.choices.find((c) => c.key === choiceKey);
+    if (!choice) {
+      throw new Error(`Unknown choice ${choiceKey} for question ${questionId}`);
+    }
 
-seenQuestions.add(questionId);
-selection.push({ question, choice });
+    if (typeof answerWeight === 'number' && Number.isFinite(answerWeight)) {
+      choice = { ...choice, w: answerWeight };
+    }
 
-const { tags = {}, w = 1 } = choice;
+    seenQuestions.add(questionId);
+    selection.push({ question, choice });
+
+    const { tags = {}, w = 1 } = choice;
 
 if (tags.MBTI) {
   for (const t of tags.MBTI) {
@@ -585,13 +589,17 @@ export function scoreAndMapToHero(
 ) {
 const questionMap = new Map(questionDataset.map((question) => [question.id, question]));
 
-const normalized = answers.map((answer) => {
-const questionId = answer?.questionId ?? answer?.question_id;
-const choiceKey = answer?.choiceKey ?? answer?.choice_key;
+  const normalized = answers.map((answer) => {
+    const questionId = answer?.questionId ?? answer?.question_id;
+    const choiceKey = answer?.choiceKey ?? answer?.choice_key;
+    const weightRaw = answer?.w ?? answer?.weight;
+    const weight = typeof weightRaw === 'number' && Number.isFinite(weightRaw)
+      ? weightRaw
+      : undefined;
 
-if (!questionId || !choiceKey) {
-  throw new Error('Invalid answer payload');
-}
+    if (!questionId || !choiceKey) {
+      throw new Error('Invalid answer payload');
+    }
 
 const question = questionMap.get(questionId);
 if (!question) {
@@ -603,8 +611,8 @@ if (!hasChoice) {
   throw new Error(`Unknown choice ${choiceKey} for ${questionId}`);
 }
 
-return { questionId, choiceKey };
-});
+    return weight === undefined ? { questionId, choiceKey } : { questionId, choiceKey, w: weight };
+  });
 
 const diagnosis = runDiagnosis(normalized);
 
