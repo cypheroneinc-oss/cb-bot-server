@@ -20,455 +20,7 @@
       window.__APP_BASE_URL__ = 'https://cb-bot-server-v7rg.vercel.app';
     </script>
 
-    <!-- Minimal styles (カードUI) -->
-   <style>
-      :root {
-        --bg: #f3faff;
-        --card: rgba(255, 255, 255, 0.86);
-        --accent: #39d2c0;
-        --accent-2: #89e0ff;
-        --fg: #0e2533;
-        --muted: #5b7a8c;
-        --danger: #e85a70;
-        --ring: 0 0 0 3px rgba(57, 210, 192, 0.45);
-        color-scheme: light;
-      }
-
-      *,
-      *::before,
-      *::after {
-        box-sizing: border-box;
-      }
-
-      html,
-      body {
-        padding: 0;
-        margin: 0;
-        font-family: "Noto Sans JP", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        line-height: 1.7;
-        background: var(--bg);
-        color: var(--fg);
-        min-height: 100%;
-      }
-
-      body {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        position: relative;
-        background: linear-gradient(180deg, #f6fbff 0%, #eff9ff 30%, #e5fbf7 100%);
-        overflow-x: hidden;
-      }
-
-      body::before,
-      body::after {
-        content: "";
-        position: fixed;
-        inset: -120px;
-        pointer-events: none;
-        z-index: -2;
-        background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.85), transparent 55%),
-          radial-gradient(circle at 80% 25%, rgba(137, 224, 255, 0.35), transparent 60%),
-          radial-gradient(circle at 30% 85%, rgba(57, 210, 192, 0.22), transparent 60%);
-        filter: blur(0);
-      }
-
-      body::after {
-        z-index: -1;
-        background: radial-gradient(circle at 15% 65%, rgba(255, 255, 255, 0.65), transparent 60%),
-          radial-gradient(circle at 75% 75%, rgba(137, 224, 255, 0.28), transparent 55%),
-          radial-gradient(circle at 50% 35%, rgba(57, 210, 192, 0.18), transparent 60%);
-        opacity: 0.85;
-        animation: float-soft 6s ease-in-out infinite alternate;
-      }
-
-      @keyframes float-soft {
-        from {
-          transform: translateY(0px);
-          opacity: 0.98;
-        }
-        to {
-          transform: translateY(-4px);
-          opacity: 1;
-        }
-      }
-
-      .app {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        position: relative;
-        width: 100%;
-        margin: 0 auto;
-        backdrop-filter: blur(0px);
-      }
-
-      header {
-        padding: 32px 24px 16px;
-        text-align: left;
-      }
-
-      .title {
-        font-size: 1.6rem;
-        font-weight: 700;
-        margin: 0 0 10px;
-      }
-
-      .subtitle {
-        margin: 0;
-        color: var(--muted);
-        font-size: 1rem;
-      }
-
-      .progress-bar {
-        height: 12px;
-        margin: 0 24px 16px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.6);
-        box-shadow: inset 0 1px 2px rgba(14, 37, 51, 0.08);
-        overflow: hidden;
-      }
-
-      .progress-fill {
-        height: 100%;
-        width: 0;
-        background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
-        transition: width 0.25s ease;
-      }
-
-      .status {
-        margin: 0 24px 16px;
-        font-size: 1rem;
-        color: var(--muted);
-      }
-
-      .status strong {
-        color: var(--fg);
-      }
-
-      .alert {
-        margin: 0 24px 20px;
-        padding: 14px 18px;
-        border-radius: 18px;
-        background: rgba(232, 90, 112, 0.08);
-        border: 1px solid rgba(232, 90, 112, 0.3);
-        color: var(--danger);
-        font-size: 0.98rem;
-        box-shadow: 0 12px 30px rgba(14, 37, 51, 0.08);
-      }
-
-      .questions {
-        flex: 1;
-        overflow-y: auto;
-        padding: 0 24px 140px;
-        scroll-behavior: smooth;
-      }
-
-      .question-card {
-        background: var(--card);
-        border-radius: 20px;
-        padding: 24px;
-        margin-bottom: 20px;
-        box-shadow: 0 24px 60px rgba(137, 224, 255, 0.24);
-        backdrop-filter: blur(22px);
-        border: 1px solid rgba(255, 255, 255, 0.5);
-      }
-
-      .question-card h2 {
-        font-size: 1.15rem;
-        margin: 0 0 18px;
-      }
-
-      .choices {
-        display: grid;
-        gap: 14px;
-      }
-
-      .choice {
-        position: relative;
-      }
-
-      .choice input {
-        position: absolute;
-        opacity: 0;
-      }
-
-      .choice label {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        border-radius: 18px;
-        padding: 16px 18px;
-        background: rgba(255, 255, 255, 0.52);
-        border: 1px solid rgba(137, 224, 255, 0.4);
-        min-height: 58px;
-        cursor: pointer;
-        transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
-        box-shadow: 0 12px 34px rgba(14, 37, 51, 0.1);
-      }
-
-      .choice label:hover {
-        background: rgba(255, 255, 255, 0.7);
-        box-shadow: 0 18px 48px rgba(137, 224, 255, 0.24);
-        transform: translateY(-2px);
-      }
-
-      .choice input:focus-visible + label {
-        outline: none;
-        box-shadow: 0 0 0 4px rgba(137, 224, 255, 0.55);
-      }
-
-      .choice input:checked + label {
-        border-color: var(--accent);
-        background: rgba(255, 255, 255, 0.82);
-        box-shadow: 0 20px 48px rgba(57, 210, 192, 0.3);
-      }
-
-      .choice-title {
-        font-weight: 600;
-        font-size: 1.04rem;
-        color: var(--fg);
-      }
-
-      .choice-desc {
-        color: var(--muted);
-        font-size: 0.94rem;
-      }
-
-      .footer {
-        position: sticky;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        padding: 20px 24px 28px;
-        background: linear-gradient(180deg, rgba(243, 250, 255, 0) 0%, rgba(243, 250, 255, 0.9) 65%, rgba(243, 250, 255, 1) 100%);
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        backdrop-filter: blur(12px);
-      }
-
-      .footer button {
-        width: 100%;
-        padding: 16px;
-        border: none;
-        border-radius: 999px;
-        font-size: 1.05rem;
-        font-weight: 600;
-        color: var(--fg);
-        cursor: pointer;
-        transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease, opacity 0.2s ease;
-      }
-
-      #submitButton,
-      #shareButton {
-        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
-        color: #ffffff;
-        box-shadow: 0 18px 42px rgba(57, 210, 192, 0.3);
-      }
-
-      #submitButton:hover:not(:disabled),
-      #shareButton:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 22px 52px rgba(137, 224, 255, 0.35);
-        filter: brightness(1.05);
-      }
-
-      #submitButton:focus-visible,
-      #shareButton:focus-visible,
-      #retryButton:focus-visible {
-        outline: none;
-        box-shadow: var(--ring);
-      }
-
-      #submitButton:disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
-        box-shadow: none;
-      }
-
-      .footer .secondary,
-      #retryButton {
-        background: rgba(255, 255, 255, 0.8);
-        border: 1px solid rgba(137, 224, 255, 0.6);
-        color: var(--accent);
-        box-shadow: 0 12px 30px rgba(14, 37, 51, 0.08);
-      }
-
-      .footer .secondary:hover,
-      #retryButton:hover {
-        transform: translateY(-1px);
-        background: rgba(255, 255, 255, 0.95);
-      }
-
-      .toast {
-        position: fixed;
-        left: 50%;
-        bottom: 104px;
-        transform: translateX(-50%);
-        background: rgba(255, 255, 255, 0.94);
-        border: 1px solid rgba(137, 224, 255, 0.7);
-        border-radius: 18px;
-        padding: 14px 20px;
-        color: var(--fg);
-        font-size: 0.98rem;
-        display: none;
-        max-width: calc(100% - 40px);
-        box-shadow: 0 18px 40px rgba(14, 37, 51, 0.18);
-        backdrop-filter: blur(18px);
-      }
-
-      .toast.error {
-        border-color: rgba(232, 90, 112, 0.6);
-        color: var(--danger);
-        background: rgba(255, 245, 248, 0.95);
-      }
-
-      .hidden {
-        display: none !important;
-      }
-
-      .result-card {
-        text-align: center;
-        padding: 40px 24px 32px;
-        display: none;
-      }
-
-      .spinner {
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        border: 3px solid rgba(137, 224, 255, 0.4);
-        border-top-color: var(--accent);
-        animation: spin 1s linear infinite;
-        margin: 0 auto;
-      }
-
-      .btn-content {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-      }
-
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        *,
-        *::before,
-        *::after {
-          animation-duration: 0.001ms !important;
-          animation-iteration-count: 1 !important;
-          transition-duration: 0.001ms !important;
-          scroll-behavior: auto !important;
-        }
-      }
-
-      @media (min-width: 600px) {
-        body {
-          align-items: center;
-        }
-
-        .app {
-          width: min(600px, 100%);
-          margin: 32px auto;
-          border-radius: 28px;
-          background: rgba(255, 255, 255, 0.4);
-          box-shadow: 0 40px 90px rgba(137, 224, 255, 0.3);
-          backdrop-filter: blur(24px);
-          border: 1px solid rgba(255, 255, 255, 0.45);
-        }
-
-        .footer {
-          border-bottom-left-radius: 28px;
-          border-bottom-right-radius: 28px;
-        }
-      }
-     /* === Selected choice: float & emphasis =============================== */
-
-/* 浮遊のやわらかい上下動（選択時だけ） */
-@keyframes float-breath {
-  0%   { transform: translateY(-2px) scale(1.015); opacity: 0.98; }
-  50%  { transform: translateY(-5px) scale(1.02);  opacity: 1; }
-  100% { transform: translateY(-2px) scale(1.015); opacity: 0.98; }
-}
-
-/* 選択時の強調（shadow/gradient/inner-glow + バッジ） */
-.choice input:checked + label {
-  border-color: transparent; /* 枠は下のborder-imageで描く */
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow:
-    0 22px 52px rgba(57, 210, 192, 0.28),      /* ミントの外側影 */
-    0 8px 22px rgba(137, 224, 255, 0.22),      /* スカイの補助影 */
-    inset 0 0 0 1px rgba(255,255,255,0.7);     /* うっすら内側 */
-  transform: translateY(-4px) scale(1.02);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
-  border-image: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%) 1;
-  border-width: 1px;
-  border-style: solid;
-  position: relative;
-  animation: float-breath 3.2s ease-in-out infinite;
-}
-
-/* 角にチェックの浮遊バッジ */
-.choice input:checked + label::after {
-  content: "✓";
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  color: #fff;
-  background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: 14px;
-  box-shadow: 0 10px 24px rgba(137, 224, 255, 0.45);
-}
-
-/* 内側のやわらかいグロー（にじみ） */
-.choice input:checked + label::before {
-  content: "";
-  position: absolute;
-  inset: -6px;
-  border-radius: 22px;
-  background: radial-gradient(60% 60% at 70% 30%, rgba(137,224,255,0.35), rgba(57,210,192,0.18) 60%, transparent 70%);
-  filter: blur(10px);
-  z-index: -1;
-}
-
-/* ホバー時は選択済みの浮遊を少しだけ強める（非選択より強調） */
-.choice input:checked + label:hover {
-  transform: translateY(-6px) scale(1.025);
-  box-shadow:
-    0 26px 60px rgba(57,210,192,0.32),
-    0 12px 28px rgba(137,224,255,0.26),
-    inset 0 0 0 1px rgba(255,255,255,0.75);
-}
-
-/* キーボード操作のフォーカスもはっきり */
-.choice input:focus-visible + label {
-  outline: none;
-  box-shadow:
-    0 0 0 4px rgba(137,224,255,0.55),
-    0 12px 34px rgba(14,37,51,0.1);
-}
-
-/* モーションを減らすユーザー設定に配慮 */
-@media (prefers-reduced-motion: reduce) {
-  .choice input:checked + label {
-    animation: none;
-    transform: translateY(-3px) scale(1.015);
-  }
-}
-
-    </style>
+    <link rel="stylesheet" href="./assets/app.css" />
   </head>
   <body>
     <div class="app">
@@ -482,15 +34,72 @@
       </div>
       <p class="status"><strong id="answeredCount">0</strong>/25 件回答済み</p>
 
+      <div class="load-error hidden" id="loadError" role="alert" aria-live="polite"></div>
+
       <div class="alert hidden" id="unansweredAlert" role="status" aria-live="polite"></div>
 
       <main class="questions" id="questions" aria-live="polite"></main>
 
-      <section class="result-card" id="resultCard" aria-live="polite">
-        <h1>診断が完了したよ</h1>
-        <p id="resultUser"></p>
-        <p id="resultCluster"></p>
-        <p id="resultHero"></p>
+      <section class="result-card hidden" id="resultCard" aria-live="polite">
+        <header class="result-header">
+          <h1>診断が完了したよ</h1>
+          <p id="resultSub"></p>
+        </header>
+
+        <div class="hero-card">
+          <div class="hero-avatar">
+            <img id="resultHeroImage" alt="ヒーロー画像" />
+          </div>
+          <div class="hero-details">
+            <span class="cluster-tag" id="resultClusterTag"></span>
+            <h2 id="resultHeroName" class="result-hero-name"></h2>
+          </div>
+        </div>
+
+        <p class="result-summary" id="resultSummary"></p>
+
+        <section class="share-preview">
+          <img id="resultShareImage" alt="シェアカードプレビュー" />
+          <button type="button" class="secondary" id="downloadShareButton">カード画像を保存</button>
+        </section>
+
+        <section class="share-actions">
+          <h3>シェアする</h3>
+          <div class="share-buttons">
+            <button type="button" class="share-btn" id="shareLineButton">LINEでシェア</button>
+            <button type="button" class="share-btn" id="shareWebButton">端末でシェア</button>
+            <button type="button" class="share-btn" id="shareXButton">Xでシェア</button>
+            <button type="button" class="share-btn" id="shareCopyButton">リンクをコピー</button>
+          </div>
+          <p class="share-note">Instagram / Threads では画像を保存して投稿してください。</p>
+        </section>
+
+        <section class="narrative-section">
+          <h3>あなただけの読み解き</h3>
+          <div class="narrative-grid">
+            <div class="narrative-block">
+              <h4>強み</h4>
+              <ul id="resultStrengths"></ul>
+            </div>
+            <div class="narrative-block">
+              <h4>相性が悪い環境</h4>
+              <ul id="resultMisfit"></ul>
+            </div>
+            <div class="narrative-block">
+              <h4>活かし方</h4>
+              <ul id="resultHowToUse"></ul>
+            </div>
+            <div class="narrative-block">
+              <h4>次の一歩</h4>
+              <ul id="resultNextAction"></ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="result-scores">
+          <h3>スコアサマリー</h3>
+          <div id="resultScores"></div>
+        </section>
       </section>
 
       <div class="toast hidden" id="toast" role="status" aria-live="assertive"></div>
@@ -500,7 +109,15 @@
         <button type="button" id="submitButton" disabled>
           <span class="btn-content" id="submitContent">送信する</span>
         </button>
-        <button type="button" class="hidden" id="shareButton">結果をシェア</button>
+        <div class="footer-actions hidden" id="resultActions">
+          <button type="button" id="shareButton">
+            <span class="btn-content">結果をシェア</span>
+          </button>
+          <div class="secondary-actions">
+            <button type="button" class="secondary" id="retakeButton">もう一度診断する</button>
+            <button type="button" class="secondary" id="reviewButton">回答を見直す</button>
+          </div>
+        </div>
       </footer>
     </div>
 
