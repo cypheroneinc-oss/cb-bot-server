@@ -36,6 +36,40 @@
       <div class="load-error hidden" id="loadError" role="alert" aria-live="polite"></div>
       <div class="alert hidden" id="unansweredAlert" role="status" aria-live="polite"></div>
 
+      <!-- ▼ 追加：基本情報のプルダウン -->
+      <section class="demographics" id="demographics">
+        <h2 class="demographics-title">まずは基本情報（必須）</h2>
+
+        <label class="demographics-field">
+          <span class="field-label">性別</span>
+          <select id="demographicsGender">
+            <option value="" selected disabled>選択してください</option>
+            <option value="male">男性</option>
+            <option value="female">女性</option>
+            <option value="other">その他</option>
+          </select>
+        </label>
+
+        <label class="demographics-field">
+          <span class="field-label">年齢</span>
+          <select id="demographicsAge">
+            <option value="" selected disabled>選択してください</option>
+            <!-- JSで12〜50を自動生成 -->
+          </select>
+        </label>
+
+        <label class="demographics-field">
+          <span class="field-label">MBTIタイプ</span>
+          <select id="demographicsMbti">
+            <option value="" selected disabled>選択してください</option>
+            <!-- JSで16タイプを自動生成 -->
+          </select>
+        </label>
+
+        <p class="demographics-note">※診断結果には影響しません（統計のみ）</p>
+      </section>
+      <!-- ▲ 追加ここまで -->
+
       <main class="questions" id="questions" aria-live="polite"></main>
 
       <!-- === 診断結果カード（新フォーマット） === -->
