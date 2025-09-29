@@ -17,6 +17,38 @@ const LIKERT_OPTIONS = [
 
 const LIKERT_SHORTCUT_KEYS = new Set(['1', '2', '3', '4', '5', '6']);
 
+/* ▼ 追加：基本情報の選択肢 */
+const GENDER_OPTIONS = [
+  { value: 'male', label: '男性' },
+  { value: 'female', label: '女性' },
+  { value: 'other', label: 'その他' },
+];
+
+const AGE_OPTIONS = Array.from({ length: 39 }, (_, i) => {
+  const age = 12 + i; // 12〜50（含む）
+  return { value: String(age), label: `${age}歳` };
+});
+
+const MBTI_OPTIONS = [
+  { value: 'ENFP', label: 'ENFP 広報運動家' },
+  { value: 'ENFJ', label: 'ENFJ 主人公' },
+  { value: 'ENTP', label: 'ENTP 討論者' },
+  { value: 'ENTJ', label: 'ENTJ 指揮官' },
+  { value: 'ESFP', label: 'ESFP エンターテイナー' },
+  { value: 'ESFJ', label: 'ESFJ 領事' },
+  { value: 'ESTP', label: 'ESTP 起業家' },
+  { value: 'ESTJ', label: 'ESTJ 幹部' },
+  { value: 'INFP', label: 'INFP 仲介者' },
+  { value: 'INFJ', label: 'INFJ 提唱者' },
+  { value: 'INTP', label: 'INTP 論理学者' },
+  { value: 'INTJ', label: 'INTJ 建築家' },
+  { value: 'ISFP', label: 'ISFP 冒険家' },
+  { value: 'ISFJ', label: 'ISFJ 擁護者' },
+  { value: 'ISTP', label: 'ISTP 巨匠' },
+  { value: 'ISTJ', label: 'ISTJ 管理者' },
+];
+/* ▲ 追加ここまで */
+
 const appState = {
   version: QUESTION_VERSION,
   questions: [],
@@ -26,6 +58,9 @@ const appState = {
   profile: { userId: 'debug-user', displayName: 'Debug User' },
   result: null,
   reviewing: false,
+  /* ▼ 追加：基本情報の状態 */
+  demographics: { gender: '', age: '', mbti: '' },
+  /* ▲ 追加ここまで */
 };
 
 const elements = {
@@ -70,6 +105,12 @@ const elements = {
   // optional scores
   resultScores: document.getElementById('resultScores'),
   unansweredAlert: document.getElementById('unansweredAlert'),
+
+  /* ▼ 追加：基本情報の参照 */
+  demographicsGender: document.getElementById('demographicsGender'),
+  demographicsAge: document.getElementById('demographicsAge'),
+  demographicsMbti: document.getElementById('demographicsMbti'),
+  /* ▲ 追加ここまで */
 };
 
 init();
@@ -116,6 +157,9 @@ async function ensureLiff() {
 async function init() {
   bindFooterActions();
   bindLikertShortcuts();
+  /* ▼ 追加：プルダウン初期化 */
+  bindDemographics();
+  /* ▲ 追加ここまで */
   renderSkeleton();
   try {
     await ensureLiff();
@@ -300,8 +344,15 @@ function updateProgress() {
   elements.progressFill.parentElement?.setAttribute('aria-valuenow', String(answered));
   elements.progressFill.parentElement?.setAttribute('aria-valuemax', String(total));
 
-  const canSubmit = answered === total && total > 0 && !appState.submitting;
+  /* ▼ 変更：基本情報が揃うまで送信不可 */
+  const canSubmit =
+    answered === total &&
+    total > 0 &&
+    !appState.submitting &&
+    isDemographicsComplete();
+
   elements.submitButton.disabled = !canSubmit;
+  /* ▲ 変更ここまで */
 
   updateUnansweredAlert();
 }
@@ -325,6 +376,13 @@ function updateUnansweredAlert() {
 }
 
 async function onSubmit() {
+  /* ▼ 追加：基本情報未選択のブロック */
+  if (!isDemographicsComplete()) {
+    showToast('性別・年齢・MBTIタイプを選択してください', true);
+    return;
+  }
+  /* ▲ 追加ここまで */
+
   if (appState.submitting || appState.answers.size !== appState.questions.length) {
     updateUnansweredAlert();
     showToast('未回答の質問があります', true);
@@ -343,7 +401,9 @@ async function onSubmit() {
       answers: Array.from(appState.answers.entries()).map(([code, scale]) => ({
         code, scale, scaleMax: 6,
       })),
-      meta: { liff: true },
+      /* ▼ 追加：送信に同梱（サーバ保存は任意） */
+      meta: { liff: true, demographics: { ...appState.demographics } },
+      /* ▲ 追加ここまで */
     };
 
     const response = await fetch('/api/diagnosis/submit', {
@@ -635,6 +695,44 @@ async function createFetchError(response) {
   if (errorId) error.errorId = errorId;
   error.__alertShown = true;
   return error;
+}
+
+/* ---------- demographics helpers（追加） ---------- */
+
+function populateSelect(selectEl, options) {
+  if (!selectEl) return;
+  [...selectEl.querySelectorAll('option[data-auto]')].forEach((opt) => opt.remove());
+  for (const { value, label } of options) {
+    const o = document.createElement('option');
+    o.value = value;
+    o.textContent = label;
+    o.dataset.auto = 'true';
+    selectEl.appendChild(o);
+  }
+}
+
+function bindDemographics() {
+  populateSelect(elements.demographicsGender, GENDER_OPTIONS);
+  populateSelect(elements.demographicsAge, AGE_OPTIONS);
+  populateSelect(elements.demographicsMbti, MBTI_OPTIONS);
+
+  elements.demographicsGender?.addEventListener('change', (e) => {
+    appState.demographics.gender = e.target.value || '';
+    updateProgress();
+  });
+  elements.demographicsAge?.addEventListener('change', (e) => {
+    appState.demographics.age = e.target.value || '';
+    updateProgress();
+  });
+  elements.demographicsMbti?.addEventListener('change', (e) => {
+    appState.demographics.mbti = e.target.value || '';
+    updateProgress();
+  });
+}
+
+function isDemographicsComplete() {
+  const { gender, age, mbti } = appState.demographics;
+  return Boolean(gender && age && mbti);
 }
 
 /* ---------- primary share handlers ---------- */
