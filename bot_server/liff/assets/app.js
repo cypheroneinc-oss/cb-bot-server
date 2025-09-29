@@ -1,5 +1,13 @@
+// filename: bot_server/liff/assets/app.js
+
 import QUESTIONS from '../../data/questions.v1.js';
 import { getHeroNarrative, getHeroProfile, getClusterLabel } from '../../lib/result-content.js';
+
+// --- fix: browser-safe shim for `process` to avoid ReferenceError ---
+if (typeof window !== 'undefined' && typeof window.process === 'undefined') {
+  window.process = { env: {} };
+}
+// -------------------------------------------------------------------
 
 const LIFF_ID = resolveLiffId();
 const BASE_URL = resolveBaseUrl();
