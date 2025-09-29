@@ -129,3 +129,44 @@ export async function getShareCardImage(heroSlug) {
     return null;
   }
 }
+
+/* ----------------- ここから新規：ログテーブル ----------------- */
+
+function extractClientIp(req) {
+  try {
+    const xf = String(req?.headers?.['x-forwarded-for'] || '').split(',')[0]?.trim();
+    const rmi = String(req?.socket?.remoteAddress || '');
+    const ip = xf || rmi || null;
+    // inet にキャスト可能な形だけ返す
+    if (!ip) return null;
+    return ip.includes(':') || ip.includes('.') ? ip : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function logSubmission(payload, req) {
+  // payload: { userId, sessionId, client, version, answers, demographics, resultSummary }
+  const supabase = resolveSupabase();
+  if (!supabase) return; // NOOP（保存が無くてもアプリは動く）
+
+  const row = {
+    user_id: payload.userId,
+    session_id: payload.sessionId,
+    client: String(payload.client || 'liff'),
+    version: String(payload.version || ''),
+    answers: Array.isArray(payload.answers) ? payload.answers : [],
+    demographics: payload.demographics ?? null,      // {gender, age, mbti} だけ
+    result_summary: payload.resultSummary ?? null,    // {hero:{}, cluster:{}, share:{url}}
+    user_agent: (req?.headers?.['user-agent'] || '').slice(0, 512),
+    ip: extractClientIp(req),                         // inet に自動キャストされる
+  };
+
+  try {
+    const { error } = await supabase.from('diagnosis_submission_logs').insert(row);
+    if (error) throw error;
+  } catch (e) {
+    // ログ失敗は致命ではない
+    console.warn('[persistence:logSubmission]', e?.message || e);
+  }
+}
