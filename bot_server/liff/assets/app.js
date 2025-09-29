@@ -46,6 +46,7 @@ const MBTI_OPTIONS = [
   { value: 'ISFJ', label: 'ISFJ 擁護者' },
   { value: 'ISTP', label: 'ISTP 巨匠' },
   { value: 'ISTJ', label: 'ISTJ 管理者' },
+  { value: '不明', label: '分からない' },
 ];
 /* ▲ 追加ここまで */
 
