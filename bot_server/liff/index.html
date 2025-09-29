@@ -34,9 +34,8 @@
       <p class="status"><strong id="answeredCount">0</strong>/25 件回答済み</p>
 
       <div class="load-error hidden" id="loadError" role="alert" aria-live="polite"></div>
-      <div class="alert hidden" id="unansweredAlert" role="status" aria-live="polite"></div>
 
-      <!-- ▼ 追加：基本情報のプルダウン -->
+      <!-- ▼ 基本情報（必須） -->
       <section class="demographics" id="demographics">
         <h2 class="demographics-title">まずは基本情報（必須）</h2>
 
@@ -68,11 +67,11 @@
 
         <p class="demographics-note">※診断結果には影響しません（統計のみ）</p>
       </section>
-      <!-- ▲ 追加ここまで -->
+      <!-- ▲ 基本情報ここまで -->
 
       <main class="questions" id="questions" aria-live="polite"></main>
 
-      <!-- === 診断結果カード（新フォーマット） === -->
+      <!-- === 診断結果カード === -->
       <section class="result-card hidden" id="resultCard" aria-live="polite">
         <header class="result-header">
           <h1>診断が完了したよ</h1>
@@ -138,12 +137,6 @@
         <section class="narrative-section">
           <h3>🧪 化学反応</h3>
           <ol id="resultReactions"></ol>
-        </section>
-
-        <!-- スコア（任意／バックエンドが返す場合のみ） -->
-        <section class="result-scores">
-          <h3>スコアサマリー</h3>
-          <div id="resultScores"></div>
         </section>
       </section>
 
