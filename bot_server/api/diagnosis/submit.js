@@ -6,6 +6,7 @@ import {
   saveResult,
   getShareCardImage,
   createOrReuseSession,
+  logSubmission, // ★ 追加
 } from '../../lib/persistence.js';
 import {
   getClusterLabel,
@@ -97,6 +98,18 @@ function validateAnswers(rawAnswers, requestId){
   return { ok:true, normalized, persistencePayload };
 }
 
+// クライアント送信の任意メタをサニタイズ
+function sanitizeDemographics(meta){
+  const src = meta?.demographics || {};
+  const pick = (v, len=20) => (v == null ? '' : String(v).slice(0, len));
+  const gender = pick(src.gender);
+  const age = pick(src.age, 3);
+  const mbti = pick(src.mbti, 8).toUpperCase();
+  const clean = { gender, age, mbti };
+  if (!gender && !age && !mbti) return null;
+  return clean;
+}
+
 export function createSubmitHandler({
   scoreFn = score,
   createOrReuseSessionFn = createOrReuseSession,
@@ -182,6 +195,27 @@ export function createSubmitHandler({
         console.warn('[submit:saveResult]', requestId, e?.message || e);
       }
 
+      // ★ ここで Supabase のログテーブルに1行記録（失敗してもUIは継続）
+      try {
+        const demographics = sanitizeDemographics(body?.meta);
+        await logSubmission({
+          userId,
+          sessionId,
+          client: String(body?.client || 'liff'),
+          version: String(QUESTION_VERSION),
+          // answers は最小限の形にサニタイズ
+          answers: normalized.map(({ code, scale, scaleMax }) => ({ code, scale, scaleMax })),
+          demographics,
+          resultSummary: {
+            hero: { slug: heroSlug, name: heroProfile?.name },
+            cluster: { key: clusterKey, label: clusterLabel },
+            share: { url: shareUrl },
+          },
+        }, req);
+      } catch (e) {
+        console.warn('[submit:logSubmission]', requestId, e?.message || e);
+      }
+
       // 成功レスポンス（UIが進むことを最優先）
       return res.status(200).json({
         sessionId,
@@ -189,7 +223,7 @@ export function createSubmitHandler({
         hero: { slug: heroSlug, name: heroProfile?.name, avatarUrl: heroProfile?.avatarUrl },
         scores: scoresBreakdown,
         share: {
-          url: shareUrl,          // フロント側でnull/無効時はボタンdisable可
+          url: shareUrl,
           cardImageUrl,
           copy: { headline: `あなたは${heroProfile?.name}！`, summary: narrative.summary1line },
         },
