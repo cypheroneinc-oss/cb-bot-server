@@ -32,10 +32,35 @@ const AGE_OPTIONS = Array.from({ length: 39 }, (_, i) => {
   const age = 12 + i; // 12-50
   return { value: String(age), label: `${age}歳` };
 });
+
+// ▼ MBTIタイプ + 日本語呼称（一般的な和訳）
+const MBTI_JA = {
+  ENFP: '広報運動家',
+  ENFJ: '主人公',
+  ENTP: '討論者',
+  ENTJ: '指揮官',
+  ESFP: 'エンターテイナー',
+  ESFJ: '領事',
+  ESTP: '起業家',
+  ESTJ: '幹部',
+  INFP: '仲介者',
+  INFJ: '提唱者',
+  INTP: '論理学者',
+  INTJ: '建築家',
+  ISFP: '冒険家',
+  ISFJ: '擁護者',
+  ISTP: '巨匠',
+  ISTJ: '管理者',
+};
+
 const MBTI_OPTIONS = [
   'ENFP','ENFJ','ENTP','ENTJ','ESFP','ESFJ','ESTP','ESTJ',
   'INFP','INFJ','INTP','INTJ','ISFP','ISFJ','ISTP','ISTJ','不明',
-].map(v => ({ value: v, label: v === '不明' ? '分からない' : `${v} 型` }));
+].map(v => {
+  if (v === '不明') return ({ value: v, label: '分からない' });
+  const ja = MBTI_JA[v] || '';
+  return { value: v, label: `${v}｜${ja}` };
+});
 
 const appState = {
   version: QUESTION_VERSION,
@@ -121,7 +146,6 @@ async function ensureLiff() {
   try {
     await window.liff.init({ liffId: LIFF_ID || undefined, withLoginOnExternalBrowser: true });
     if (!window.liff.isLoggedIn()) {
-      // ここで待たない：遷移を投げて戻ってきたら再実行される
       window.liff.login();
       return;
     }
@@ -441,7 +465,7 @@ function showResult(result) {
   elements.resultShareImage.alt = `${result.hero.name}のシェアカード`;
   elements.downloadShareButton.disabled = !result.share.cardImageUrl;
 
-  // スコア描画は行わない（renderScores呼び出し削除）
+  // スコア描画は行わない
 }
 
 /* ---------- small render utils ---------- */
