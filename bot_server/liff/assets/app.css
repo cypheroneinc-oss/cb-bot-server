@@ -79,7 +79,7 @@ button { font-family: inherit; }
     0 22px 58px rgba(0,0,0,0.55),   /* 下方向の重量感（強） */
     0 0 44px rgba(110,170,255,0.45);/* 外周ブルーグロー（強） */
   padding: 34px;                    /* ゆったり */
-  margin-bottom: 72px;              /* 設問同士の間隔 さらに広く */
+  margin-bottom: 112px;              /* 設問同士の間隔 さらに広く */
   transform: translateY(0);
   transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease;
 }
@@ -171,9 +171,9 @@ button { font-family: inherit; }
 .likert-option.size-medium .likert-diamond { --likert-size: 54px; }
 .likert-option.size-small .likert-diamond { --likert-size: 46px; }
 @media (max-width: 767px) {
-  .likert-option.size-large .likert-diamond { --likert-size: 60px; }
-  .likert-option.size-medium .likert-diamond { --likert-size: 50px; }
-  .likert-option.size-small .likert-diamond { --likert-size: 42px; }
+  .likert-option.size-large .likert-diamond { --likert-size: 52px; }
+  .likert-option.size-medium .likert-diamond { --likert-size: 44px; }
+  .likert-option.size-small .likert-diamond { --likert-size: 36px; }
 }
 
 /* 目盛バー */
