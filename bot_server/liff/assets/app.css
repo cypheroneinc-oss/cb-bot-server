@@ -53,8 +53,8 @@ button { font-family: inherit; }
 .question-card {
   background: var(--card);
   border-radius: 16px;
-  padding: 28px;            /* 内側余白を拡大 */
-  margin-bottom: 56px;      /* カード間隔を拡大 */
+  padding: 36px;            /* 内側余白を拡大 */
+  margin-bottom: 72px;      /* カード間隔を拡大 */
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
 }
 
