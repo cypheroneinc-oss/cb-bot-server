@@ -1,16 +1,17 @@
-/* ===== THEME: Aurora Mint (ポケスリ×未来感) ===== */
-:root{
-  /* ベースを少し明るめの群青→ミントのグラデに */
-  --bg-grad-a: #0b1230;   /* 群青寄りの夜空 */
-  --bg-grad-b: #0a1a3f;   /* ほんのり明るい青 */
-  --fg:        #f6f8fc;   /* 文字は白寄りの薄青 */
-  --muted:     #a6b5c7;   /* サブ文字 */
-  --accent:    #42f5d1;   /* ミント(主アクセント) */
-  --accent-2:  #7aa6ff;   /* セカンダリ(青) */
-  --card:      rgba(255,255,255,0.06); /* 透過ガラスの土台(Fallback) */
-  --border:    rgba(130, 200, 255, 0.25);
-  --glow:      0 0 24px rgba(66,245,209,0.35);
+/* ===== THEME: Aurora Mint (ゲーム的・キャッチー) ===== */
+:root {
+  /* Dark space × Neon mint */
+  --bg-grad-a: #060914;     /* ほぼ黒に近い群青 */
+  --bg-grad-b: #0a1226;     /* 深い群青 */
+  --fg:        #f7fbff;     /* 文字は白寄り */
+  --muted:     #a2b3c8;     /* サブ文字 */
+  --accent:    #46ffd3;     /* ネオンミント */
+  --accent-2:  #6aa3ff;     /* ラピス系ブルー */
+  --card:      rgba(255,255,255,0.12);   /* 明るめ透明ガラス（fallback） */
+  --border:    rgba(185, 220, 255, 0.35);/* ガラスの縁取り */
+  --glow:      0 0 28px rgba(106,163,255,0.35);
   --ring:      0 0 0 2px var(--accent);
+  --danger:    #ff4d6d;     /* エラー色（load-errorで使用） */
 }
 
 * { box-sizing: border-box; }
@@ -18,9 +19,10 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: radial-gradient(1200px 600px at 20% -10%, rgba(66,245,209,0.18), transparent 60%),
-              radial-gradient(900px 500px at 110% 20%, rgba(122,166,255,0.16), transparent 60%),
-              linear-gradient(180deg, var(--bg-grad-a), var(--bg-grad-b));
+  background:
+    radial-gradient(900px 520px at 80% 0%, rgba(106,163,255,0.18), transparent 60%),
+    radial-gradient(1100px 600px at 10% 20%, rgba(70,255,211,0.14), transparent 60%),
+    linear-gradient(180deg, var(--bg-grad-a), var(--bg-grad-b));
   color: var(--fg);
   font-family: 'Noto Sans JP', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.6;
@@ -29,18 +31,19 @@ html, body {
 body { min-height: 100vh; display: flex; flex-direction: column; }
 a { color: inherit; }
 button { font-family: inherit; }
-
 .app { flex: 1; display: flex; flex-direction: column; position: relative; }
 
 .title { font-size: 1.5rem; font-weight: 700; margin: 0 0 8px; }
 .subtitle { margin: 0; color: var(--muted); font-size: 0.95rem; }
 
-.progress-bar { background: rgba(255,255,255,0.08); }
-.progress-fill { background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: var(--glow); }
+/* ===== プログレス ===== */
+.progress-bar { background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; margin: 0 20px 12px; height: 8px; }
+.progress-fill { background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: var(--glow); height: 100%; width: 0; transition: width .2s ease; }
 
 .status { margin: 0 20px 12px; font-size: 0.9rem; color: var(--muted); }
 .status strong { color: var(--fg); }
 
+/* ===== エラー ===== */
 .load-error {
   margin: 0 20px 12px;
   padding: 10px 14px;
@@ -51,26 +54,27 @@ button { font-family: inherit; }
   font-size: 0.88rem;
 }
 
-/* 質問リスト：末尾を広めに（フッターで隠さない） */
+/* ===== 質問リスト ===== */
 .questions {
   flex: 1;
   overflow-y: auto;
-  padding: 0 20px 200px; /* ← 余白拡大 */
+  padding: 0 20px 200px; /* フッターで隠れないよう下余白を広く */
 }
 
-/* ===== カード（“ガラス＋浮遊”＋余白拡大） ===== */
+/* ===== カード（設問/結果）：明るい“発光ガラス”＋浮遊 ===== */
 .question-card,
 .result-card{
-  background: var(--card);
-  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(180,220,255,0.10));
   border: 1px solid var(--border);
-  box-shadow: 0 18px 40px rgba(0,0,0,0.35), var(--glow);
-  padding: 36px;          /* ← 内側ゆったり */
-  margin-bottom: 72px;    /* ← 設問間をしっかり空ける */
+  border-radius: 18px;
+  box-shadow:
+    0 18px 44px rgba(0,0,0,0.48),   /* 下方向の重量感 */
+    0 0 34px rgba(106,163,255,0.28);/* 青みのグロー */
+  padding: 32px;                    /* ゆったり */
+  margin-bottom: 64px;              /* 設問同士の間隔 */
   transform: translateY(0);
   transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease;
 }
-
 @supports ((-webkit-backdrop-filter: blur(10px)) or (backdrop-filter: blur(10px))){
   .question-card,
   .result-card{
@@ -83,14 +87,13 @@ button { font-family: inherit; }
     border-color: rgba(160, 220, 255, 0.28);
   }
 }
-
-/* ほんの少し浮かせてキャッチーに */
+/* 少しだけ浮かせる */
 .question-card:hover{
   transform: translateY(-2px);
   box-shadow: 0 22px 46px rgba(0,0,0,0.38), 0 0 30px rgba(122,166,255,0.25);
 }
 
-/* 見出しの視認性UP */
+/* 見出しの視認性 */
 .question-card h2{
   font-size: 1.05rem;
   margin: 0 0 16px;
@@ -98,7 +101,7 @@ button { font-family: inherit; }
   color: #f0f6ff;
 }
 
-/* LikertのUI（光る粒イメージ） */
+/* ===== Likert UI ===== */
 .choices { display: grid; gap: 16px; }
 .choices.likert-scale {
   display: flex; align-items: flex-end; justify-content: space-between;
@@ -133,7 +136,6 @@ button { font-family: inherit; }
 .likert-option.size-large .likert-diamond { --likert-size: 64px; }
 .likert-option.size-medium .likert-diamond { --likert-size: 50px; }
 .likert-option.size-small .likert-diamond { --likert-size: 42px; }
-
 @media (max-width: 767px) {
   .likert-option.size-large .likert-diamond { --likert-size: 56px; }
   .likert-option.size-medium .likert-diamond { --likert-size: 44px; }
@@ -157,7 +159,7 @@ button { font-family: inherit; }
 .likert-legend .legend-bar::before { left: -2px; border-right: 8px solid var(--accent); }
 .likert-legend .legend-bar::after { right: -2px; border-left: 8px solid rgba(33, 161, 255, 0.15); }
 
-/* アクセシビリティ用 */
+/* アクセシビリティ */
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 /* ===== フッター／ボタン（グラデ＋柔らかい光） ===== */
@@ -193,7 +195,7 @@ button { font-family: inherit; }
 .secondary-actions { display: grid; gap: 10px; }
 @media (min-width: 480px) { .secondary-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-/* トースト */
+/* ===== トースト ===== */
 .toast {
   position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);
   background: rgba(10, 16, 28, 0.92);
@@ -205,7 +207,7 @@ button { font-family: inherit; }
 
 .hidden { display: none !important; }
 
-/* ===== 結果カード ===== */
+/* ===== 結果カード内部 ===== */
 .result-card {
   padding: 28px; margin: 0 20px 120px;
   background: var(--card);
@@ -250,10 +252,10 @@ button { font-family: inherit; }
 .narrative-block ul { margin: 0; padding-left: 18px; color: var(--fg); }
 .narrative-block li { margin-bottom: 6px; }
 
-/* スコアは非表示 */
+/* ===== スコアは非表示 ===== */
 .result-scores { display:none !important; }
 
-/* スケルトン */
+/* ===== スケルトン/スピナー ===== */
 .spinner { width: 20px; height: 20px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.25); border-top-color: var(--bg-grad-b); animation: spin .8s linear infinite; display: inline-block; }
 .btn-content { display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
 .skeleton { position: relative; overflow: hidden; }
@@ -262,7 +264,7 @@ button { font-family: inherit; }
 .skeleton-line:last-child { margin-bottom: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* レイアウト（中央寄せ） */
+/* ===== レイアウト（中央寄せ） ===== */
 @media (min-width: 600px) {
   body { align-items: center; }
   .app {
@@ -273,39 +275,36 @@ button { font-family: inherit; }
   }
   .footer { border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
 }
-
 @media (min-width: 540px) { .narrative-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 /* ===== 基本情報フォーム（重なり/行間チューニング） ===== */
 .demographics {
+  background: linear-gradient(135deg, rgba(255,255,255,0.16), rgba(180,220,255,0.10));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow:
+    0 18px 44px rgba(0,0,0,0.48),
+    0 0 34px rgba(106,163,255,0.28);
+  padding: 32px;
   margin: 0 20px 24px;
-  padding: 20px;
-  border-radius: 16px;
-  background: rgba(14, 18, 23, 0.65);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
-  position: relative;   /* stacking context */
-  overflow: visible;    /* セレクトのリストを切らない */
+  transform: translateY(0);
+  transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease;
 }
-.demographics-title { margin: 0 0 16px; font-size: 1.1rem; font-weight: 600; color:#eaf2ff; }
+.demographics-title { margin: 0 0 16px; font-size: 1.1rem; font-weight: 600; color:#f0f6ff; letter-spacing:.2px; }
 
 .demographics-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
-  position: relative;
-  z-index: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  margin-bottom: 16px; position: relative; z-index: 0;
 }
 .demographics-field:focus-within { z-index: 5; }  /* フォーカス中を前面に */
-
 .field-label { color: var(--muted); display: block; }
 
 .demographics-field select {
   width: 100%;
   padding: 12px 14px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(185,220,255,0.35);
+  background: rgba(255,255,255,0.10);
   color: var(--fg);
   font-size: 16px;   /* iOSズーム回避＆行間UP */
   appearance: none;
