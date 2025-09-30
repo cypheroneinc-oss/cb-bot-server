@@ -67,7 +67,7 @@
 
         <p class="demographics-note">※診断結果には影響しません（統計のみ）</p>
       </section>
-      <!-- ▲ 基本情報ここまで -->
+      <!-- ▲ 基本情報 -->
 
       <main class="questions" id="questions" aria-live="polite"></main>
 
@@ -88,10 +88,8 @@
           </div>
         </div>
 
-        <!-- 偉人コピー（1行） -->
         <p class="result-summary" id="resultHeroCopy"></p>
 
-        <!-- シェアカード -->
         <section class="share-preview">
           <img id="resultShareImage" alt="シェアカードプレビュー" />
           <button type="button" class="secondary" id="downloadShareButton">カード画像を保存</button>
@@ -137,6 +135,12 @@
         <section class="narrative-section">
           <h3>🧪 化学反応</h3>
           <ol id="resultReactions"></ol>
+        </section>
+
+        <!-- スコアは非表示化 -->
+        <section class="result-scores hidden">
+          <h3>スコアサマリー</h3>
+          <div id="resultScores"></div>
         </section>
       </section>
 
