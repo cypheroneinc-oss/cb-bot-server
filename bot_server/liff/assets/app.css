@@ -78,8 +78,8 @@ button { font-family: inherit; }
   box-shadow:
     0 22px 58px rgba(0,0,0,0.55),   /* 下方向の重量感（強） */
     0 0 44px rgba(110,170,255,0.45);/* 外周ブルーグロー（強） */
-  padding: 34px;                    /* ゆったり */
-  margin-bottom: 112px;              /* 設問同士の間隔 さらに広く */
+  padding: 44px;                    /* ゆったり */
+  margin-bottom: 98px;              /* 設問同士の間隔 さらに広く */
   transform: translateY(0);
   transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease;
 }
@@ -325,7 +325,7 @@ button { font-family: inherit; }
     0 22px 58px rgba(0,0,0,0.55),
     0 0 44px rgba(110,170,255,0.45);
   padding: 34px;
-  margin: 0 20px 26px;
+  margin: 0 20px 98px;
   transform: translateY(0);
   transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease;
 }
