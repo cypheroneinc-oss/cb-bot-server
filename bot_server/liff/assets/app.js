@@ -553,13 +553,25 @@ async function createFetchError(response) {
 /* ---------- demographics helpers ---------- */
 function populateSelect(selectEl, options) {
   if (!selectEl) return;
-  [...selectEl.querySelectorAll('option[data-auto]')].forEach((opt) => opt.remove());
+
+  // 1) 先にプレースホルダを退避（なければ生成）
+  const placeholder =
+    selectEl.querySelector('option[value=""]')?.outerHTML
+    || '<option value="" selected disabled>選択してください</option>';
+
+  // 2) プレースホルダだけを残して中身を初期化（重複の元を断つ）
+  selectEl.innerHTML = placeholder;
+
+  // 3) 選択肢を再構築（data-auto でマーキング）
   for (const { value, label } of options) {
     const o = document.createElement('option');
-    o.value = value; o.textContent = label; o.dataset.auto = 'true';
+    o.value = value;
+    o.textContent = label;
+    o.dataset.auto = 'true';
     selectEl.appendChild(o);
   }
 }
+
 function bindDemographics() {
   populateSelect(elements.demographicsGender, GENDER_OPTIONS);
   populateSelect(elements.demographicsAge, AGE_OPTIONS);
