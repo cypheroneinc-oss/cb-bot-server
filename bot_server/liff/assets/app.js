@@ -2,7 +2,7 @@
 import QUESTIONS from '../../data/questions.v1.js';
 import { getHeroNarrative, getHeroProfile, getClusterLabel } from '../../lib/result-content.js';
 
-// --- browser-safe shim for `process` ---
+// ブラウザで process 参照が出ても落ちないように
 if (typeof window !== 'undefined' && typeof window.process === 'undefined') {
   window.process = { env: {} };
 }
@@ -22,36 +22,20 @@ const LIKERT_OPTIONS = [
 
 const LIKERT_SHORTCUT_KEYS = new Set(['1', '2', '3', '4', '5', '6']);
 
-/* ▼ demographics options */
+// 基本情報候補
 const GENDER_OPTIONS = [
   { value: 'male', label: '男性' },
   { value: 'female', label: '女性' },
   { value: 'other', label: 'その他' },
 ];
 const AGE_OPTIONS = Array.from({ length: 39 }, (_, i) => {
-  const age = 12 + i; // 12〜50
+  const age = 12 + i; // 12-50
   return { value: String(age), label: `${age}歳` };
 });
 const MBTI_OPTIONS = [
-  { value: 'ENFP', label: 'ENFP 広報運動家' },
-  { value: 'ENFJ', label: 'ENFJ 主人公' },
-  { value: 'ENTP', label: 'ENTP 討論者' },
-  { value: 'ENTJ', label: 'ENTJ 指揮官' },
-  { value: 'ESFP', label: 'ESFP エンターテイナー' },
-  { value: 'ESFJ', label: 'ESFJ 領事' },
-  { value: 'ESTP', label: 'ESTP 起業家' },
-  { value: 'ESTJ', label: 'ESTJ 幹部' },
-  { value: 'INFP', label: 'INFP 仲介者' },
-  { value: 'INFJ', label: 'INFJ 提唱者' },
-  { value: 'INTP', label: 'INTP 論理学者' },
-  { value: 'INTJ', label: 'INTJ 建築家' },
-  { value: 'ISFP', label: 'ISFP 冒険家' },
-  { value: 'ISFJ', label: 'ISFJ 擁護者' },
-  { value: 'ISTP', label: 'ISTP 巨匠' },
-  { value: 'ISTJ', label: 'ISTJ 管理者' },
-  { value: '不明', label: '分からない' },
-];
-/* ▲ demographics */
+  'ENFP','ENFJ','ENTP','ENTJ','ESFP','ESFJ','ESTP','ESTJ',
+  'INFP','INFJ','INTP','INTJ','ISFP','ISFJ','ISTP','ISTJ','不明',
+].map(v => ({ value: v, label: v === '不明' ? '分からない' : `${v} 型` }));
 
 const appState = {
   version: QUESTION_VERSION,
@@ -79,15 +63,13 @@ const elements = {
   retakeButton: document.getElementById('retakeButton'),
   reviewButton: document.getElementById('reviewButton'),
   resultActions: document.getElementById('resultActions'),
-
-  // result card
+  // result
   resultCard: document.getElementById('resultCard'),
   resultSub: document.getElementById('resultSub'),
   resultClusterTag: document.getElementById('resultClusterTag'),
   resultHeroName: document.getElementById('resultHeroName'),
   resultHeroImage: document.getElementById('resultHeroImage'),
-
-  // narrative sections
+  // narrative
   resultHeroCopy: document.getElementById('resultHeroCopy'),
   resultPersonalityTitle: document.getElementById('resultPersonalityTitle'),
   resultPersonalityBody: document.getElementById('resultPersonalityBody'),
@@ -95,7 +77,6 @@ const elements = {
   resultTips: document.getElementById('resultTips'),
   resultJobs: document.getElementById('resultJobs'),
   resultReactions: document.getElementById('resultReactions'),
-
   // share
   resultShareImage: document.getElementById('resultShareImage'),
   downloadShareButton: document.getElementById('downloadShareButton'),
@@ -103,8 +84,9 @@ const elements = {
   shareWebButton: document.getElementById('shareWebButton'),
   shareXButton: document.getElementById('shareXButton'),
   shareCopyButton: document.getElementById('shareCopyButton'),
-
-  // demographics
+  // optional
+  resultScores: document.getElementById('resultScores'),
+  // demographics inputs
   demographicsGender: document.getElementById('demographicsGender'),
   demographicsAge: document.getElementById('demographicsAge'),
   demographicsMbti: document.getElementById('demographicsMbti'),
@@ -130,38 +112,36 @@ function getSessionParam() {
   return params.get('session') || undefined;
 }
 
+// ← ブロックしない LIFF 初期化
 async function ensureLiff() {
   if (!window.liff) {
     console.warn('[liff] sdk not found, continue with debug profile');
     return;
   }
-  await window.liff.init({ liffId: LIFF_ID || undefined, withLoginOnExternalBrowser: true });
-  if (!window.liff.isLoggedIn()) {
-    window.liff.login();
-    await new Promise(() => {});
+  try {
+    await window.liff.init({ liffId: LIFF_ID || undefined, withLoginOnExternalBrowser: true });
+    if (!window.liff.isLoggedIn()) {
+      // ここで待たない：遷移を投げて戻ってきたら再実行される
+      window.liff.login();
+      return;
+    }
+    const profile = await window.liff.getProfile();
+    appState.profile = {
+      userId: profile.userId,
+      displayName: profile.displayName || 'LINEユーザー',
+    };
+  } catch (e) {
+    console.warn('[liff] init failed but continue:', e?.message || e);
   }
-  const profile = await window.liff.getProfile();
-  appState.profile = {
-    userId: profile.userId,
-    displayName: profile.displayName || 'LINEユーザー',
-  };
 }
-
-/* ---------- UI boot ---------- */
 
 async function init() {
   bindFooterActions();
   bindLikertShortcuts();
-  bindDemographics();
+  bindDemographics();            // 先にプルダウンを埋める
   renderSkeleton();
-  try {
-    await ensureLiff();
-    await loadQuestions();
-  } catch (error) {
-    console.error('[liff] init failed', error);
-    showToast('LIFFの初期化に失敗しました。時間をおいて再試行してください', true);
-    showErrorCard('LIFFの初期化に失敗しました。電波の良い場所で再試行してください。');
-  }
+  await loadQuestions();         // 先に設問を描画（LIFFに依存しない）
+  await ensureLiff();            // あとで LIFF を初期化
 }
 
 function bindFooterActions() {
@@ -178,6 +158,7 @@ function bindFooterActions() {
   elements.downloadShareButton?.addEventListener('click', handleDownloadShareCard);
   bindShareButtons();
 }
+
 function bindShareButtons() {
   elements.shareLineButton?.addEventListener('click', handleLineShare);
   elements.shareWebButton?.addEventListener('click', handleWebShare);
@@ -202,8 +183,8 @@ function renderSkeleton() {
 }
 
 async function loadQuestions() {
-  const qs = QUESTIONS.map((item) => ({
-    code: item.id || item.code,
+  const qs = QUESTIONS.map((item, index) => ({
+    code: item.id || item.code || `Q${index + 1}`,
     text: String(item.text ?? ''),
   }));
   if (!qs.length) throw new Error('診断データが取得できませんでした');
@@ -243,7 +224,7 @@ function renderQuestions() {
     const heading = document.createElement('h2');
     const headingId = `${question.code}-title`;
     heading.id = headingId;
-    heading.textContent = question.text; // ← 番号を出さない
+    heading.textContent = `${question.text}`; // ← 番号を出さない
     card.appendChild(heading);
 
     const list = document.createElement('div');
@@ -334,7 +315,7 @@ function updateProgress() {
   elements.progressFill.parentElement?.setAttribute('aria-valuenow', String(answered));
   elements.progressFill.parentElement?.setAttribute('aria-valuemax', String(total));
 
-  // 基本情報が揃うまで送信不可
+  // 送信可否（未回答アラートは廃止）
   const canSubmit =
     answered === total &&
     total > 0 &&
@@ -345,14 +326,13 @@ function updateProgress() {
 }
 
 async function onSubmit() {
-  // demographics 未選択はブロック
   if (!isDemographicsComplete()) {
     showToast('性別・年齢・MBTIタイプを選択してください', true);
     return;
   }
-
   if (appState.submitting || appState.answers.size !== appState.questions.length) {
-    return; // 未回答アラートは出さない（ボタンdisableで防止）
+    showToast('未回答の質問があります', true);
+    return;
   }
 
   appState.submitting = true;
@@ -409,7 +389,8 @@ async function onSubmit() {
           summary: share.copy?.summary ?? narrative?.hero_copy ?? '',
         },
       },
-      narrative, // hero_copy / personality / scenes / tips / jobs.suited[] / reactions[]
+      narrative,
+      scores: {}, // スコア表示はしない
     };
 
     appState.result = normalized;
@@ -448,7 +429,6 @@ function showResult(result) {
   elements.resultHeroImage.src = result.hero.avatarUrl || 'https://placehold.co/512x512?text=HERO';
   elements.resultHeroImage.alt = result.hero.name || 'ヒーロー';
 
-  // narrative
   elements.resultHeroCopy.textContent = result.narrative?.hero_copy ?? '';
   elements.resultPersonalityTitle.textContent = result.narrative?.personality?.title ?? '';
   fillParagraphs(elements.resultPersonalityBody, result.narrative?.personality?.paragraphs ?? []);
@@ -457,88 +437,50 @@ function showResult(result) {
   renderOrdered(elements.resultReactions, result.narrative?.reactions ?? []);
   renderJobs(elements.resultJobs, result.narrative?.jobs?.suited ?? []);
 
-  // share
   elements.resultShareImage.src = result.share.cardImageUrl || result.hero.avatarUrl || '';
   elements.resultShareImage.alt = `${result.hero.name}のシェアカード`;
   elements.downloadShareButton.disabled = !result.share.cardImageUrl;
-}
 
-function showErrorCard(message) {
-  elements.questions.innerHTML = '';
-  const card = document.createElement('section');
-  card.className = 'question-card';
-  card.innerHTML = `<p>${message}</p>`;
-  elements.questions.appendChild(card);
+  // スコア描画は行わない（renderScores呼び出し削除）
 }
 
 /* ---------- small render utils ---------- */
-
 function renderList(target, items) {
   if (!target) return;
   target.innerHTML = '';
   const list = Array.isArray(items) ? items : [];
-  if (!list.length) {
-    target.appendChild(createLi('準備中'));
-    return;
-  }
+  if (!list.length) { target.appendChild(createLi('準備中')); return; }
   list.forEach((t) => target.appendChild(createLi(t)));
 }
-
 function renderOrdered(target, items) {
   if (!target) return;
   target.innerHTML = '';
   const list = Array.isArray(items) ? items : [];
-  if (!list.length) {
-    const li = document.createElement('li');
-    li.textContent = '準備中';
-    target.appendChild(li);
-    return;
-  }
-  list.forEach((t) => {
-    const li = document.createElement('li');
-    li.textContent = t;
-    target.appendChild(li);
-  });
+  if (!list.length) { const li = document.createElement('li'); li.textContent = '準備中'; target.appendChild(li); return; }
+  list.forEach((t) => { const li = document.createElement('li'); li.textContent = t; target.appendChild(li); });
 }
-
 function renderJobs(target, jobs) {
   if (!target) return;
   target.innerHTML = '';
   const arr = Array.isArray(jobs) ? jobs : [];
-  if (!arr.length) {
-    target.appendChild(createLi('準備中'));
-    return;
-  }
+  if (!arr.length) { target.appendChild(createLi('準備中')); return; }
   arr.forEach(({ name, blurb }) => {
     const li = document.createElement('li');
     const wrap = document.createElement('div');
     wrap.className = 'job';
-    const n = document.createElement('span');
-    n.className = 'job__name';
-    n.textContent = name || '';
+    const n = document.createElement('span'); n.className = 'job__name'; n.textContent = name || '';
     const sep = document.createTextNode(' — ');
-    const b = document.createElement('span');
-    b.className = 'job__blurb';
-    b.textContent = blurb || '';
-    wrap.append(n, sep, b);
-    li.appendChild(wrap);
-    target.appendChild(li);
+    const b = document.createElement('span'); b.className = 'job__blurb'; b.textContent = blurb || '';
+    wrap.append(n, sep, b); li.appendChild(wrap); target.appendChild(li);
   });
 }
-
 function fillParagraphs(container, paras) {
-  if (!container) return;
-  container.innerHTML = '';
-  (Array.isArray(paras) ? paras : []).forEach((t) => {
-    const p = document.createElement('p');
-    p.textContent = t;
-    container.appendChild(p);
-  });
+  if (!container) return; container.innerHTML = '';
+  (Array.isArray(paras) ? paras : []).forEach((t) => { const p = document.createElement('p'); p.textContent = t; container.appendChild(p); });
 }
 function createLi(text) { const li = document.createElement('li'); li.textContent = text; return li; }
 
-/* ---------- share & utils ---------- */
-
+/* ---------- share ---------- */
 function bindLikertShortcuts() {
   if (bindLikertShortcuts._bound) return;
   bindLikertShortcuts._bound = true;
@@ -557,26 +499,16 @@ function bindLikertShortcuts() {
   });
 }
 
-function shortenMessage(message) {
-  const text = String(message || '');
-  if (text.length <= 80) return text;
-  return `…${text.slice(-80)}`;
-}
-
+function shortenMessage(message) { const text = String(message || ''); return text.length <= 80 ? text : `…${text.slice(-80)}`; }
 function showToast(message, isError = false, errorId) {
   const displayMessage = shortenMessage(message);
   elements.toast.textContent = errorId ? `${displayMessage} (ID: ${errorId})` : displayMessage;
   elements.toast.classList.toggle('error', Boolean(isError));
   elements.toast.classList.remove('hidden');
   clearTimeout(showToast._timer);
-  showToast._timer = setTimeout(() => {
-    elements.toast.classList.add('hidden');
-  }, 4000);
+  showToast._timer = setTimeout(() => { elements.toast.classList.add('hidden'); }, 4000);
 }
-function hideToast() {
-  elements.toast.classList.add('hidden');
-  if (showToast._timer) clearTimeout(showToast._timer);
-}
+function hideToast() { elements.toast.classList.add('hidden'); if (showToast._timer) clearTimeout(showToast._timer); }
 
 async function createFetchError(response) {
   let message = `通信に失敗しました (${response.status})`;
@@ -587,9 +519,7 @@ async function createFetchError(response) {
     if (data?.errorId) errorId = data.errorId;
     if (data?.message) message = data.message;
     else if (data?.error) message = data.error;
-  } catch {
-    message = text || message;
-  }
+  } catch { message = text || message; }
   const error = new Error(message);
   if (errorId) error.errorId = errorId;
   error.__alertShown = true;
@@ -597,15 +527,12 @@ async function createFetchError(response) {
 }
 
 /* ---------- demographics helpers ---------- */
-
 function populateSelect(selectEl, options) {
   if (!selectEl) return;
   [...selectEl.querySelectorAll('option[data-auto]')].forEach((opt) => opt.remove());
   for (const { value, label } of options) {
     const o = document.createElement('option');
-    o.value = value;
-    o.textContent = label;
-    o.dataset.auto = 'true';
+    o.value = value; o.textContent = label; o.dataset.auto = 'true';
     selectEl.appendChild(o);
   }
 }
@@ -632,8 +559,50 @@ function isDemographicsComplete() {
   return Boolean(gender && age && mbti);
 }
 
-/* ---------- retake / review ---------- */
+/* ---------- share handlers ---------- */
+async function handlePrimaryShare() {
+  if (!appState.result) return showToast('共有できる結果がありません', true);
+  if (window.liff?.shareTargetPicker) return void (await handleLineShare());
+  if (navigator.share) return void (await handleWebShare());
+  await handleCopyLink();
+}
+async function handleLineShare() {
+  const share = appState.result?.share;
+  if (!share) return showToast('シェア情報が準備中です', true);
+  if (!window.liff?.shareTargetPicker) return showToast('LINEアプリからのシェアに対応していません', true);
+  const text = `${share.copy.headline}\n${share.copy.summary}\n${share.url}`;
+  try { await window.liff.shareTargetPicker([{ type: 'text', text }]); showToast('LINEにシェアしました'); }
+  catch (error) { if (error?.code !== 'USER_CANCEL') { console.error('[share] line error', error); showToast('LINEシェアに失敗しました', true); } }
+}
+async function handleWebShare() {
+  const share = appState.result?.share;
+  if (!share) return showToast('シェア情報が準備中です', true);
+  if (!navigator.share) return void (await handleCopyLink());
+  try { await navigator.share({ title: share.copy.headline, text: share.copy.summary, url: share.url }); }
+  catch (error) { if (error?.name !== 'AbortError') { console.error('[share] web error', error); showToast('端末の共有に失敗しました', true); } }
+}
+function handleXShare() {
+  const share = appState.result?.share;
+  if (!share) return showToast('シェア情報が準備中です', true);
+  const text = `${share.copy.headline}\n${share.copy.summary}`;
+  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(share.url)}`;
+  window.open(intent, '_blank', 'noopener');
+}
+async function handleCopyLink() {
+  const share = appState.result?.share;
+  if (!share) return showToast('シェア情報が準備中です', true);
+  try { await navigator.clipboard.writeText(share.url); showToast('リンクをコピーしました'); }
+  catch (error) { console.error('[share] copy error', error); showToast('リンクのコピーに失敗しました', true); }
+}
+function handleDownloadShareCard() {
+  const imageUrl = appState.result?.share?.cardImageUrl;
+  if (!imageUrl) return showToast('共有カードがまだありません', true);
+  const link = document.createElement('a');
+  link.href = imageUrl; link.download = 'diagnosis-share.png'; link.rel = 'noopener'; link.target = '_blank';
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+}
 
+/* ---------- retake / review ---------- */
 function retakeDiagnosis() {
   appState.answers.clear();
   appState.result = null;
