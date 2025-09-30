@@ -70,8 +70,8 @@ button { font-family: inherit; }
   box-shadow:
     0 18px 44px rgba(0,0,0,0.48),   /* 下方向の重量感 */
     0 0 34px rgba(106,163,255,0.28);/* 青みのグロー */
-  padding: 32px;                    /* ゆったり */
-  margin-bottom: 64px;              /* 設問同士の間隔 */
+  padding: 48px;                    /* ゆったり */
+  margin-bottom: 78px;              /* 設問同士の間隔 */
   transform: translateY(0);
   transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease;
 }
