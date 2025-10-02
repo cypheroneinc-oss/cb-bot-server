@@ -1,17 +1,24 @@
 /* ===== THEME: Blue Nova ++ (より明るい青 × 超ガラス × 強浮遊) ===== */
 :root {
   /* Brighter Deep Blue */
-  --bg-grad-a: #0f1e4a;      /* 明度を上げた群青 */
-  --bg-grad-b: #0a1440;      /* 深いブルー */
-  --fg:        #f8fbff;      /* 文字は白寄り */
-  --muted:     #b5c6de;      /* サブ文字を明るめに */
-  --accent:    #66e4ff;      /* エレクトリック・シアンブルー（やや明るく） */
-  --accent-2:  #6f8cff;      /* ブライトラピス（やや明るく） */
-  --card:      rgba(255,255,255,0.18);   /* ガラスのベースをさらに明るく */
-  --border:    rgba(220, 245, 255, 0.75);/* 輝く縁取り（さらに明るく） */
+  --bg-grad-a: #0f1e4a;
+  --bg-grad-b: #0a1440;
+  --fg:        #f8fbff;
+  --muted:     #b5c6de;
+  --accent:    #66e4ff;
+  --accent-2:  #6f8cff;
+  --card:      rgba(255,255,255,0.18);
+  --border:    rgba(220, 245, 255, 0.75);
   --glow:      0 0 44px rgba(120, 190, 255, 0.65);
   --ring:      0 0 0 2px var(--accent);
   --danger:    #ff4d6d;
+
+  /* ガラス強度トークン（必要に応じて上げ下げ） */
+  --glass-blur: 24px;
+  --glass-sat:  1.9;
+  --glass-hl:   rgba(255,255,255,0.35); /* 上端ハイライト */
+  --glass-in1:  rgba(120,190,255,0.40); /* 内グロー1 */
+  --glass-in2:  rgba(102,230,255,0.30); /* 内グロー2 */
 }
 
 * { box-sizing: border-box; }
@@ -20,7 +27,6 @@ html, body {
   margin: 0;
   padding: 0;
   background:
-    /* 明るいブルーのオーブを増やして全体のトーンを上げる */
     radial-gradient(1300px 640px at 78% -8%, rgba(120,190,255,0.32), transparent 65%),
     radial-gradient(1200px 620px at 8% 28%,  rgba(102,230,255,0.28), transparent 62%),
     radial-gradient(900px  480px at 50% 110%, rgba(110,170,255,0.20), transparent 60%),
@@ -70,55 +76,58 @@ button { font-family: inherit; }
 .questions {
   flex: 1;
   overflow-y: auto;
-  padding: 0 20px 240px; /* さらに下余白を増やして没入感＆フッターとの干渉回避 */
+  padding: 0 20px 240px; /* フッター干渉回避＋没入感 */
 }
 
-/* ===== カード（設問/結果）：超ガラス＋強発光＋強浮遊 ===== */
+/* ===== カード（設問/結果）：シンプルな“板ガラス”表現 ===== */
 .question-card,
 .result-card{
   position: relative;
-  background: linear-gradient(135deg, rgba(255,255,255,0.30), rgba(200,235,255,0.22)); /* 明るさ↑ */
+  background: linear-gradient(135deg, rgba(255,255,255,0.30), rgba(200,235,255,0.22));
   border: 1px solid var(--border);
   border-radius: 22px;
   box-shadow:
-    0 28px 72px rgba(0,0,0,0.55),     /* 下方向の影 強 */
-    0 0 72px rgba(120,190,255,0.60);  /* 外周グロー 強 */
-  padding: 48px;                      /* さらにゆったり */
-  margin-bottom: 104px;               /* 設問同士の間隔を拡大 */
+    0 28px 72px rgba(0,0,0,0.55),
+    0 0 72px rgba(120,190,255,0.60);
+  padding: 48px;
+  margin-bottom: 104px;
   transform: translateY(0);
   transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease;
 }
-/* ガラスのハイライト＆内側グローを強化（スマホでも分かるよう誇張） */
+
+/* 上端にだけ柔らかいハイライト（斜線やXは不使用） */
 .question-card::before,
 .result-card::before{
   content: "";
   position: absolute; inset: 0;
   border-radius: inherit;
-  background: linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 45%);
+  background: linear-gradient(180deg, var(--glass-hl), rgba(255,255,255,0) 45%);
   pointer-events: none;
   mix-blend-mode: screen;
 }
+
+/* 内側の青みグローで厚みを演出（模様なし） */
 .question-card::after,
 .result-card::after{
   content: "";
   position: absolute; inset: 2px;
   border-radius: calc(22px - 2px);
-  box-shadow:
-    inset 0 0 30px rgba(120,190,255,0.40),
-    inset 0 0 18px rgba(102,230,255,0.30);
   pointer-events: none;
+  box-shadow:
+    inset 0 0 30px var(--glass-in1),
+    inset 0 0 18px var(--glass-in2);
 }
 
 @supports ((-webkit-backdrop-filter: blur(24px)) or (backdrop-filter: blur(24px))){
   .question-card,
   .result-card{
-    -webkit-backdrop-filter: blur(24px) saturate(1.9);
-            backdrop-filter: blur(24px) saturate(1.9);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+            backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
     border-color: rgba(230, 250, 255, 0.80);
   }
 }
 
-/* “大げさに”浮かせる（タップ時は沈ませない） */
+/* 浮遊（強め） */
 .question-card:active,
 .result-card:active { transform: translateY(0); }
 .question-card:hover,
@@ -129,7 +138,7 @@ button { font-family: inherit; }
     0 0 86px rgba(120,190,255,0.70);
 }
 
-/* 見出しの視認性 */
+/* 見出し */
 .question-card h2{
   font-size: 1.08rem;
   margin: 0 0 20px;
@@ -137,7 +146,7 @@ button { font-family: inherit; }
   color: #f0f6ff;
 }
 
-/* ===== Likert UI（ダイヤを強発光） ===== */
+/* ===== Likert UI（ダイヤを強発光・模様なし） ===== */
 .choices { display: grid; gap: 20px; }
 .choices.likert-scale {
   display: flex; align-items: flex-end; justify-content: space-between;
@@ -155,7 +164,7 @@ button { font-family: inherit; }
 .likert-input:checked + .likert-option { color: #ffffff; font-weight: 700; }
 
 .likert-diamond{
-  --likert-size: 52px; /* 基準サイズをやや大型化 */
+  --likert-size: 52px;
   width: var(--likert-size); height: var(--likert-size);
   border-radius: 22px; border: 1px solid rgba(220,245,255,0.7);
   background: linear-gradient(135deg, rgba(255,255,255,0.20), rgba(170,220,255,0.14));
@@ -204,7 +213,7 @@ button { font-family: inherit; }
 /* アクセシビリティ */
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
-/* ===== フッター／ボタン（強発光ブルー） ===== */
+/* ===== フッター／ボタン ===== */
 .footer {
   position: sticky; bottom: 0; left: 0; right: 0;
   padding: 18px 20px 28px;
@@ -270,8 +279,8 @@ button { font-family: inherit; }
 .hero-details { flex: 1; }
 
 .cluster-tag { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(220, 245, 255, 0.75); color: var(--accent); font-size: 0.85rem; margin-bottom: 8px; }
-.result-hero-name, #resultHeroName { margin: 0; font-size: 1.4rem; font-weight: 700; color: var(--fg); }
 
+.result-hero-name, #resultHeroName { margin: 0; font-size: 1.4rem; font-weight: 700; color: var(--fg); }
 .result-summary { margin: 12px 0 20px; font-size: 1rem; color: var(--fg); }
 
 .share-preview { display: grid; gap: 12px; margin-bottom: 24px; }
@@ -289,14 +298,6 @@ button { font-family: inherit; }
 }
 .share-btn:hover { background: rgba(255,255,255,0.18); }
 .share-note { margin: 12px 0 0; color: var(--muted); font-size: 0.85rem; }
-
-.narrative-section { margin-bottom: 24px; }
-.narrative-section h3 { margin-bottom: 12px; font-size: 1.1rem; }
-.narrative-grid { display: grid; gap: 16px; }
-.narrative-block { background: rgba(255,255,255,0.08); border-radius: 14px; padding: 14px 16px; border: 1px solid rgba(0,209,255,0.15); }
-.narrative-block h4 { margin: 0 0 10px; font-size: 0.98rem; color: var(--accent); }
-.narrative-block ul { margin: 0; padding-left: 18px; color: var(--fg); }
-.narrative-block li { margin-bottom: 6px; }
 
 /* ===== スコアは非表示 ===== */
 .result-scores { display:none !important; }
@@ -323,7 +324,7 @@ button { font-family: inherit; }
 }
 @media (min-width: 540px) { .narrative-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-/* ===== 基本情報フォーム ===== */
+/* ===== 基本情報フォーム（カードと同調） ===== */
 .demographics {
   position: relative;
   background: linear-gradient(135deg, rgba(255,255,255,0.30), rgba(200,235,255,0.22));
@@ -333,24 +334,24 @@ button { font-family: inherit; }
     0 28px 72px rgba(0,0,0,0.55),
     0 0 72px rgba(120,190,255,0.60);
   padding: 48px;
-  margin: 0 20px 120px; /* 基本情報→Q1の間をさらに広げる */
+  margin: 0 20px 120px; /* 基本情報→Q1の間隔を広く */
   transform: translateY(0);
   transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease;
 }
 .demographics::before{
   content:""; position:absolute; inset:0; border-radius:inherit;
-  background: linear-gradient(180deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 45%);
+  background: linear-gradient(180deg, var(--glass-hl), rgba(255,255,255,0) 45%);
   pointer-events:none; mix-blend-mode: screen;
 }
 .demographics::after{
   content:""; position:absolute; inset:2px; border-radius:calc(22px - 2px);
   box-shadow:
-    inset 0 0 30px rgba(120,190,255,0.40),
-    inset 0 0 18px rgba(102,230,255,0.30);
+    inset 0 0 30px var(--glass-in1),
+    inset 0 0 18px var(--glass-in2);
   pointer-events:none;
 }
 @supports ((-webkit-backdrop-filter: blur(24px)) or (backdrop-filter: blur(24px))){
-  .demographics{ -webkit-backdrop-filter: blur(24px) saturate(1.9); backdrop-filter: blur(24px) saturate(1.9); }
+  .demographics{ -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); }
 }
 
 .demographics-title { margin: 0 0 18px; font-size: 1.14rem; font-weight: 700; color:#f0f6ff; letter-spacing:.2px; }
@@ -376,152 +377,3 @@ button { font-family: inherit; }
 .demographics-field select:focus { position: relative; z-index: 6; }
 .demographics-field select option { padding: 10px 12px; line-height: 1.9; font-size: 16px; }
 .demographics-note { margin: 10px 0 0; font-size: 0.85rem; color: var(--muted); }
-
-/* =========================================================
-   GLASS-MAX PACK  —  ガラス感を過剰に強化（追記用）
-   置き場所：app.css の一番下（既存定義を上書き）
-   ========================================================= */
-
-/* トークン（必要なら数値だけ弄れば全体の雰囲気が変わる） */
-:root{
-  --glass-blur: 26px;      /* ぼかし量：端末が重ければ 20〜22px に */
-  --glass-sat:  1.9;       /* 彩度ブースト：1.5〜2.1 推奨 */
-  --glass-tint-a: rgba(255,255,255,0.36);  /* 上側の明るいティント */
-  --glass-tint-b: rgba(190,230,255,0.20);  /* 下側の青ティント */
-  --glass-border: rgba(230,250,255,0.85);  /* 外枠のハイライト */
-  --glass-inner: rgba(120,190,255,0.42);   /* 内側グロー */
-  --glass-glow:  rgba(120,190,255,0.70);   /* 外周グロー */
-  --glass-noise: rgba(255,255,255,0.045);  /* フロスト粒子の濃さ */
-  --glass-spec:  rgba(255,255,255,0.70);   /* スペキュラ反射の強さ */
-}
-
-/* ====== 設問カード / 結果カード / 基本情報：ガラス層を多層合成 ====== */
-.question-card,
-.result-card,
-.demographics{
-  position: relative;
-  background:
-    /* ①微細ノイズ（フロスト感） */
-    repeating-linear-gradient( 45deg, var(--glass-noise) 0 2px, transparent 2px 4px ),
-    /* ②青〜白のティント */
-    linear-gradient(135deg, var(--glass-tint-a) 0%, var(--glass-tint-b) 100%);
-  border: 1px solid var(--glass-border);
-  border-radius: 24px;
-  box-shadow:
-    0 30px 84px rgba(0,0,0,0.56),     /* 奥行き影（強） */
-    0 0 86px var(--glass-glow);       /* 外周グロー（強） */
-  overflow: hidden; /* 反射レイヤーのはみ出しを抑える */
-  transform: translateY(0);
-  transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease, outline-color .25s ease;
-  outline: 1px solid rgba(255,255,255,0.18); /* ガラス縁の空気感 */
-}
-
-/* 反射(ハイライト)帯：上部に走る光のスジ */
-.question-card::before,
-.result-card::before,
-.demographics::before{
-  content:"";
-  position: absolute; inset: 0;
-  pointer-events: none;
-  /* 斜めに走るスペキュラライン＋上端の白ハイライト */
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.35), transparent 45%),
-    linear-gradient( 60deg, transparent 45%, rgba(255,255,255,0.22) 50%, transparent 55%),
-    linear-gradient(-60deg, transparent 48%, rgba(255,255,255,0.16) 52%, transparent 56%);
-  mix-blend-mode: screen;
-}
-
-/* 内側の“凍りつき”グロー＋エッジ */
-.question-card::after,
-.result-card::after,
-.demographics::after{
-  content:"";
-  position:absolute; inset: 2px;
-  border-radius: calc(24px - 2px);
-  pointer-events:none;
-  box-shadow:
-    inset 0 0 36px var(--glass-inner),
-    inset 0 0 20px rgba(102,230,255,0.28);
-  /* 角に向かって少し暗く→板ガラスの厚みを演出 */
-  background:
-    radial-gradient(120% 120% at -10% -10%, rgba(255,255,255,0.20), transparent 60%),
-    radial-gradient(120% 120% at 110% 110%, rgba(102,160,255,0.18), transparent 65%);
-}
-
-/* ブラー＆彩度は対応端末のみ強適用 */
-@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))){
-  .question-card,
-  .result-card,
-  .demographics{
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-            backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-    border-color: var(--glass-border);
-    outline-color: rgba(255,255,255,0.30);
-  }
-}
-
-/* 浮遊強化＋反射強調（ホバー時） */
-.question-card:hover,
-.result-card:hover,
-.demographics:hover{
-  transform: translateY(-6px);
-  box-shadow:
-    0 36px 96px rgba(0,0,0,0.60),
-    0 0 110px var(--glass-glow);
-}
-.question-card:hover::before,
-.result-card:hover::before,
-.demographics:hover::before{
-  /* 反射の強度を少し上げる */
-  opacity: .95;
-}
-
-/* ====== ダイヤ（Likert）も“ガラス玉”に寄せる ====== */
-.likert-diamond{
-  border-radius: 22px;
-  border: 1px solid rgba(230,250,255,0.75);
-  background:
-    repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0 2px, transparent 2px 4px),
-    linear-gradient(135deg, rgba(255,255,255,0.22), rgba(170,220,255,0.14));
-  box-shadow:
-    inset 0 0 18px rgba(120,190,255,0.35),
-    0 0 22px rgba(120,190,255,0.35);
-}
-@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))){
-  .likert-diamond{
-    -webkit-backdrop-filter: blur(10px) saturate(1.5);
-            backdrop-filter: blur(10px) saturate(1.5);
-  }
-}
-.likert-input:checked + .likert-option .likert-diamond{
-  background:
-    radial-gradient(60% 60% at 50% 38%, rgba(130,210,255,0.98), rgba(130,210,255,0.58) 66%, rgba(130,210,255,0.24) 100%),
-    linear-gradient(135deg, rgba(255,255,255,0.24), rgba(170,220,255,0.16));
-  border-color: rgba(245,255,255,0.95);
-  box-shadow:
-    0 0 0 6px rgba(120,190,255,0.34),
-    0 22px 44px rgba(120,190,255,0.38),
-    0 0 38px rgba(120,190,255,0.55);
-  transform: rotate(45deg) scale(1.12);
-}
-
-/* ====== モバイル負荷軽減プリセット（低負荷端末向けスイッチ） ====== */
-/* 端末が重いレポートがあれば、html に .perf-low を付与して切り替えも可能 */
-html.perf-low .question-card,
-html.perf-low .result-card,
-html.perf-low .demographics{
-  box-shadow:
-    0 22px 60px rgba(0,0,0,0.50),
-    0 0 70px rgba(120,190,255,0.55);
-}
-html.perf-low .question-card::before,
-html.perf-low .result-card::before,
-html.perf-low .demographics::before{ opacity: .75; }
-html.perf-low .question-card::after,
-html.perf-low .result-card::after,
-html.perf-low .demographics::after{
-  box-shadow:
-    inset 0 0 24px rgba(120,190,255,0.32),
-    inset 0 0 14px rgba(102,230,255,0.22);
-}
-
