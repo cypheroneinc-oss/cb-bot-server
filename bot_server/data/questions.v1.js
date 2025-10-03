@@ -1,256 +1,96 @@
 export default [
-  {
-    "id": "Q1",
-    "text": "授業で、前に出て話すのは割といける。",
-    "choices": [
-      {
-        "key": "POS",
-        "tags": { "MBTI": ["E"], "WorkStyle": ["speed", "improv"], "CLUSTER_HINT": ["challenge"] }
-      },
-      {
-        "key": "NEG",
-        "tags": { "MBTI": ["I"], "WorkStyle": ["careful"], "CLUSTER_HINT": ["strategy"] }
-      }
-    ]
-  },
-  {
-    "id": "Q2",
-    "text": "新しいことは、とりまやってみてから考えるタイプ。",
-    "choices": [
-      {
-        "key": "POS",
-        "tags": { "MBTI": ["N"], "WorkStyle": ["improv", "intuitive"], "CLUSTER_HINT": ["creative", "challenge"] }
-      },
-      {
-        "key": "NEG",
-        "tags": { "WorkStyle": ["structured", "logical"], "CLUSTER_HINT": ["strategy"] }
-      }
-    ]
-  },
-  {
-    "id": "Q3",
-    "text": "人に頼まれなくても、自分で役割を考えて動ける。",
-    "choices": [
-      {
-        "key": "POS",
-        "tags": { "Motivation": ["achieve", "autonomy"], "CLUSTER_HINT": ["challenge"] }
-      },
-      {
-        "key": "NEG",
-        "tags": { "WorkStyle": ["careful"], "CLUSTER_HINT": ["support"] }
-      }
-    ]
-  },
-  {
-    "id": "Q4",
-    "text": "みんなが困っていたら、まず流れを整理して伝えるほうだ。",
-    "choices": [
-      {
-        "key": "POS",
-        "tags": { "WorkStyle": ["structured", "logical"], "CLUSTER_HINT": ["strategy"] }
-      },
-      {
-        "key": "NEG",
-        "tags": { "WorkStyle": ["improv"], "CLUSTER_HINT": ["challenge"] }
-      }
-    ]
-  },
-  {
-    "id": "Q5",
-    "text": "新しいアプリは、トリセツの前にいったん触ってみる。",
-    "choices": [
-      {
-        "key": "POS",
-        "tags": { "WorkStyle": ["improv", "intuitive"], "CLUSTER_HINT": ["creative"] }
-      },
-      {
-        "key": "NEG",
-        "tags": { "WorkStyle": ["structured"], "CLUSTER_HINT": ["strategy"] }
-      }
-    ]
-  },
-  {
-    "id": "Q6",
-    "text": "はじめて会う人と話しても、すぐ場を明るくできる。",
-    "choices": [
-      {
-        "key": "POS",
-        "tags": { "Sync": ["high_tension", "tsukkomi"], "BigFive": { "extraversion": "high" }, "CLUSTER_HINT": ["challenge"] }
-      },
-      {
-        "key": "NEG",
-        "tags": { "Sync": ["relaxed"], "BigFive": { "extraversion": "low" }, "CLUSTER_HINT": ["support"] }
-      }
-    ]
-  },
-  {
-    "id": "Q7",
-    "text": "友だちの気持ちに気づきやすく、そっと支えることが多い。",
-    "choices": [
-      {
-        "key": "POS",
-        "tags": { "Motivation": ["connection", "contribution"], "WorkStyle": ["careful"], "CLUSTER_HINT": ["support"] }
-      },
-      {
-        "key": "NEG",
-        "tags": { "Motivation": ["autonomy"], "CLUSTER_HINT": ["challenge"] }
-      }
-    ]
-  },
-  {
-    "id": "Q8",
-    "text": "夏休みの宿題は、計画を立てて少しずつ進める。",
-    "choices": [
-      {
-        "key": "POS",
-        "tags": { "WorkStyle": ["structured", "careful"], "CLUSTER_HINT": ["strategy"] }
-      },
-      {
-        "key": "NEG",
-        "tags": { "WorkStyle": ["improv", "speed"], "CLUSTER_HINT": ["challenge"] }
-      }
-    ]
-  },
-  {
-    "id": "Q9",
-    "text": "図工や芸術の作品づくりは、ひらめきから形にしていくほうだ。",
-    "choices": [
-      {
-        "key": "POS",
-        "tags": { "WorkStyle": ["intuitive", "improv"], "Motivation": ["curiosity"], "CLUSTER_HINT": ["creative"] }
-      },
-      {
-        "key": "NEG",
-        "tags": { "WorkStyle": ["structured"], "CLUSTER_HINT": ["strategy"] }
-      }
-    ]
-  },
-  {
-    "id": "Q10",
-    "text": "チームで意見がぶつかっても、みんなが納得するところを見つけるのが得意だ。",
-    "choices": [
-      { "key": "POS", "tags": { "BigFive": { "agreeableness": "high" }, "CLUSTER_HINT": ["support"] } },
-      { "key": "NEG", "tags": { "BigFive": { "agreeableness": "low" }, "CLUSTER_HINT": ["challenge"] } }
-    ]
-  },
-  {
-    "id": "Q11",
-    "text": "ずっと即レスや即対応を求められるのはいやだ。",
-    "choices": [
-      { "key": "POS", "tags": { "NG": ["instant_reply"], "CLUSTER_HINT": ["strategy", "creative"] } },
-      { "key": "NEG", "tags": { "WorkStyle": ["speed"], "CLUSTER_HINT": ["challenge"] } }
-    ]
-  },
-  {
-    "id": "Q12",
-    "text": "キツイ言い方で叱られると、やる気が下がっちゃう。",
-    "choices": [
-      { "key": "POS", "tags": { "NG": ["pressure"], "CLUSTER_HINT": ["support", "creative"] } },
-      { "key": "NEG", "tags": { "WorkStyle": ["structured"], "CLUSTER_HINT": ["strategy"] } }
-    ]
-  },
-  {
-    "id": "Q13",
-    "text": "何かとは数字や根拠で考えるほうが安心できる。",
-    "choices": [
-      { "key": "POS", "tags": { "WorkStyle": ["logical", "structured"], "MBTI": ["T"], "CLUSTER_HINT": ["strategy"] } },
-      { "key": "NEG", "tags": { "MBTI": ["N"], "WorkStyle": ["intuitive"], "CLUSTER_HINT": ["creative"] } }
-    ]
-  },
-  {
-    "id": "Q14",
-    "text": "放課後は、一人で好きなことにのめり込む時間が好きだ。",
-    "choices": [
-      { "key": "POS", "tags": { "Motivation": ["autonomy", "curiosity", "growth"], "MBTI": ["I"], "CLUSTER_HINT": ["creative"] } },
-      { "key": "NEG", "tags": { "Motivation": ["connection"], "Sync": ["high_tension"], "CLUSTER_HINT": ["challenge"] } }
-    ]
-  },
-  {
-    "id": "Q15",
-    "text": "みんなの前で声を上げて雰囲気を明るくするのが得意だ。",
-    "choices": [
-      { "key": "POS", "tags": { "Sync": ["high_tension", "tsukkomi"], "MBTI": ["E"], "CLUSTER_HINT": ["challenge"] } },
-      { "key": "NEG", "tags": { "Sync": ["relaxed", "logical_cool"], "CLUSTER_HINT": ["strategy", "support"] } }
-    ]
-  },
-  {
-    "id": "Q16",
-    "text": "いつも同じ作業ばかりだと飽きやすいほうだ。",
-    "choices": [
-      { "key": "POS", "tags": { "NG": ["monotony", "no_change"], "CLUSTER_HINT": ["creative", "challenge"] } },
-      { "key": "NEG", "tags": { "Motivation": ["security"], "WorkStyle": ["structured"], "CLUSTER_HINT": ["strategy"] } }
-    ]
-  },
-  {
-    "id": "Q17",
-    "text": "自由に自分のやり方でできないと、力が出しにくい。",
-    "choices": [
-      { "key": "POS", "tags": { "Motivation": ["autonomy"], "NG": ["no_autonomy"], "CLUSTER_HINT": ["challenge", "creative"] } },
-      { "key": "NEG", "tags": { "WorkStyle": ["structured"], "Motivation": ["security"], "CLUSTER_HINT": ["strategy"] } }
-    ]
-  },
-  {
-    "id": "Q18",
-    "text": "誰かの役に立っていると感じると、やる気が出てくる。",
-    "choices": [
-      { "key": "POS", "tags": { "Motivation": ["contribution", "connection"], "CLUSTER_HINT": ["support"] } },
-      { "key": "NEG", "tags": { "Motivation": ["achieve", "autonomy"], "CLUSTER_HINT": ["challenge"] } }
-    ]
-  },
-  {
-    "id": "Q19",
-    "text": "大事な場面では、落ち着いてわかりやすく整理して話せる。",
-    "choices": [
-      { "key": "POS", "tags": { "Sync": ["logical_cool"], "WorkStyle": ["structured"], "CLUSTER_HINT": ["strategy"] } },
-      { "key": "NEG", "tags": { "Sync": ["high_tension", "natural"], "CLUSTER_HINT": ["challenge", "support"] } }
-    ]
-  },
-  {
-    "id": "Q20",
-    "text": "新しい知識ややり方を知ると、つい深掘りしたくなる。",
-    "choices": [
-      { "key": "POS", "tags": { "Motivation": ["curiosity", "growth"], "MBTI": ["N"], "CLUSTER_HINT": ["creative"] } },
-      { "key": "NEG", "tags": { "Motivation": ["security"], "MBTI": ["J"], "CLUSTER_HINT": ["strategy"] } }
-    ]
-  },
-  {
-    "id": "Q21",
-    "text": "文化祭やイベントでは、アイデアでみんなを驚かせたい。",
-    "choices": [
-      { "key": "POS", "tags": { "WorkStyle": ["intuitive", "improv"], "CLUSTER_HINT": ["creative", "challenge"] } },
-      { "key": "NEG", "tags": { "WorkStyle": ["careful", "structured"], "CLUSTER_HINT": ["support", "strategy"] } }
-    ]
-  },
-  {
-    "id": "Q22",
-    "text": "いざという時、自分が前に立ってリードしてやるって思ってる。",
-    "choices": [
-      { "key": "POS", "tags": { "Motivation": ["achieve"], "MBTI": ["E"], "CLUSTER_HINT": ["challenge"] } },
-      { "key": "NEG", "tags": { "Motivation": ["contribution"], "WorkStyle": ["careful"], "CLUSTER_HINT": ["support"] } }
-    ]
-  },
-  {
-    "id": "Q23",
-    "text": "新しいことより、長くつづく仕組みを作るのが好きだ。",
-    "choices": [
-      { "key": "POS", "tags": { "Motivation": ["security"], "WorkStyle": ["structured"], "CLUSTER_HINT": ["strategy"] } },
-      { "key": "NEG", "tags": { "Motivation": ["autonomy"], "WorkStyle": ["improv"], "CLUSTER_HINT": ["challenge"] } }
-    ]
-  },
-  {
-    "id": "Q24",
-    "text": "友だちが落ちこんでいたら、静かにそばにいて話を聞いてあげる。",
-    "choices": [
-      { "key": "POS", "tags": { "Sync": ["relaxed", "natural"], "Motivation": ["connection"], "CLUSTER_HINT": ["support"] } },
-      { "key": "NEG", "tags": { "Sync": ["high_tension", "logical_cool"], "CLUSTER_HINT": ["challenge", "strategy"] } }
-    ]
-  },
-  {
-    "id": "Q25",
-    "text": "目標をはっきり決めて、結果にこだわるタイプだ。",
-    "choices": [
-      { "key": "POS", "tags": { "Motivation": ["achieve", "approval"], "CLUSTER_HINT": ["challenge"] } },
-      { "key": "NEG", "tags": { "Motivation": ["contribution", "security"], "CLUSTER_HINT": ["support", "strategy"] } }
-    ]
-  }
+  // Q01–Q24: Likert 6段（左=YES／右=NO）
+  // 共通仕様：choices = POS / NEG（mapLikertToChoiceがscale→choiceKeyに変換）
+  { id: "Q01", text: "クラスや部活でトラブルが起きたら、自分が前に出てまとめたいと思う？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q02", text: "頑張ったのに力を出し切れなかったとき、すごく悔しい？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q03", text: "きっちり決まったやり方より、自分なりのやり方を試したくなる？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q04", text: "「言われた通りにやれ」と強く言われると、反発したくなる気持ちが出る？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q05", text: "初めて行く場所や新しい遊びを見つけると、すぐ試したくなる？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q06", text: "毎日同じことの繰り返しってつまらないと思う？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q07", text: "授業中やノートのすみに、アイデアや絵を描きたくなることある？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q08", text: "自分の作品や意見がみんなと同じだと、がっかりする？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q09", text: "わからないことがあると、調べて本当の理由を知りたくなる？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q10", text: "思い込みで動いたり、間違ったことを広めるのは恐い？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q11", text: "工夫して、みんなが驚くような変化を起こしたい？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q12", text: "どれだけ頑張っても何も変わらない状況ってイヤ？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q13", text: "友達が落ち込んでたら、放っておけない？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q14", text: "助けたいのに何もできない状況ってつらい？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q15", text: "グループ活動のとき、自然と役割分担や進め方を考える方？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q16", text: "ルールや指示がなくてバラバラだと、不安になる？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q17", text: "クラスや部活でみんなと一緒に過ごせると安心する？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q18", text: "自分だけ呼ばれなかったり浮くと気になる？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q19", text: "空気が重いとき、冗談や一言で場を明るくしたくなる？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q20", text: "退屈な時間が続くとイライラする？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q21", text: "大切にしたい人や物があると、自然とがんばれる？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q22", text: "自分の気持ちを無視されるのはつらい？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q23", text: "人や世界を信じたい、もっと良い世界があるって思う？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "Q24", text: "信じてたものに裏切られるとすごく落ち込む？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  // Q25–Q30: Gate（二択・A/B）
+  // 共通仕様：choices = A / B（タイブレークと軽い加点に使用）
+  { id: "Q25", text: "リーダーになるなら →",
+    choices: [
+      { key: "A", label: "前に出て引っ張る（Hero）" },
+      { key: "B", label: "全体をまとめる（Ruler）" }
+    ]},
+  { id: "Q26", text: "楽しいのは →",
+    choices: [
+      { key: "A", label: "新しいことを試す（Explorer）" },
+      { key: "B", label: "正しい答えを探す（Sage）" }
+    ]},
+  { id: "Q27", text: "近いのは →",
+    choices: [
+      { key: "A", label: "人と深くつながりたい（Lover）" },
+      { key: "B", label: "人を支えたい（Caregiver）" }
+    ]},
+  { id: "Q28", text: "自分らしいのは →",
+    choices: [
+      { key: "A", label: "場を盛り上げたい（Jester）" },
+      { key: "B", label: "みんなと同じ空気でいたい（Everyman）" }
+    ]},
+  { id: "Q29", text: "変えるなら →",
+    choices: [
+      { key: "A", label: "いらないものは壊す（Outlaw）" },
+      { key: "B", label: "工夫して変化を起こす（Magician）" }
+    ]},
+  { id: "Q30", text: "ワクワクするのは →",
+    choices: [
+      { key: "A", label: "知識を集めて理解する（Sage）" },
+      { key: "B", label: "形にして表現する（Creator）" }
+    ]}
 ];
