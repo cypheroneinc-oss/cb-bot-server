@@ -1,3 +1,6 @@
+// Minimal-diff: 既存のエンドポイント/レスポンスは完全維持。
+// 質問セットは lib/questions 側の柔軟化によりそのまま取得可能。
+
 import { getQuestions } from '../../lib/questions/index.js';
 import { QUESTION_VERSION } from '../../lib/scoring/index.js';
 
