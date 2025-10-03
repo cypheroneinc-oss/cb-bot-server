@@ -1,3 +1,7 @@
+// Minimal-diff: 現行の安全対策/ログ設計を維持。
+// mapLikertToChoice をそのまま利用できるよう、answers の正規化は現行踏襲。
+// （左=YES の 6段Likert を使う場合、フロントが scaleMax=6 を渡せばOK）
+
 import crypto from 'node:crypto';
 import { score, QUESTION_VERSION, mapLikertToChoice, runDiagnosis } from '../../lib/scoring/index.js';
 import { getQuestionDataset } from '../../lib/questions/index.js';
@@ -6,7 +10,7 @@ import {
   saveResult,
   getShareCardImage,
   createOrReuseSession,
-  logSubmission, // ★ 追加
+  logSubmission, // ★ 既存ログ連携
 } from '../../lib/persistence.js';
 import {
   getClusterLabel,
@@ -79,12 +83,13 @@ function validateAnswers(rawAnswers, requestId){
     let resolvedScale = nScale;
     let resolvedScaleMax = nMax;
 
+    // Likertのみ（key未指定）でもOK。既存の mapLikertToChoice を利用。
     if (typeof resolvedKey !== 'string'){
       if (!Number.isFinite(resolvedScale)) return { ok:false, error:`Scale required for ${code}`, errorId:requestId };
       const mapped = mapLikertToChoice({ questionId: code, scale: resolvedScale, scaleMax: resolvedScaleMax });
       if (!mapped || typeof mapped.choiceKey !== 'string') return { ok:false, error:`Invalid scale for ${code}`, errorId:requestId };
       resolvedKey = mapped.choiceKey; weight = mapped.w;
-      if (!Number.isFinite(resolvedScaleMax)) resolvedScaleMax = 6;
+      if (!Number.isFinite(resolvedScaleMax)) resolvedScaleMax = 6; // 左=YES の 6段
     }
 
     if (!question.choices.some((c)=>c.key===resolvedKey)) return { ok:false, error:`Unknown choice ${resolvedKey} for ${code}`, errorId:requestId };
@@ -160,7 +165,7 @@ export function createSubmitHandler({
       try { await saveAnswersFn({ sessionId, answers: persistencePayload }); }
       catch (e){ console.warn('[submit:saveAnswers]', requestId, e?.message || e); }
 
-      // 採点・診断
+      // 採点・診断（互換の既存ロジックを利用）
       const scoring = scoreFn(normalized, QUESTION_VERSION);
       const prepared = normalized.map((it)=>({ questionId: it.code, choiceKey: it.key, ...(typeof it.w==='number'?{w:it.w}:{}) }));
       const diagnosis = runDiagnosisFn(prepared);
@@ -195,7 +200,7 @@ export function createSubmitHandler({
         console.warn('[submit:saveResult]', requestId, e?.message || e);
       }
 
-      // ★ ここで Supabase のログテーブルに1行記録（失敗してもUIは継続）
+      // 任意ログ（失敗してもUI継続）
       try {
         const demographics = sanitizeDemographics(body?.meta);
         await logSubmission({
