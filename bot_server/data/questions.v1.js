@@ -1,7 +1,7 @@
 export default [
   // Q01–Q24: Likert 6段（左=YES／右=NO）
   // 共通仕様：choices = POS / NEG（mapLikertToChoiceがscale→choiceKeyに変換）
-export default [
+
   { id: "Q01", text: "人が集まる場では、自分が中心になるより、周りを見て動く方が多い？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
