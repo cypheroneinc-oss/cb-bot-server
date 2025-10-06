@@ -213,6 +213,38 @@ button { font-family: inherit; }
 /* アクセシビリティ */
 .sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
+/* ===== Gate（A/B 二択） ===== */
+.question-card.gate h2 { margin-bottom: 16px; }
+.gate-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.gate-btn {
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(220, 245, 255, 0.70);
+  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(200,235,255,0.10));
+  color: var(--fg);
+  font-weight: 800;
+  letter-spacing: .2px;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.30);
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.gate-btn:hover { background: rgba(255,255,255,0.18); }
+.gate-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+.gate-btn.active {
+  background:
+    radial-gradient(60% 60% at 50% 38%, rgba(110,200,255,0.55), rgba(110,200,255,0.28) 66%, rgba(110,200,255,0.14) 100%),
+    linear-gradient(180deg, rgba(255,255,255,0.16), rgba(200,235,255,0.12));
+  border-color: rgba(235,250,255,0.95);
+  box-shadow:
+    0 0 0 6px rgba(110,200,255,0.24),
+    0 16px 34px rgba(110,200,255,0.34);
+  transform: translateY(-1px);
+}
+
 /* ===== フッター／ボタン ===== */
 .footer {
   position: sticky; bottom: 0; left: 0; right: 0;
