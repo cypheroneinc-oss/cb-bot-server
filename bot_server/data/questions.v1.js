@@ -2,76 +2,76 @@ export default [
   // Q01–Q24: Likert 6段（左=YES／右=NO）
   // 共通仕様：choices = POS / NEG（mapLikertToChoiceがscale→choiceKeyに変換）
 
-  { id: "Q01", text: "人が集まる場では、自分が中心になるより、周りを見て動く方が多い？",
+  { id: "Q01", text: "人が集まる場では<br>自分が中心になるより<br>周りを見て動く方が多い？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q02", text: "うまくいかなくても、『まあ次でいいか』と思えるタイプ？",
+  { id: "Q02", text: "うまくいかなくても<br>『まあ次でいいか』と思えるタイプ？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q03", text: "新しい方法より、まずは今のやり方を理解してから動きたい？",
+  { id: "Q03", text: "新しい方法よりもまずは<br>今のやり方を理解してから動きたい？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q04", text: "決まりや指示があっても、自分の考えを曲げずに動くことがある？",
+  { id: "Q04", text: "決まりや指示があっても<br>意見を曲げずに動くことがある？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q05", text: "知らない場所や初めての体験より、慣れた環境の方が落ち着く？",
+  { id: "Q05", text: "初めての場所や体験より<br>慣れた環境の方が落ち着く？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q06", text: "同じことの繰り返しでも、安心できる部分がある？",
+  { id: "Q06", text: "同じことの繰り返しでも<br>安心できる部分がある？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q07", text: "頭に浮かんだアイデアをすぐ形にせず、寝かせて考える方？",
+  { id: "Q07", text: "頭に浮かんだアイデアを<br>すぐ形にせず、寝かせて考える方？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q08", text: "自分の考えがみんなと同じでも、それはそれで安心できる？",
+  { id: "Q08", text: "自分の考えがみんなと同じでも<br>それはそれで安心できる？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q09", text: "答えが出ないことも、『そういうものか』と受け止められる？",
+  { id: "Q09", text: "答えが出ないことも<br>『そういうものか』と受け止められる？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q10", text: "細かい根拠よりも、まず直感で動くことが多い？",
+  { id: "Q10", text: "細かい根拠よりも<br>まず直感で動くことが多い？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q11", text: "目立つ変化より、じわじわと良くしていく方が好き？",
+  { id: "Q11", text: "目立つ変化より<br>徐々に良くしていく方が好き？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q12", text: "変化が多すぎる環境より、一定のペースを保てる環境が向いてる？",
+  { id: "Q12", text: "変化が多すぎる環境より<br>一定のペースを保てる環境が<br>向いてると思う？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q13", text: "人が落ち込んでいても、相手のペースを尊重して見守る方？",
+  { id: "Q13", text: "人が落ち込んでいても<br>相手のペースを尊重して見守る方？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q14", text: "困っている人がいても、自分ができる範囲を考えて動く？",
+  { id: "Q14", text: "困っている人がいても<br>自分ができる範囲を考えて動く？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q15", text: "グループでは、リーダーよりサポート側でいる方が落ち着く？",
+  { id: "Q15", text: "グループでは<br>リーダーよりもサポート側<br>でいる方が落ち着く？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q16", text: "ルールがなくても、状況を見て柔軟に動ける方？",
+  { id: "Q16", text: "ルールがなくても<br>状況を見て柔軟に動ける方？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q17", text: "みんなで過ごすより、一人の時間でリセットしたくなる？",
+  { id: "Q17", text: "みんなで過ごすより<br>ひとり時間で<br>リセットしたくなる？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q18", text: "みんなの輪に入りづらくても、無理に合わせようとは思わない？",
+  { id: "Q18", text: "みんなの輪に入りづらくても<br>無理に合わせようとは思わない？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q19", text: "誰かといてしーんとした時でも、気まずさをあまり感じない方？",
+  { id: "Q19", text: "誰かといてしーんとした時でも<br>気まずさをあまり感じない方？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q20", text: "退屈な時間があっても、心の整理やアイデア出しに使える方？",
+  { id: "Q20", text: "退屈な時間があっても<br>心の整理やアイデア出しに使える方？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q21", text: "大切な人や物がなくても、自分のために頑張れる？",
+  { id: "Q21", text: "大切な人や物がなくても<br>自分のために頑張れる？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q22", text: "自分の意見が通らなくても、『仕方ない』と切り替えられる？",
+  { id: "Q22", text: "自分の意見が通らなくても<br>『仕方ない』と切り替えられる？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q23", text: "理想よりも、現実的にできることから考える方？",
+  { id: "Q23", text: "理想よりも<br>現実的にできることから<br>考える方？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q24", text: "信じていたことが違っても、現実を受け止めて前に進める？",
+  { id: "Q24", text: "信じていたことが違っても<br>現実を受け止めて前に進める？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
 
