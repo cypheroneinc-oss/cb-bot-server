@@ -65,7 +65,7 @@ const MBTI_OPTIONS = [
 const appState = {
   version: QUESTION_VERSION,
   questions: [],
-  answers: new Map(),
+  answers: new Map(), // value: { scale?, scaleMax?, key? }
   sessionId: getSessionParam(),
   submitting: false,
   profile: { userId: 'debug-user', displayName: 'Debug User' },
@@ -161,7 +161,7 @@ async function ensureLiff() {
 
 async function init() {
   bindFooterActions();
-  bindLikertShortcuts();
+  bindLikertShortcuts();         // Likertだけに効く（Gateとは分離）
   bindDemographics();            // 先にプルダウンを埋める
   renderSkeleton();
   await loadQuestions();         // 先に設問を描画（LIFFに依存しない）
@@ -207,9 +207,16 @@ function renderSkeleton() {
 }
 
 async function loadQuestions() {
+  // choices を保持（Q25-30 の A/B 判定に使う）
   const qs = QUESTIONS.map((item, index) => ({
     code: item.id || item.code || `Q${index + 1}`,
     text: String(item.text ?? ''),
+    choices: Array.isArray(item.choices)
+      ? item.choices.map(c => ({
+          key: String(c?.key ?? '').toUpperCase(),
+          label: c?.label ?? c?.text ?? undefined,
+        }))
+      : undefined,
   }));
   if (!qs.length) throw new Error('診断データが取得できませんでした');
 
@@ -235,6 +242,13 @@ async function loadQuestions() {
   hideToast();
 }
 
+function isGate(question) {
+  const cs = question?.choices || [];
+  if (cs.length !== 2) return false;
+  const keys = cs.map(c => String(c.key || '').toUpperCase());
+  return keys.includes('A') && keys.includes('B');
+}
+
 function renderQuestions() {
   elements.questions.innerHTML = '';
   elements.questions.classList.remove('hidden');
@@ -243,6 +257,7 @@ function renderQuestions() {
   appState.questions.forEach((question) => {
     const card = document.createElement('section');
     card.className = 'question-card';
+    if (isGate(question)) card.classList.add('gate');
     card.dataset.questionCode = question.code;
 
     const heading = document.createElement('h2');
@@ -251,83 +266,147 @@ function renderQuestions() {
     heading.textContent = `${question.text}`; // ← 番号を出さない
     card.appendChild(heading);
 
-    const list = document.createElement('div');
-    list.className = 'choices likert-scale';
-    list.dataset.likertContainer = 'true';
-    list.setAttribute('role', 'radiogroup');
-    list.setAttribute('aria-labelledby', headingId);
-    list.tabIndex = 0;
+    if (isGate(question)) {
+      renderGateQuestion(question, card, headingId);
+    } else {
+      renderLikertQuestion(question, card, headingId);
+    }
 
-    const previousSelection = appState.answers.get(question.code);
-
-    LIKERT_OPTIONS.forEach((option) => {
-      const choiceId = `${question.code}-scale-${option.value}`;
-      const wrapper = document.createElement('div');
-      wrapper.className = 'likert-choice';
-
-      const input = document.createElement('input');
-      input.type = 'radio';
-      input.name = question.code;
-      input.id = choiceId;
-      input.value = String(option.value);
-      input.required = true;
-      input.className = 'likert-input';
-      if (Number(previousSelection) === option.value) input.checked = true;
-      input.addEventListener('change', () => handleAnswerChange(question.code, option.value));
-
-      const label = document.createElement('label');
-      label.setAttribute('for', choiceId);
-      label.className = `likert-option size-${option.size}`;
-      label.setAttribute('aria-label', `${option.label} (${option.value})`);
-
-      const diamond = document.createElement('span');
-      diamond.className = 'likert-diamond';
-      diamond.setAttribute('aria-hidden', 'true');
-
-      label.appendChild(diamond);
-      wrapper.appendChild(input);
-      wrapper.appendChild(label);
-      list.appendChild(wrapper);
-    });
-
-    card.appendChild(list);
-
-    const legend = document.createElement('div');
-    legend.className = 'likert-legend';
-    legend.setAttribute('aria-hidden', 'true');
-
-    const legendLeft = document.createElement('span');
-    legendLeft.className = 'legend-left';
-    legendLeft.textContent = 'とてもそう思う';
-
-    const legendBar = document.createElement('span');
-    legendBar.className = 'legend-bar';
-    legendBar.setAttribute('role', 'presentation');
-
-    const legendRight = document.createElement('span');
-    legendRight.className = 'legend-right';
-    legendRight.textContent = '全くそう思わない';
-
-    legend.appendChild(legendLeft);
-    legend.appendChild(legendBar);
-    legend.appendChild(legendRight);
-
-    card.appendChild(legend);
     elements.questions.appendChild(card);
   });
 }
 
+function renderLikertQuestion(question, card, headingId) {
+  const list = document.createElement('div');
+  list.className = 'choices likert-scale';
+  list.dataset.likertContainer = 'true';
+  list.setAttribute('role', 'radiogroup');
+  list.setAttribute('aria-labelledby', headingId);
+  list.tabIndex = 0;
+
+  const prev = appState.answers.get(question.code)?.scale;
+
+  LIKERT_OPTIONS.forEach((option) => {
+    const choiceId = `${question.code}-scale-${option.value}`;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'likert-choice';
+
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = question.code;
+    input.id = choiceId;
+    input.value = String(option.value);
+    input.required = true;
+    input.className = 'likert-input';
+    if (Number(prev) === option.value) input.checked = true;
+    input.addEventListener('change', () => setLikertAnswer(question.code, option.value));
+
+    const label = document.createElement('label');
+    label.setAttribute('for', choiceId);
+    label.className = `likert-option size-${option.size}`;
+    label.setAttribute('aria-label', `${option.label} (${option.value})`);
+
+    const diamond = document.createElement('span');
+    diamond.className = 'likert-diamond';
+    diamond.setAttribute('aria-hidden', 'true');
+
+    label.appendChild(diamond);
+    wrapper.appendChild(input);
+    wrapper.appendChild(label);
+    list.appendChild(wrapper);
+  });
+
+  card.appendChild(list);
+
+  const legend = document.createElement('div');
+  legend.className = 'likert-legend';
+  legend.setAttribute('aria-hidden', 'true');
+
+  const legendLeft = document.createElement('span');
+  legendLeft.className = 'legend-left';
+  legendLeft.textContent = 'とてもそう思う';
+
+  const legendBar = document.createElement('span');
+  legendBar.className = 'legend-bar';
+  legendBar.setAttribute('role', 'presentation');
+
+  const legendRight = document.createElement('span');
+  legendRight.className = 'legend-right';
+  legendRight.textContent = '全くそう思わない';
+
+  legend.appendChild(legendLeft);
+  legend.appendChild(legendBar);
+  legend.appendChild(legendRight);
+
+  card.appendChild(legend);
+}
+
+function renderGateQuestion(question, card, headingId) {
+  const list = document.createElement('div');
+  list.className = 'choices gate-choices';
+  list.setAttribute('role', 'radiogroup');
+  list.setAttribute('aria-labelledby', headingId);
+  list.tabIndex = 0;
+
+  const prevKey = appState.answers.get(question.code)?.key || '';
+
+  question.choices.forEach((ch) => {
+    const key = String(ch.key || '').toUpperCase();
+    const text = ch.label || (key === 'A' ? 'A' : 'B');
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'gate-btn';
+    btn.dataset.key = key;
+    btn.setAttribute('role', 'radio');
+    btn.setAttribute('aria-checked', prevKey === key ? 'true' : 'false');
+    btn.textContent = text;
+    if (prevKey === key) btn.classList.add('active');
+
+    btn.addEventListener('click', () => {
+      setGateAnswer(question.code, key);
+      list.querySelectorAll('.gate-btn').forEach((b) => {
+        const active = b.dataset.key === key;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-checked', active ? 'true' : 'false');
+      });
+    });
+
+    list.appendChild(btn);
+  });
+
+  // キーボード操作（←/→、↑/↓、1/2）
+  list.addEventListener('keydown', (e) => {
+    const choose = (k) => {
+      const target = list.querySelector(`.gate-btn[data-key="${k}"]`);
+      if (target) { target.click(); target.focus(); }
+    };
+    if (['ArrowLeft', 'ArrowUp', '1'].includes(e.key)) { e.preventDefault(); choose('A'); }
+    if (['ArrowRight','ArrowDown','2'].includes(e.key)) { e.preventDefault(); choose('B'); }
+  });
+
+  card.appendChild(list);
+}
+
 /* ---------- state & submit ---------- */
 
-function handleAnswerChange(code, scale) {
+function setLikertAnswer(code, scale) {
   const numericScale = Number(scale);
   if (!Number.isFinite(numericScale)) return;
-  appState.answers.set(code, numericScale);
+  appState.answers.set(code, { scale: numericScale, scaleMax: 6 });
+  updateProgress();
+}
+function setGateAnswer(code, key) {
+  const k = String(key || '').toUpperCase();
+  if (k !== 'A' && k !== 'B') return;
+  // サーバ互換のため固定スケールも付与（submit 側の分岐不要）
+  appState.answers.set(code, { key: k, scale: 3, scaleMax: 6 });
   updateProgress();
 }
 
 function updateProgress() {
   const total = appState.questions.length || 25;
+  // Map の要素は「有効回答」だけを入れているので size で判定してOK
   const answered = appState.answers.size;
   const remaining = Math.max(total - answered, 0);
 
@@ -364,13 +443,21 @@ async function onSubmit() {
   elements.submitContent.innerHTML = '<span class="spinner" aria-hidden="true"></span>';
 
   try {
+    const answers = Array.from(appState.answers.entries()).map(([code, v]) => {
+      const isGate = v && typeof v.key === 'string' && (v.key === 'A' || v.key === 'B');
+      if (isGate) {
+        // Gate: key を持たせつつ、scale/scaleMax で既存API互換
+        return { code, key: v.key, scale: v.scale ?? 3, scaleMax: v.scaleMax ?? 6 };
+      }
+      // Likert
+      return { code, scale: v.scale, scaleMax: v.scaleMax ?? 6 };
+    });
+
     const payload = {
       userId: appState.profile.userId,
       sessionId: appState.sessionId,
       version: QUESTION_VERSION,
-      answers: Array.from(appState.answers.entries()).map(([code, scale]) => ({
-        code, scale, scaleMax: 6,
-      })),
+      answers,
       meta: { liff: true, demographics: { ...appState.demographics } },
     };
 
@@ -504,7 +591,7 @@ function fillParagraphs(container, paras) {
 }
 function createLi(text) { const li = document.createElement('li'); li.textContent = text; return li; }
 
-/* ---------- share ---------- */
+/* ---------- Likert shortcuts (Likertだけ対象) ---------- */
 function bindLikertShortcuts() {
   if (bindLikertShortcuts._bound) return;
   bindLikertShortcuts._bound = true;
@@ -513,7 +600,7 @@ function bindLikertShortcuts() {
     const active = document.activeElement;
     if (!active || typeof active.closest !== 'function') return;
     const container = active.closest('[data-likert-container]');
-    if (!container) return;
+    if (!container) return; // Gateには作用しない
     const input = container.querySelector(`input[value="${event.key}"]`);
     if (!input) return;
     event.preventDefault();
