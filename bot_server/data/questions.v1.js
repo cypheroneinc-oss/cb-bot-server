@@ -1,96 +1,110 @@
 export default [
   // Q01–Q24: Likert 6段（左=YES／右=NO）
   // 共通仕様：choices = POS / NEG（mapLikertToChoiceがscale→choiceKeyに変換）
-  { id: "Q01", text: "クラスや部活でトラブルが起きたら、自分が前に出てまとめたいと思う？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q02", text: "頑張ったのに力を出し切れなかったとき、すごく悔しい？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q03", text: "きっちり決まったやり方より、自分なりのやり方を試したくなる？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q04", text: "「言われた通りにやれ」と強く言われると、反発したくなる気持ちが出る？",
+export default [
+  { id: "Q01", text: "人が集まる場では、自分が中心になるより、周りを見て動く方が多い？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q05", text: "初めて行く場所や新しい遊びを見つけると、すぐ試したくなる？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q06", text: "毎日同じことの繰り返しってつまらないと思う？",
+  { id: "Q02", text: "うまくいかなくても、『まあ次でいいか』と思えるタイプ？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q07", text: "授業中やノートのすみに、アイデアや絵を描きたくなることある？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q08", text: "自分の作品や意見がみんなと同じだと、がっかりする？",
+  { id: "Q03", text: "新しい方法より、まずは今のやり方を理解してから動きたい？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q09", text: "わからないことがあると、調べて本当の理由を知りたくなる？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q10", text: "思い込みで動いたり、間違ったことを広めるのは恐い？",
+  { id: "Q04", text: "決まりや指示があっても、自分の考えを曲げずに動くことがある？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q11", text: "工夫して、みんなが驚くような変化を起こしたい？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q12", text: "どれだけ頑張っても何も変わらない状況ってイヤ？",
+  { id: "Q05", text: "知らない場所や初めての体験より、慣れた環境の方が落ち着く？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q13", text: "友達が落ち込んでたら、放っておけない？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q14", text: "助けたいのに何もできない状況ってつらい？",
+  { id: "Q06", text: "同じことの繰り返しでも、安心できる部分がある？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q15", text: "グループ活動のとき、自然と役割分担や進め方を考える方？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q16", text: "ルールや指示がなくてバラバラだと、不安になる？",
+  { id: "Q07", text: "頭に浮かんだアイデアをすぐ形にせず、寝かせて考える方？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q17", text: "クラスや部活でみんなと一緒に過ごせると安心する？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q18", text: "自分だけ呼ばれなかったり浮くと気になる？",
+  { id: "Q08", text: "自分の考えがみんなと同じでも、それはそれで安心できる？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q19", text: "空気が重いとき、冗談や一言で場を明るくしたくなる？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q20", text: "退屈な時間が続くとイライラする？",
+  { id: "Q09", text: "答えが出ないことも、『そういうものか』と受け止められる？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q21", text: "大切にしたい人や物があると、自然とがんばれる？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q22", text: "自分の気持ちを無視されるのはつらい？",
+  { id: "Q10", text: "細かい根拠よりも、まず直感で動くことが多い？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
 
-  { id: "Q23", text: "人や世界を信じたい、もっと良い世界があるって思う？",
+  { id: "Q11", text: "目立つ変化より、じわじわと良くしていく方が好き？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-  { id: "Q24", text: "信じてたものに裏切られるとすごく落ち込む？",
+
+  { id: "Q12", text: "変化が多すぎる環境より、一定のペースを保てる環境が向いてる？",
     choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q13", text: "人が落ち込んでいても、相手のペースを尊重して見守る方？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q14", text: "困っている人がいても、自分ができる範囲を考えて動く？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q15", text: "グループでは、リーダーよりサポート側でいる方が落ち着く？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q16", text: "ルールがなくても、状況を見て柔軟に動ける方？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q17", text: "みんなで過ごすより、一人の時間でリセットしたくなる？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q18", text: "みんなの輪に入りづらくても、無理に合わせようとは思わない？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q19", text: "誰かといてしーんとした時でも、気まずさをあまり感じない方？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q20", text: "退屈な時間があっても、心の整理やアイデア出しに使える方？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q21", text: "大切な人や物がなくても、自分のために頑張れる？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q22", text: "自分の意見が通らなくても、『仕方ない』と切り替えられる？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q23", text: "理想よりも、現実的にできることから考える方？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
+  { id: "Q24", text: "信じていたことが違っても、現実を受け止めて前に進める？",
+    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+
 
   // Q25–Q30: Gate（二択・A/B）
   // 共通仕様：choices = A / B（タイブレークと軽い加点に使用）
   { id: "Q25", text: "リーダーになるなら →",
     choices: [
-      { key: "A", label: "前に出て引っ張る（Hero）" },
-      { key: "B", label: "全体をまとめる（Ruler）" }
+      { key: "A", label: "みんなを前で引っ張る" },
+      { key: "B", label: "バランス見て全体をまとめる" }
     ]},
   { id: "Q26", text: "楽しいのは →",
     choices: [
-      { key: "A", label: "新しいことを試す（Explorer）" },
-      { key: "B", label: "正しい答えを探す（Sage）" }
+      { key: "A", label: "新しいことを試す" },
+      { key: "B", label: "正しい答えを探す" }
     ]},
   { id: "Q27", text: "近いのは →",
     choices: [
-      { key: "A", label: "人と深くつながりたい（Lover）" },
-      { key: "B", label: "人を支えたい（Caregiver）" }
+      { key: "A", label: "人と深くつながりたい" },
+      { key: "B", label: "人を支えたい" }
     ]},
   { id: "Q28", text: "自分らしいのは →",
     choices: [
-      { key: "A", label: "場を盛り上げたい（Jester）" },
-      { key: "B", label: "みんなと同じ空気でいたい（Everyman）" }
+      { key: "A", label: "場を盛り上げたい" },
+      { key: "B", label: "みんなと同じ空気でいたい" }
     ]},
   { id: "Q29", text: "変えるなら →",
     choices: [
-      { key: "A", label: "いらないものは壊す（Outlaw）" },
-      { key: "B", label: "工夫して変化を起こす（Magician）" }
+      { key: "A", label: "いらないものは壊す" },
+      { key: "B", label: "工夫して変化を起こす" }
     ]},
   { id: "Q30", text: "ワクワクするのは →",
     choices: [
-      { key: "A", label: "知識を集めて理解する（Sage）" },
-      { key: "B", label: "形にして表現する（Creator）" }
+      { key: "A", label: "知識を集めて理解する" },
+      { key: "B", label: "形にして表現する" }
     ]}
 ];
