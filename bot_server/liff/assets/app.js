@@ -210,7 +210,8 @@ async function loadQuestions() {
   // choices を保持（Q25-30 の A/B 判定に使う）
   const qs = QUESTIONS.map((item, index) => ({
     code: item.id || item.code || `Q${index + 1}`,
-    text: String(item.text ?? ''),
+    // \n が二重にエスケープされて届くケースを吸収（"\\n" -> "\n"）
+    text: String(item.text ?? '').replace(/\\n/g, '\n'),
     choices: Array.isArray(item.choices)
       ? item.choices.map(c => ({
           key: String(c?.key ?? '').toUpperCase(),
@@ -264,6 +265,9 @@ function renderQuestions() {
     const headingId = `${question.code}-title`;
     heading.id = headingId;
     heading.textContent = `${question.text}`; // ← 番号を出さない
+    // 改行と中央揃えを明示（CSSがなくても効くようにインラインで指定）
+    heading.style.whiteSpace = 'pre-line';
+    heading.style.textAlign = 'center';
     card.appendChild(heading);
 
     if (isGate(question)) {
