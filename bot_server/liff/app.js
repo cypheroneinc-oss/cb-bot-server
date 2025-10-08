@@ -1,520 +1,409 @@
-/* =========================
-   C Lab｜個性チェック（フロントのみ）
-   - UI/文言は変更なし
-   - 送信は /api/answer にPOST（JSON）
-   ========================= */
+// filename: bot_server/liff/assets/app.js
+import { diagnose, quickQC } from '../../lib/scoring.js';
 
-const LIFF_ID  = '2008019437-Jxwm33XM';
-const LIFF_URL = `https://liff.line.me/${LIFF_ID}`;
-const SHARE_IMAGE_URL = `${location.origin}/liff/assets/c_lab_share.png?v=1`;
-const LANDING_URL     = location.origin + '/liff/index.html';
-
-// ---------- helpers ----------
-const $  = (sel, p=document) => p.querySelector(sel);
-const $$ = (sel, p=document) => Array.from(p.querySelectorAll(sel));
-const escapeHtml = (s)=> String(s||'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const normalize = (s)=> String(s||'')
-  .replace(/\u3000/g,' ')   // 全角スペース→半角
-  .replace(/\s+/g,' ')      // 改行/連続空白→単一スペース
-  .trim();
-
-function getPronounFromGender(){
-  const g = $('#gender')?.value || '';
-  if (g==='male') return 'ぼく';
-  if (g==='female') return 'わたし';
-  return 'わたし';
-}
-
-// === モチベ圧縮（送信時のみ裏で変換） ===
-// フォームの文言 → 短いカテゴリ名（DB保存用）
-const MOTIVATION_MAP = new Map([
-  ['がんばって結果を出したとき／達成したとき', '達成'],
-  ['人にほめられたり「いいね！」って言われたとき', '承認'],
-  ['人の役に立てたとき', '貢献'],
-  ['安心できる場所や環境にいるとき', '安心'],
-  ['新しいことを知ったり学べたとき', '探究'],
-  ['自分のやり方で自由にできるとき', '自由'],
-  ['友だちや仲間と一緒にやっているとき', '仲間'],
-  ['少しでも自分が成長したと感じたとき', '成長'],
-  ['おこづかいやお金がもらえたとき', '金銭'],
-  ['リーダーになれたり、みんなから頼られたとき', 'リーダー'],
-  ['楽しいことやワクワクすることができたとき', '楽しさ'],
-  ['むずかしいことにチャレンジできたとき', '挑戦'],
-  ['人を動かしたり、大きな影響をあたえられたとき', '影響'],
-].map(([k,v])=>[normalize(k), v]));
-
-function compactMotivation(arr=[]) {
-  return arr.map(v=>{
-    const n = normalize(v);
-    if (MOTIVATION_MAP.has(n)) return MOTIVATION_MAP.get(n);
-    if (n.includes('お金')||n.includes('おこづかい')) return '金銭';
-    if (n.includes('達成')||n.includes('結果')) return '達成';
-    if (n.includes('ほめ')||n.includes('いいね')) return '承認';
-    if (n.includes('役に立')) return '貢献';
-    if (n.includes('安心')) return '安心';
-    if (n.includes('学べ')||n.includes('新しいこと')||n.includes('知った')) return '探究';
-    if (n.includes('自由')) return '自由';
-    if (n.includes('仲間')) return '仲間';
-    if (n.includes('成長')) return '成長';
-    if (n.includes('リーダ')||n.includes('頼られ')) return 'リーダー';
-    if (n.includes('楽しい')||n.includes('ワクワク')) return '楽しさ';
-    if (n.includes('チャレンジ')||n.includes('むずかしい')) return '挑戦';
-    if (n.includes('影響')||n.includes('動かした')) return '影響';
-    return v;
-  });
-}
-
-const CAPTION_LINE = (title)=>
-  `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は『${title}』だった！やってみて！`;
-const CAPTION_OTHERS = (title)=>
-  `１０秒でわかる、あなたの「個性」。${getPronounFromGender()}は『${title}』だった！みんなは？👇 #CLab #Cbyme #個性チェック`;
-
-function valRadio(name){ const v = $(`input[name="${name}"]:checked`); return v?v.value:null; }
-function valsCheckedOrdered(name){
-  return $$(`input[name="${name}"]:checked`)
-    .sort((a,b)=>Number(a.dataset.order||9e9)-Number(b.dataset.order||9e9))
-    .slice(0,3).map(b=>b.value);
-}
-
-// ---------- Q3 同期（安全版） ----------
-function syncMotivationHidden(){
-  const hidden = $('#q3-hidden'); if(!hidden) return;
-  $$('input[name="q3"]', hidden).forEach(cb=>{ cb.checked=false; delete cb.dataset.order; });
-
-  ['mot1','mot2','mot3'].forEach((id, idx)=>{
-    const sel = document.getElementById(id);
-    const v   = sel?.value;
-    if(!v) return;
-    const vN = normalize(v);
-    const target = $$('input[name="q3"]', hidden).find(cb => normalize(cb.value)===vN);
-    if(target){
-      target.checked = true;
-      target.dataset.order = String(idx+1);
-    }
-  });
-
-  console.log('[sync] q3:', valsCheckedOrdered('q3'));
-}
-
-// ---------- LIFF init ----------
-async function initLIFF(){
-  try{
-    if($('#status')) $('#status').textContent='LIFF 初期化中…';
-    if(typeof window.liff==='undefined') throw new Error('LIFF SDK not available');
-
-    await liff.init({ liffId: LIFF_ID });
-
-    if(!liff.isInClient()){
-      $('#status').textContent='LINEアプリで開くと共有できます';
-      const btn = $('#share-line');
-      if(btn){ btn.textContent='LINEで開き直す'; btn.onclick = ()=>{ location.href = LIFF_URL; }; }
-      if(!liff.isLoggedIn()) return liff.login();
-    }else{
-      if(!liff.isLoggedIn()) return liff.login();
-    }
-
-    const prof = await liff.getProfile();
-    window.currentProfile = prof;
-    $('#status').textContent='読み込み完了';
-    setupFormHandlers(prof);
-  }catch(e){
-    console.error('LIFF initialization error:', e);
-    const dummy = { userId:'liff-init-failed-'+Date.now(), displayName:'LIFFエラーユーザー', pictureUrl:null };
-    window.dummyProfile = dummy;
-    setupFormHandlers(dummy);
-    if($('#status')) $('#status').textContent='LIFF初期化失敗（ブラウザモード）';
+/* -----------------------------
+ * 動的ロード
+ * --------------------------- */
+let QUESTIONS = null;
+async function loadQuestions() {
+  if (QUESTIONS) return QUESTIONS;
+  const candidates = ['../../data/questions.v1.js', '/data/questions.v1.js'];
+  let lastErr;
+  for (const p of candidates) {
+    try {
+      const m = await import(/* @vite-ignore */ p);
+      QUESTIONS = m.default || m.QUESTIONS || null;
+      if (Array.isArray(QUESTIONS) && QUESTIONS.length) return QUESTIONS;
+    } catch (e) { lastErr = e; }
   }
+  console.error('[questions] failed to load', lastErr);
+  return null;
 }
 
-// ---------- フォーム ----------
-function setupFormHandlers(profile){
-  const form = $('#personalityForm');
-  if(form){
-    form.addEventListener('submit', (e)=> onSubmit(e, profile));
-  }
-
-  const runBtn = $('#run');
-  if(runBtn){
-    runBtn.addEventListener('click', (e)=>{
-      e.preventDefault();
-      if(form){
-        if(typeof form.requestSubmit === 'function') form.requestSubmit();
-        else form.dispatchEvent(new Event('submit', { cancelable:true, bubbles:true }));
-      }else{
-        onSubmit(e, profile || window.dummyProfile || { userId:'anonymous', displayName:'Anonymous' });
+let WEIGHTS = null;
+async function loadWeights() {
+  if (WEIGHTS) return WEIGHTS;
+  const candidates = ['../../lib/archetype-weights.v1.json', '/lib/archetype-weights.v1.json'];
+  let lastErr;
+  for (const p of candidates) {
+    try {
+      const res = await fetch(p, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json && typeof json === 'object' && Object.keys(json).length >= 12) {
+        WEIGHTS = json;
+        return WEIGHTS;
       }
-    });
+    } catch (e) { lastErr = e; }
   }
+  console.error('[weights] failed to load', lastErr);
+  return null;
 }
 
-async function onSubmit(e, prof){
-  e.preventDefault();
+/* ----------------------------- */
+const QUESTION_VERSION = 'v1';
 
-  // 最新状態へ同期
-  syncMotivationHidden();
+/* 6件法（左：とてもそう思う → 右：まったくそう思わない）*/
+const LIKERT_REVERSED = [
+  { value: 6, label: 'とてもそう思う' },
+  { value: 5, label: 'かなりそう思う' },
+  { value: 4, label: '少しそう思う' },
+  { value: 3, label: '少しそう思わない' },
+  { value: 2, label: 'かなりそう思わない' },
+  { value: 1, label: 'まったくそう思わない' },
+];
 
-  // 検証
-  if(!validateForm()){
-    console.warn('[validate] failed');
+/* ----------------------------- */
+window.addEventListener('DOMContentLoaded', () => { mountApp(); });
+
+async function mountApp() {
+  const mount = document.querySelector('#questions');
+  if (!mount) { console.error('[app] #questions not found'); return; }
+
+  const qs = await loadQuestions();
+  if (!qs) {
+    mount.innerHTML = `<div class="load-error">設問データの読み込みに失敗しました。/data/questions.v1.js を確認してください。</div>`;
     return;
   }
 
-  const answers = collectAnswers();
-  const result  = buildResult(answers);
+  mount.innerHTML = renderSurvey(qs);
+  bindSurveyHandlers();     // ← フッターに結線
+  updateCounters();
 
-  renderResultCard(result, prof, answers);
-  console.log('[render] done, showing modal…');
-
-  // 送信は後段・非同期（表示は阻害しない）
-  sendAnswer(prof, answers, result).catch(err=>{
-    console.warn('sendAnswer failed (display continues):', err);
-  });
+  // ▼ ここだけ追加：プルダウンの選択肢を注入
+  initDemographics();
 }
 
-function validateForm(){
-  const answers = collectAnswers();
+/* -----------------------------
+ * 設問UI（ページ内ナビは生成しない）
+ * --------------------------- */
+function renderSurvey(qs) {
+  const groups = chunk(qs, 10); // 36問なら 10/10/10/6 の4ページ
+  const pagesHtml = groups.map((g, pageIdx) => `
+    <section class="page" data-page="${pageIdx}">
+      ${g.map(renderItem).join('')}
+    </section>
+  `).join('');
 
-  for(const k of ['q1','q2','q4','q5','q6','q7','q8']){
-    if(!answers[k]){ alert('未回答の設問があります。'); return false; }
-  }
-  if(!answers.q3.length){ alert('「やる気が出る理由」を1つ以上選んでください。'); return false; }
-  if(!answers.gender || !answers.age){ alert('性別と年齢を入力してください。'); return false; }
-
-  return true;
+  return `
+    <form id="survey-form" aria-live="polite">
+      ${pagesHtml}
+    </form>
+    <section class="result-card hidden" id="result"></section>
+  `;
 }
 
-function collectAnswers(){
-  const age    = $('#age')?.value || '';
-  const gender = $('#gender')?.value || '';
-  const mbti   = $('#mbti')?.value || '';
-  return {
-    q1: valRadio('q1'),
-    q2: valRadio('q2'),
-    q4: valRadio('q4'),
-    q5: valRadio('q5'),
-    q6: valRadio('q6'),
-    q7: valRadio('q7'),
-    q8: valRadio('q8'),
-    q3: valsCheckedOrdered('q3'),
-    age, gender, mbti
-  };
-}
-
-// ---------- 診断ロジック ----------
-function buildResult(ans){
-  let sChallenge=0, sPlan=0;
-  if(ans.q1==='A') sChallenge++; else if(ans.q1==='B') sPlan++;
-  if(ans.q2==='A') sChallenge++; else if(ans.q2==='B') sPlan++;
-  if(ans.q5==='A') sChallenge++; else sPlan++;
-  if(ans.q6==='A') sChallenge++; else sPlan++;
-  if(ans.q7==='A') sChallenge++; else sPlan++;
-  if(ans.q8==='B') sChallenge++; else sPlan++;
-
-  let typeKey='balance';
-  if(sChallenge - sPlan >= 2) typeKey='challenge';
-  else if(sPlan - sChallenge >= 2) typeKey='plan';
-
-  const TYPES = {
-    challenge:{
-      title:'チャレンジ先行タイプ💪',
-      tagline:'思い立ったらすぐ動ける！まずやってみて、直しながら前へ進むのが得意。',
-      style:'スピード感のある環境／小さく試して改善していく働き方',
-      jobs:[
-        '企画・プロデュース（新しい案を形にする）',
-        'セールス／提案（訪問・オンライン）',
-        '広報・SNS運用（発信して人を集める）',
-        'イベント運営・プロモーション',
-        '新サービスづくり（試作・PoC）',
-        '取材・インタビュー（現場で動いて集める）'
-      ],
-      advice:'走り出しは強み。あとで「なぜそうしたか」を一言メモに残すと説得力UP。小さなゴールを細かく刻むと達成感が積み上がる。'
-    },
-    plan:{
-      title:'計画ていねいタイプ🧭',
-      tagline:'全体像を整理してから進むほうが力を発揮！再現性や安定感が武器。',
-      style:'見通しが立つ環境／手順やルールを整えて進める働き方',
-      jobs:[
-        '事務・総務（書類／備品／スケジュール管理）',
-        '経理アシスタント（伝票チェック・支払処理）',
-        'データ入力・データ整備',
-        '品質管理・検査（チェックリストで確認）',
-        '資料作成（Excel・PowerPoint）',
-        '在庫／発注管理（コツコツ把握してズレを防ぐ）'
-      ],
-      advice:'最初に段取りを書き出すと安心感とスピードが両立。区切りごとに振り返りをルーチン化すると成果が伸びる。'
-    },
-    balance:{
-      title:'バランス型🧩',
-      tagline:'状況を見て攻守を切り替えられるオールラウンダー！',
-      style:'変化に強い環境／状況で役割を調整する働き方',
-      jobs:[
-        'プロジェクト進行管理（ディレクター／アシスタント）',
-        'カスタマーサポート／ヘルプデスク',
-        '人事・採用アシスタント（面談調整・連絡）',
-        'コミュニティ運営・ファン対応',
-        '学習サポート／塾TA・メンター',
-        'シフト調整・現場リーダー（みんなを支える）'
-      ],
-      advice:'優先度の基準を1つ決めておくと判断がさらに速くなる。'
-    }
-  };
-
-  const picked = TYPES[typeKey];
-
-  return {
-    typeKey,
-    typeTitle: picked.title,
-    tagline:  picked.tagline,
-    style:    picked.style,
-    jobs:     picked.jobs,
-    advice:   picked.advice,
-    barnum:   barnumComments(ans, picked.title.replace(/💪|🧭|🧩/g,'').trim()),
-    motivationTop3: ans.q3
-  };
-}
-
-function barnumComments(ans, typeRaw){
-  const out=[]; const push=(t)=>{ if(t && !out.includes(t) && out.length<3) out.push(t); };
-  const pick = ans.q3||[]; const has=(kw)=> pick.some(v=>v.includes(kw));
-
-  if(typeRaw.includes('チャレンジ')){ push('思い立ったらすぐ動きたくなる日がある。'); push('フットワークが軽いと言われがち。'); }
-  else if(typeRaw.includes('計画')){ push('予定や段取りが見えると心が落ち着く。'); push('道具や設定を整えると気分が上がる。'); }
-  else { push('状況を見て切り替えるのがわりと得意。'); }
-
-  if(has('承認')) push('誰かに見てもらえると、不思議と力が出る。');
-  if(has('自由')) push('やることは自分で決めたい、と思う場面がある。');
-  if(has('仲間')) push('同じ方向を見る仲間がいると、自然とテンションが上がる。');
-  if(has('成長')) push('昨日より少し進んだ実感があると機嫌が良い。');
-  if(has('安心')) push('いつもの場所や手順だとリズムに乗りやすい。');
-  if(has('探究')) push('気になったら検索やメモが止まらない。');
-  if(has('貢献')) push('「ありがとう」の一言で元気が戻る。');
-  if(has('達成')) push('チェックが一つ消えるだけでスッキリする。');
-
-  ['初対面でも空気を読むのはわりと得意なほう。',
-   '一人の時間と誰かと一緒の時間、どちらも大切にしたいタイプ。',
-   '気に入ったものは長く使うほう。'
-  ].forEach(push);
-
-  return out.slice(0,3);
-}
-
-// ---------- モーダル ----------
-function showResultModal(){
-  const modal = $('#result-modal');
-  if(modal){
-    modal.classList.add('show');
-    document.body.style.overflow='hidden';
-    console.log('[modal] show ->', modal.className);
-  }
-}
-function hideResultModal(){
-  const modal = $('#result-modal');
-  if(modal){
-    modal.classList.remove('show');
-    document.body.style.overflow='';
-  }
-}
-
-// ---------- 結果描画 ----------
-function renderResultCard(result, prof, ans){
-  const wrap = $('#result-content'); if(!wrap) return;
-
-  const mot = (result.motivationTop3||[]).map((m,i)=>`${i+1}位：${m}`).join(' / ');
-  const jobs = (result.jobs||[]).map(j=>`<li>${escapeHtml(j)}</li>`).join('');
-
-  wrap.innerHTML = `
-    <div class="card">
-      <h3 class="ttl">【${escapeHtml(result.typeTitle)}】</h3>
-      <p class="lead">${escapeHtml(result.tagline)}</p>
-
-      <h4>「あなた」の個性✨</h4>
-      <ul class="dots">${result.barnum.map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ul>
-
-      <h4>かがやくはたらき方⚡️</h4>
-      <p>${escapeHtml(result.style)}</p>
-
-      <h4>向いているしごとの例💼</h4>
-      <ul class="dots">${jobs}</ul>
-
-      <h4>あなたのやる気スイッチ💡</h4>
-      <p>${mot || '—'}</p>
-
-      <h4>👇今すぐ友達にシェア👇</h4>
-      <div class="share">
-        <button id="share-line"   class="btn sub">LINEで送る</button>
-        <button id="share-system" class="btn sub">ほかのアプリでシェア</button>
+/* 1問カード（ひし形下の可視ラベルは無し） */
+function renderItem(q) {
+  const name = q.id;
+  const opts = LIKERT_REVERSED.map((o) => {
+    const id = `${name}-${o.value}`;
+    return `
+      <div class="likert-choice">
+        <input class="likert-input" type="radio" id="${id}" name="${name}" value="${o.value}" required>
+        <label class="likert-option size-small" for="${id}">
+          <span class="likert-diamond" aria-hidden="true"></span>
+          <span class="sr-only">${o.label}</span>
+        </label>
       </div>
-    </div>`;
+    `;
+  }).join('');
 
-  // モーダル表示
-  showResultModal();
-
-  // 再バインド
-  $('#share-line')?.addEventListener('click', shareOnLINE);
-  $('#share-system')?.addEventListener('click', shareOtherApps);
+  return `
+    <article class="question-card">
+      <h2 class="q-text">${escapeHtml(q.text)}</h2>
+      <div class="choices likert-scale">
+        ${opts}
+      </div>
+      <div class="likert-legend" aria-hidden="true">
+        <span>とてもそう思う</span>
+        <span class="legend-bar"></span>
+        <span>まったくそう思わない</span>
+      </div>
+    </article>
+  `;
 }
 
-// ---------- スコア（分析用） ----------
-function computeScoring(ab){
-  let challenge=0, plan=0;
-  if(ab.q1==='A') challenge++; else if(ab.q1==='B') plan++;
-  if(ab.q2==='A') challenge++; else if(ab.q2==='B') plan++;
-  if(ab.q5==='A') challenge++; else plan++;
-  if(ab.q6==='A') challenge++; else plan++;
-  if(ab.q7==='A') challenge++; else plan++;
-  if(ab.q8==='B') challenge++; else plan++;
-  const typeKey = (challenge-plan>=2)?'challenge':(plan-challenge>=2)?'plan':'balance';
-  return { challenge, plan, typeKey };
+/* -----------------------------
+ * ページング（フッターの既存ボタンで制御）
+ * --------------------------- */
+function bindSurveyHandlers() {
+  const form = document.querySelector('#survey-form');
+  const pages = [...form.querySelectorAll('.page')];
+  let pageIndex = 0;
+
+  // 既存フッター要素
+  const backBtn = document.getElementById('retryButton');   // secondary
+  const nextBtn = document.getElementById('submitButton');  // primary
+  const nextLabel = document.getElementById('submitContent');
+
+  // クリックハンドラ
+  backBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (pageIndex > 0) {
+      pageIndex -= 1;
+      updatePage();
+    }
+  });
+  nextBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const isLast = pageIndex === pages.length - 1;
+    if (!isLast) {
+      if (!validateCurrentPage()) { toast('未回答の項目があります'); return; }
+      pageIndex = Math.min(pages.length - 1, pageIndex + 1);
+      updatePage();
+    } else {
+      if (!validateAll()) { toast('未回答の項目があります'); return; }
+      onSubmit();
+    }
+  });
+
+  // 入力のたびに進捗/活性を更新
+  form.addEventListener('change', () => {
+    updateCounters();
+    refreshFooter();
+  });
+
+  // 初期表示
+  updatePage();
+
+  function updatePage() {
+    pages.forEach((p, i) => p.hidden = i !== pageIndex);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    updateCounters();
+    refreshFooter();
+  }
+
+  function validateCurrentPage() {
+    const current = pages[pageIndex];
+    const inputs = current.querySelectorAll('input[type="radio"]');
+    const groups = groupBy([...inputs], el => el.name);
+    return Object.values(groups).every(arr => arr.some(el => el.checked));
+  }
+
+  function validateAll() {
+    const inputs = form.querySelectorAll('input[type="radio"]');
+    const groups = groupBy([...inputs], el => el.name);
+    return Object.values(groups).every(arr => arr.some(el => el.checked));
+  }
+
+  function refreshFooter() {
+    const isFirst = pageIndex === 0;
+    const isLast  = pageIndex === pages.length - 1;
+
+    // 戻る：1ページ目は隠す
+    if (backBtn) {
+      backBtn.classList.toggle('hidden', isFirst);
+      backBtn.textContent = '戻る';
+      backBtn.disabled = isFirst;
+    }
+
+    // 次へ／結果を見る
+    if (nextBtn && nextLabel) {
+      nextLabel.textContent = isLast ? '結果を見る' : '次へ';
+      nextBtn.disabled = isLast ? !validateAll() : !validateCurrentPage();
+      nextBtn.classList.remove('hidden');
+    }
+
+    // 診断前は結果用アクションを隠す
+    document.getElementById('resultActions')?.classList.add('hidden');
+  }
 }
 
-// ---------- 送信 ----------
-async function sendAnswer(profile, answers, result){
-  const ab = { q1:answers.q1, q2:answers.q2, q4:answers.q4, q5:answers.q5, q6:answers.q6, q7:answers.q7, q8:answers.q8 };
-  const scoring = computeScoring(ab);
-  const submissionId = (typeof crypto!=='undefined' && typeof crypto.randomUUID==='function')
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
+/* -----------------------------
+ * 診断と結果
+ * --------------------------- */
+async function onSubmit() {
+  const answers = collectAnswers();
+  const qc = quickQC(answers);
+  const weights = await loadWeights();
+  if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
 
-  // 圧縮したモチベを保存
-  const motivation_compact = compactMotivation(answers.q3 || []);
+  const diag = diagnose(answers, { weights });
+  renderResult({ diag, qc });
+}
 
-  const payload = {
-    submission_id: submissionId,
-    line: { userId: profile?.userId || null, displayName: profile?.displayName||null, pictureUrl: profile?.pictureUrl||null },
-    demographics: { gender: answers.gender||null, age: answers.age?Number(answers.age):null, mbti: answers.mbti||null },
-    answers: { ab, motivation_ordered: motivation_compact },
-    scoring,
-    result: {
-      typeKey: result.typeKey, typeTitle: result.typeTitle, tagline: result.tagline,
-      style: result.style, jobs: result.jobs, advice: result.advice
-    },
-    barnum: result.barnum || [],
-    meta: {
-      ts: new Date().toISOString(), ua: navigator.userAgent,
-      liffId: typeof LIFF_ID!=='undefined'?LIFF_ID:null, app:'c-lab-liff', v:'2025-09'
-    },
-    client_v: 'web-2025-09'
+function collectAnswers() {
+  const inputs = document.querySelectorAll('#survey-form input[type="radio"]:checked');
+  return [...inputs].map(el => ({ id: el.name, value: Number(el.value) }));
+}
+
+function renderResult({ diag /*, qc*/ }) {
+  const root = document.querySelector('#result');
+  const { type_main, type_sub, confidence, balanceIndex, prob, vec } = diag;
+
+  const probList = Object.entries(prob)
+    .sort((a,b) => b[1]-a[1])
+    .slice(0, 5)
+    .map(([k,v]) => `<li><span class="t">${k}</span><span class="v">${(v*100).toFixed(1)}%</span></li>`)
+    .join('');
+
+  const dials = pickFactorDials(vec);
+
+  root.innerHTML = `
+    <header class="result-header">
+      <h1>診断が完了したよ</h1>
+      <p id="resultSub">信頼度 ${(confidence*100).toFixed(0)}%／二相指数 ${(balanceIndex*100).toFixed(0)}%</p>
+    </header>
+
+    <div class="hero-card">
+      <div class="hero-avatar"><img id="resultHeroImage" alt=""></div>
+      <div class="hero-details">
+        <span class="cluster-tag">上位タイプ</span>
+        <h2 id="resultHeroName">${type_main}${type_sub ? `（サブ: ${type_sub}）` : ''}</h2>
+      </div>
+    </div>
+
+    <section class="dials">
+      ${dials.map(renderDial).join('')}
+    </section>
+
+    <section class="prob">
+      <h3>近接タイプ（上位5）</h3>
+      <ul class="prob-list">${probList}</ul>
+    </section>
+
+    <div class="share-actions">
+      <h3>シェアする</h3>
+      <div class="share-buttons">
+        <button type="button" class="share-btn" id="shareWebButton">端末でシェア</button>
+        <button type="button" class="share-btn" id="shareCopyButton">リンクをコピー</button>
+      </div>
+    </div>
+  `;
+
+  root.classList.remove('hidden');
+  root.scrollIntoView({ behavior: 'smooth' });
+
+  // 結果表示後のフッター
+  const backBtn = document.getElementById('retryButton');
+  const nextBtn = document.getElementById('submitButton');
+  const nextLabel = document.getElementById('submitContent');
+
+  if (backBtn) {
+    backBtn.classList.remove('hidden');
+    backBtn.textContent = 'もう一度診断する';
+    backBtn.onclick = () => location.reload();
+  }
+  if (nextBtn && nextLabel) {
+    nextBtn.classList.add('hidden'); // 診断直後はナビ不要
+  }
+
+  document.getElementById('shareWebButton')?.addEventListener('click', () => {
+    const text = `私のアーキタイプは「${type_main}」${type_sub ? `（サブ: ${type_sub}）` : ''}。信頼度${(confidence*100).toFixed(0)}%`;
+    if (navigator.share) navigator.share({ text }).catch(() => copyToClipboard(text));
+    else copyToClipboard(text);
+    toast('結果テキストを共有しました');
+  });
+  document.getElementById('shareCopyButton')?.addEventListener('click', () => {
+    const url = location.href;
+    copyToClipboard(url);
+    toast('リンクをコピーしました');
+  });
+}
+
+/* -----------------------------
+ * 進捗/ダイヤル
+ * --------------------------- */
+function updateCounters() {
+  const form = document.getElementById('survey-form');
+  if (!form) return;
+  const answered = form.querySelectorAll('input[type="radio"]:checked').length;
+  const total = form.querySelectorAll('.question-card .likert-input').length / 6; // 1問=6択
+  const rem = Math.max(0, total - answered);
+
+  document.getElementById('answeredCount')?.replaceChildren(document.createTextNode(String(answered)));
+  document.getElementById('remainingCount')?.replaceChildren(document.createTextNode(String(rem)));
+
+  const bar = document.getElementById('progressFill');
+  if (bar) bar.style.width = `${Math.round((answered / Math.max(total, 1)) * 100)}%`;
+}
+
+function pickFactorDials(vec25) {
+  const keys = [
+    'Trait.Extraversion','Trait.Conscientiousness','Trait.Openness','Trait.Agreeableness','Trait.Neuroticism',
+    'Orientation.Promotion','Orientation.Prevention',
+    'Value.Achievement','Value.Autonomy','Value.Security'
+  ];
+  return keys.map(k => ({ key: k, label: prettyLabel(k), value: Math.round((vec25[k] ?? 0.5)*100) }));
+}
+
+function renderDial({ label, value }) {
+  return `
+    <div class="dial">
+      <div class="dial-head"><span class="label">${label}</span><span class="num">${value}</span></div>
+      <div class="bar"><span style="width:${value}%"></span></div>
+    </div>
+  `;
+}
+
+function prettyLabel(key) {
+  const map = {
+    'Trait.Extraversion': '外向性',
+    'Trait.Conscientiousness': '誠実性',
+    'Trait.Openness': '開放性',
+    'Trait.Agreeableness': '協調性',
+    'Trait.Neuroticism': '安定性',
+    'Orientation.Promotion': '促進志向',
+    'Orientation.Prevention': '予防志向',
+    'Value.Achievement': '達成価値',
+    'Value.Autonomy': '自律価値',
+    'Value.Security': '安定価値',
   };
-
-  const res = await fetch('/api/answer', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify(payload),
-    credentials:'same-origin',
-    mode:'cors'
-  });
-
-  let json={}; try{ json = await res.json(); }catch(_){}
-  if(!res.ok){
-    console.error('POST /api/answer failed:', res.status, json);
-    throw new Error(`HTTP ${res.status}: ${json?.error||'unknown error'}`);
-  }
-  console.log('POST /api/answer ok:', json);
+  return map[key] || key;
 }
 
-// ---------- 共有 ----------
-function getResultTitle(){
-  return ($('#result-content .ttl')?.textContent||'').replace('【タイプ】','').trim() || '診断結果';
+/* -----------------------------
+ * helpers
+ * --------------------------- */
+function chunk(arr, n) { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; }
+function groupBy(arr, keyFn) { return arr.reduce((m, x) => { const k = keyFn(x); (m[k] ||= []).push(x); return m; }, {}); }
+function escapeHtml(s = "") {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+function copyToClipboard(text) { navigator.clipboard?.writeText(text).catch(()=>{}); }
+function toast(msg) {
+  let t = document.querySelector('.toast');
+  if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
 }
 
-async function fetchImageAsFile(){
-  const res = await fetch(SHARE_IMAGE_URL, { cache:'no-store' });
-  const blob = await res.blob();
-  return new File([blob], 'c_lab_share.png', { type: blob.type || 'image/png' });
-}
+/* ================================
+ * ▼ 追加：プルダウンへの選択肢注入
+ * ================================ */
+function initDemographics() {
+  const selGender = document.getElementById('demographicsGender');
+  const selAge    = document.getElementById('demographicsAge');
+  const selMbti   = document.getElementById('demographicsMbti');
 
-async function shareOnLINE(){
-  const imgUrl = SHARE_IMAGE_URL;
-  const text   = CAPTION_LINE(getResultTitle());
-
-  if(typeof liff==='undefined' || !liff.isInClient()){
-    try{ await navigator.clipboard.writeText(text); }catch(_){}
-    alert('LINEアプリで開くと、画像と文面をそのまま送れます。');
-    location.href = LIFF_URL;
-    return;
-  }
-  try{
-    if(!liff.isApiAvailable('shareTargetPicker')) throw new Error('shareTargetPicker unavailable');
-    await liff.shareTargetPicker([
-      { type:'text',  text },
-      { type:'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl }
-    ]);
-  }catch(e){
-    console.warn('shareTargetPicker error -> fallback', e);
-    try{
-      await liff.shareTargetPicker([{ type:'image', originalContentUrl: imgUrl, previewImageUrl: imgUrl }]);
-      try{ await navigator.clipboard.writeText(text); }catch(_){}
-      alert('画像だけ送ります。本文はコピー済みです。');
-    }catch(e2){
-      try{ await navigator.clipboard.writeText(text); }catch(_){}
-      alert('共有に失敗しました。本文を貼り付け、画像を添付して送ってください。');
-    }
-  }
-}
-
-async function shareOtherApps(){
-  const caption = CAPTION_OTHERS(getResultTitle());
-  try{
-    const file = await fetchImageAsFile();
-    if(navigator.canShare?.({ files:[file] })){
-      await navigator.share({ files:[file], text: caption, title:'C Lab' });
-      return;
-    }
-  }catch(_){}
-  try{ await navigator.clipboard.writeText(caption); }catch(_){}
-  window.open(SHARE_IMAGE_URL, '_blank');
-  alert('画像を開きました。本文はコピー済みです。お好みのアプリで貼り付けてください。');
-}
-
-// ---------- 進捗 ----------
-function updateProgress(){
-  const bar = $('#progress'); if(!bar) return;
-  const ans = collectAnswers();
-  const required = ['gender','age','q1','q2','q4','q5','q6','q7','q8'];
-  const done = required.filter(k=>ans[k]).length + (ans.q3.length?1:0);
-  const total = required.length + 1;
-  const pct = Math.round((done/total)*100);
-  bar.style.width = `${pct}%`;
-}
-
-// ---------- 起動 ----------
-document.addEventListener('DOMContentLoaded', ()=>{
-  ['#personalityForm','#run','#status','#progress','#result','#result-modal'].forEach(sel=>{
-    console.log('DOM check:', sel, !!$(sel) ? 'OK' : 'NOT FOUND');
-  });
-
-  ['mot1','mot2','mot3'].forEach(id=>{
-    const el = document.getElementById(id);
-    if(el){
-      el.addEventListener('change', ()=>{ syncMotivationHidden(); updateProgress(); });
-    }
-  });
-  ['#gender','#age','input[name="q1"]','input[name="q2"]','input[name="q4"]','input[name="q5"]','input[name="q6"]','input[name="q7"]','input[name="q8"]']
-    .forEach(sel=> $$(sel).forEach(el=> el.addEventListener('change', updateProgress)));
-
-  syncMotivationHidden(); updateProgress();
-
-  const modal = $('#result-modal');
-  const closeBtn = $('#close-modal');
-  if(closeBtn) closeBtn.addEventListener('click', hideResultModal);
-  if(modal){
-    modal.addEventListener('click', (e)=>{ if(e.target===modal) hideResultModal(); });
-  }
-  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && modal?.classList.contains('show')) hideResultModal(); });
-
-  if(typeof window.liff!=='undefined'){
-    initLIFF().catch(e=>{
-      console.error('LIFF init failed:', e);
-      const dummy = { userId:'liff-failed-'+Date.now(), displayName:'LIFFユーザー', pictureUrl:null };
-      window.dummyProfile = dummy;
-      setupFormHandlers(dummy);
-      if($('#status')) $('#status').textContent='ブラウザモード（LINEアプリでの利用を推奨）';
+  if (selGender && selGender.options.length <= 1) {
+    const genders = ['男性','女性','その他・回答しない'];
+    genders.forEach(v => {
+      const op = document.createElement('option');
+      op.value = v; op.textContent = v;
+      selGender.appendChild(op);
     });
-  }else{
-    if($('#status')) $('#status').textContent='ブラウザモード（LIFF SDK未読込）';
-    const dummy = { userId:'browser-user-'+Date.now(), displayName:'ブラウザユーザー', pictureUrl:null };
-    window.dummyProfile = dummy;
-    setupFormHandlers(dummy);
-    console.warn('LIFF SDK not loaded - running in browser mode');
   }
-});
+
+  if (selAge && selAge.options.length <= 1) {
+    // 12〜50歳を生成（index.htmlのコメントに合わせる）
+    for (let a = 12; a <= 50; a++) {
+      const op = document.createElement('option');
+      op.value = String(a);
+      op.textContent = `${a}`;
+      selAge.appendChild(op);
+    }
+  }
+
+  if (selMbti && selMbti.options.length <= 1) {
+    const types = ['INTJ','INTP','ENTJ','ENTP','INFJ','INFP','ENFJ','ENFP','ISTJ','ISFJ','ESTJ','ESFJ','ISTP','ISFP','ESTP','ESFP'];
+    types.forEach(t => {
+      const op = document.createElement('option');
+      op.value = t; op.textContent = t;
+      selMbti.appendChild(op);
+    });
+  }
+}
