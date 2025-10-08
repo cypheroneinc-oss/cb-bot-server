@@ -1,411 +1,347 @@
-/* ===== THEME: Blue Nova ++ (より明るい青 × 超ガラス × 強浮遊) ===== */
-:root {
-  /* Brighter Deep Blue */
-  --bg-grad-a: #0f1e4a;
-  --bg-grad-b: #0a1440;
-  --fg:        #f8fbff;
-  --muted:     #b5c6de;
-  --accent:    #66e4ff;
-  --accent-2:  #6f8cff;
-  --card:      rgba(255,255,255,0.18);
-  --border:    rgba(220, 245, 255, 0.75);
-  --glow:      0 0 44px rgba(120, 190, 255, 0.65);
-  --ring:      0 0 0 2px var(--accent);
-  --danger:    #ff4d6d;
+// filename: bot_server/liff/assets/app.js
+import { diagnose, quickQC } from '../../lib/scoring.js';
 
-  /* ガラス強度トークン（必要に応じて上げ下げ） */
-  --glass-blur: 24px;
-  --glass-sat:  1.9;
-  --glass-hl:   rgba(255,255,255,0.35); /* 上端ハイライト */
-  --glass-in1:  rgba(120,190,255,0.40); /* 内グロー1 */
-  --glass-in2:  rgba(102,230,255,0.30); /* 内グロー2 */
+/* -----------------------------
+ * 動的ロード
+ * --------------------------- */
+let QUESTIONS = null;
+async function loadQuestions() {
+  if (QUESTIONS) return QUESTIONS;
+  const candidates = ['../../data/questions.v1.js', '/data/questions.v1.js'];
+  let lastErr;
+  for (const p of candidates) {
+    try {
+      const m = await import(/* @vite-ignore */ p);
+      QUESTIONS = m.default || m.QUESTIONS || null;
+      if (Array.isArray(QUESTIONS) && QUESTIONS.length) return QUESTIONS;
+    } catch (e) { lastErr = e; }
+  }
+  console.error('[questions] failed to load', lastErr);
+  return null;
 }
 
-* { box-sizing: border-box; }
-
-html, body {
-  margin: 0;
-  padding: 0;
-  background:
-    radial-gradient(1300px 640px at 78% -8%, rgba(120,190,255,0.32), transparent 65%),
-    radial-gradient(1200px 620px at 8% 28%,  rgba(102,230,255,0.28), transparent 62%),
-    radial-gradient(900px  480px at 50% 110%, rgba(110,170,255,0.20), transparent 60%),
-    linear-gradient(180deg, var(--bg-grad-a), var(--bg-grad-b));
-  color: var(--fg);
-  font-family: 'Noto Sans JP', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  line-height: 1.6;
+let WEIGHTS = null;
+async function loadWeights() {
+  if (WEIGHTS) return WEIGHTS;
+  const candidates = ['../../lib/archetype-weights.v1.json', '/lib/archetype-weights.v1.json'];
+  let lastErr;
+  for (const p of candidates) {
+    try {
+      const res = await fetch(p, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json && typeof json === 'object' && Object.keys(json).length >= 12) {
+        WEIGHTS = json; 
+        return WEIGHTS;
+      }
+    } catch (e) { lastErr = e; }
+  }
+  console.error('[weights] failed to load', lastErr);
+  return null;
 }
 
-body { min-height: 100vh; display: flex; flex-direction: column; }
-a { color: inherit; }
-button { font-family: inherit; }
-.app { flex: 1; display: flex; flex-direction: column; position: relative; }
+/* ----------------------------- */
+const QUESTION_VERSION = 'v1';
 
-.title { font-size: 1.5rem; font-weight: 700; margin: 0 0 8px; }
-.subtitle { margin: 0; color: var(--muted); font-size: 0.95rem; }
+/* 6件法（左：思わない → 右：思う） */
+const LIKERT = [
+  { value: 1, label: 'まったくそう思わない' },
+  { value: 2, label: 'かなりそう思わない' },
+  { value: 3, label: '少しそう思わない' },
+  { value: 4, label: '少しそう思う' },
+  { value: 5, label: 'かなりそう思う' },
+  { value: 6, label: 'とてもそう思う' },
+];
 
-/* ===== プログレス ===== */
-.progress-bar {
-  background: rgba(255,255,255,0.18);
-  border-radius: 999px; overflow: hidden; margin: 0 20px 12px; height: 8px;
-}
-.progress-fill {
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  height: 100%; width: 0; transition: width .2s ease;
-  box-shadow:
-    var(--glow),
-    0 0 22px rgba(102,230,255,0.42) inset,
-    0 3px 14px rgba(0,0,0,0.35);
-}
+/* ----------------------------- */
+window.addEventListener('DOMContentLoaded', () => { mountApp(); });
 
-.status { margin: 0 20px 12px; font-size: 0.9rem; color: var(--muted); }
-.status strong { color: var(--fg); }
+async function mountApp() {
+  const mount = document.querySelector('#questions'); // index.html 側の領域
+  if (!mount) { console.error('[app] #questions not found'); return; }
 
-/* ===== エラー ===== */
-.load-error {
-  margin: 0 20px 12px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: rgba(255, 77, 109, 0.1);
-  border: 1px solid rgba(255, 77, 109, 0.45);
-  color: var(--danger);
-  font-size: 0.88rem;
+  const qs = await loadQuestions();
+  if (!qs) {
+    mount.innerHTML = `<div class="load-error">設問データの読み込みに失敗しました。/data/questions.v1.js を確認してください。</div>`;
+    return;
+  }
+
+  mount.innerHTML = renderSurvey(qs);
+  bindSurveyHandlers();
+  updateCounters();
+  wireFooterSubmit();
 }
 
-/* ===== 質問リスト ===== */
-.questions {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 20px 240px; /* フッター干渉回避＋没入感 */
+/* -----------------------------
+ * 設問UI（CSSに合わせたマークアップ）
+ * --------------------------- */
+function renderSurvey(qs) {
+  const groups = chunk(qs, 10);
+  const pagesHtml = groups.map((g, pageIdx) => `
+    <section class="page" data-page="${pageIdx}">
+      ${g.map(renderItem).join('')}
+      <div class="page-actions">
+        ${pageIdx > 0 ? '<button class="btn prev" type="button">戻る</button>' : ''}
+        ${pageIdx < groups.length - 1
+          ? '<button class="btn next" type="button">次へ</button>'
+          : '<button class="btn submit primary" type="button">結果を見る</button>'}
+      </div>
+    </section>
+  `).join('');
+
+  return `
+    <form id="survey-form" aria-live="polite">
+      ${pagesHtml}
+    </form>
+    <section class="result-card hidden" id="result"></section>
+  `;
 }
 
-/* ===== カード（設問/結果）：シンプルな“板ガラス”表現 ===== */
-.question-card,
-.result-card{
-  position: relative;
-  background: linear-gradient(135deg, rgba(255,255,255,0.30), rgba(200,235,255,0.22));
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  box-shadow:
-    0 28px 72px rgba(0,0,0,0.55),
-    0 0 72px rgba(120,190,255,0.60);
-  padding: 48px;
-  margin-bottom: 104px;
-  transform: translateY(0);
-  transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease;
+/* 1問のカード（question-card + likert-scale 構造） */
+function renderItem(q) {
+  const name = q.id;
+  const opts = LIKERT.map((o, idx) => {
+    const id = `${name}-${o.value}`;
+    // size-small のままでOK（CSSに応じて medium/large に変更可）
+    return `
+      <div class="likert-choice">
+        <input class="likert-input" type="radio" id="${id}" name="${name}" value="${o.value}" required>
+        <label class="likert-option size-small" for="${id}">
+          <span class="likert-diamond" aria-hidden="true"></span>
+          <span class="sr-only">${o.label}（${o.value}）</span>
+          <span>${o.label}</span>
+        </label>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <article class="question-card">
+      <h2 class="q-text">${escapeHtml(q.text)}</h2>
+      <div class="choices likert-scale">
+        ${opts}
+      </div>
+      <div class="likert-legend" aria-hidden="true">
+        <span>そう思わない</span>
+        <span class="legend-bar"></span>
+        <span>そう思う</span>
+      </div>
+    </article>
+  `;
 }
 
-/* 上端にだけ柔らかいハイライト（斜線やXは不使用） */
-.question-card::before,
-.result-card::before{
-  content: "";
-  position: absolute; inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(180deg, var(--glass-hl), rgba(255,255,255,0) 45%);
-  pointer-events: none;
-  mix-blend-mode: screen;
-}
+/* -----------------------------
+ * 入力・ページング・検証
+ * --------------------------- */
+function bindSurveyHandlers() {
+  const form = document.querySelector('#survey-form');
+  const pages = [...form.querySelectorAll('.page')];
+  let pageIndex = 0; updatePage();
 
-/* 内側の青みグローで厚みを演出（模様なし） */
-.question-card::after,
-.result-card::after{
-  content: "";
-  position: absolute; inset: 2px;
-  border-radius: calc(22px - 2px);
-  pointer-events: none;
-  box-shadow:
-    inset 0 0 30px var(--glass-in1),
-    inset 0 0 18px var(--glass-in2);
-}
+  form.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    e.preventDefault();
 
-@supports ((-webkit-backdrop-filter: blur(24px)) or (backdrop-filter: blur(24px))){
-  .question-card,
-  .result-card{
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-            backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-    border-color: rgba(230, 250, 255, 0.80);
+    if (btn.classList.contains('next')) { if (validatePage()) { pageIndex++; updatePage(); } }
+    if (btn.classList.contains('prev')) { pageIndex = Math.max(0, pageIndex - 1); updatePage(); }
+    if (btn.classList.contains('submit')) { if (validateAll()) onSubmit(); }
+  });
+
+  form.addEventListener('change', updateCounters);
+
+  function updatePage() {
+    pages.forEach((p, i) => p.hidden = i !== pageIndex);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    updateCounters();
+  }
+
+  function validatePage() {
+    const current = pages[pageIndex];
+    const inputs = current.querySelectorAll('input[type="radio"]');
+    const groups = groupBy([...inputs], el => el.name);
+    const valid = Object.values(groups).every(arr => arr.some(el => el.checked));
+    if (!valid) toast('未回答の項目があります');
+    return valid;
+  }
+
+  function validateAll() {
+    const inputs = form.querySelectorAll('input[type="radio"]');
+    const groups = groupBy([...inputs], el => el.name);
+    const valid = Object.values(groups).every(arr => arr.some(el => el.checked));
+    if (!valid) toast('未回答の項目があります');
+    return valid;
   }
 }
 
-/* 浮遊（強め） */
-.question-card:active,
-.result-card:active { transform: translateY(0); }
-.question-card:hover,
-.result-card:hover{
-  transform: translateY(-4px);
-  box-shadow:
-    0 34px 84px rgba(0,0,0,0.58),
-    0 0 86px rgba(120,190,255,0.70);
+/* フッターの送信ボタンを配線 */
+function wireFooterSubmit() {
+  const btn = document.getElementById('submitButton');
+  if (!btn) return;
+  btn.disabled = false;
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const ok = (() => {
+      const form = document.querySelector('#survey-form');
+      if (!form) return false;
+      const inputs = form.querySelectorAll('input[type="radio"]');
+      const groups = groupBy([...inputs], el => el.name);
+      return Object.values(groups).every(arr => arr.some(el => el.checked));
+    })();
+    if (!ok) return toast('未回答の項目があります');
+    onSubmit();
+  });
 }
 
-/* 見出し */
-.question-card h2{
-  font-size: 1.08rem;
-  margin: 0 0 20px;
-  letter-spacing: .2px;
-  color: #f0f6ff;
+/* -----------------------------
+ * 診断と結果
+ * --------------------------- */
+async function onSubmit() {
+  const answers = collectAnswers();
+  const qc = quickQC(answers);
+  const weights = await loadWeights();
+  if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
+
+  const diag = diagnose(answers, { weights });
+  renderResult({ diag, qc });
+  // 保存するならここでfetch
 }
 
-/* ===== Likert UI（ダイヤを強発光・模様なし） ===== */
-.choices { display: grid; gap: 20px; }
-.choices.likert-scale {
-  display: flex; align-items: flex-end; justify-content: space-between;
-  gap: 20px; flex-wrap: wrap;
-}
-.likert-choice { position: relative; display: flex; flex-direction: column; align-items: center; flex: 1 1 0; min-width: 0; max-width: 108px; }
-.likert-input { position: absolute; opacity: 0; pointer-events: none; }
-
-.likert-option {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  cursor: pointer; text-align: center; color: #d6e6fb; transition: color 0.2s ease;
-}
-.likert-option:hover .likert-diamond { background: rgba(120,190,255,0.22); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25); }
-.likert-input:focus-visible + .likert-option .likert-diamond { box-shadow: var(--ring), 0 10px 24px rgba(0, 0, 0, 0.3); }
-.likert-input:checked + .likert-option { color: #ffffff; font-weight: 700; }
-
-.likert-diamond{
-  --likert-size: 52px;
-  width: var(--likert-size); height: var(--likert-size);
-  border-radius: 22px; border: 1px solid rgba(220,245,255,0.7);
-  background: linear-gradient(135deg, rgba(255,255,255,0.20), rgba(170,220,255,0.14));
-  transform: rotate(45deg);
-  display: inline-flex; align-items: center; justify-content: center;
-  position: relative;
-  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s, background 0.2s;
-}
-.likert-input:checked + .likert-option .likert-diamond{
-  background:
-    radial-gradient(60% 60% at 50% 38%, rgba(110,200,255,0.96), rgba(110,200,255,0.55) 66%, rgba(110,200,255,0.22) 100%),
-    linear-gradient(135deg, rgba(255,255,255,0.22), rgba(170,220,255,0.14));
-  border-color: rgba(235,250,255,0.95);
-  box-shadow:
-    0 0 0 6px rgba(110,200,255,0.34),
-    0 18px 40px rgba(110,200,255,0.38);
-  transform: rotate(45deg) scale(1.1);
-}
-.likert-option.size-large .likert-diamond { --likert-size: 78px; }
-.likert-option.size-medium .likert-diamond { --likert-size: 60px; }
-.likert-option.size-small .likert-diamond { --likert-size: 52px; }
-
-@media (max-width: 767px) {
-  .likert-option.size-large .likert-diamond { --likert-size: 64px; }
-  .likert-option.size-medium .likert-diamond { --likert-size: 54px; }
-  .likert-option.size-small .likert-diamond { --likert-size: 46px; }
+function collectAnswers() {
+  const inputs = document.querySelectorAll('#survey-form input[type="radio"]:checked');
+  return [...inputs].map(el => ({ id: el.name, value: Number(el.value) }));
 }
 
-/* 目盛バー */
-.likert-legend {
-  display: grid; grid-template-columns: auto 1fr auto; align-items: center;
-  gap: 10px; margin-top: 12px; font-size: 12px; opacity: 0.95;
-}
-.likert-legend .legend-bar {
-  height: 6px; border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent), rgba(110,200,255,0.30));
-  position: relative;
-}
-.likert-legend .legend-bar::before, .likert-legend .legend-bar::after {
-  content: ''; position: absolute; top: 50%; width: 0; height: 0;
-  border-top: 6px solid transparent; border-bottom: 6px solid transparent; transform: translateY(-50%);
-}
-.likert-legend .legend-bar::before { left: -2px; border-right: 8px solid var(--accent); }
-.likert-legend .legend-bar::after  { right: -2px; border-left: 8px solid rgba(110,200,255,0.30); }
+function renderResult({ diag /*, qc*/ }) {
+  const root = document.querySelector('#result');
+  const { type_main, type_sub, confidence, balanceIndex, prob, vec } = diag;
 
-/* アクセシビリティ */
-.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  const probList = Object.entries(prob)
+    .sort((a,b) => b[1]-a[1])
+    .slice(0, 5)
+    .map(([k,v]) => `<li><span class="t">${k}</span><span class="v">${(v*100).toFixed(1)}%</span></li>`)
+    .join('');
 
-/* ===== Gate（A/B 二択） ===== */
-.question-card.gate h2 { margin-bottom: 16px; }
-.gate-choices {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-.gate-btn {
-  padding: 14px 16px;
-  border-radius: 14px;
-  border: 1px solid rgba(220, 245, 255, 0.70);
-  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(200,235,255,0.10));
-  color: var(--fg);
-  font-weight: 800;
-  letter-spacing: .2px;
-  cursor: pointer;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.30);
-  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
-}
-.gate-btn:hover { background: rgba(255,255,255,0.18); }
-.gate-btn:focus-visible { outline: none; box-shadow: var(--ring); }
-.gate-btn.active {
-  background:
-    radial-gradient(60% 60% at 50% 38%, rgba(110,200,255,0.55), rgba(110,200,255,0.28) 66%, rgba(110,200,255,0.14) 100%),
-    linear-gradient(180deg, rgba(255,255,255,0.16), rgba(200,235,255,0.12));
-  border-color: rgba(235,250,255,0.95);
-  box-shadow:
-    0 0 0 6px rgba(110,200,255,0.24),
-    0 16px 34px rgba(110,200,255,0.34);
-  transform: translateY(-1px);
-}
+  const dials = pickFactorDials(vec);
 
-/* ===== フッター／ボタン ===== */
-.footer {
-  position: sticky; bottom: 0; left: 0; right: 0;
-  padding: 18px 20px 28px;
-  background: linear-gradient(180deg, rgba(12,20,44,0.0) 0%, rgba(12,20,44,0.30) 45%, var(--bg-grad-b) 100%);
-  display: flex; flex-direction: column; gap: 12px;
-  z-index: 1;
-}
-.footer button {
-  width: 100%; padding: 16px; border: none; border-radius: 20px;
-  font-size: 1rem; font-weight: 700; color: #04101a;
-  background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  box-shadow:
-    0 14px 34px rgba(0,0,0,0.42),
-    0 0 42px rgba(120,190,255,0.70);
-  cursor: pointer; transition: opacity 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
-}
-.footer button:disabled { opacity: 0.4; cursor: not-allowed; }
-.footer button:focus-visible { outline: none; box-shadow: var(--ring); }
-.footer button:not(:disabled):active { transform: translateY(0); }
-.footer button:hover:not(:disabled){
-  transform: translateY(-2px);
-  box-shadow:
-    0 18px 38px rgba(0,0,0,0.5),
-    0 0 54px rgba(120,190,255,0.80);
-}
-.footer .secondary{
-  background: rgba(255,255,255,0.10);
-  color: var(--fg);
-  border: 1px solid rgba(220, 245, 255, 0.75);
-}
-.footer .secondary:disabled { opacity: 0.4; border-color: rgba(255, 255, 255, 0.18); }
+  root.innerHTML = `
+    <header class="result-header">
+      <h1>診断が完了したよ</h1>
+      <p id="resultSub">信頼度 ${(confidence*100).toFixed(0)}%／二相指数 ${(balanceIndex*100).toFixed(0)}%</p>
+    </header>
 
-.footer-actions { display: flex; flex-direction: column; gap: 12px; width: 100%; }
-.secondary-actions { display: grid; gap: 10px; }
-@media (min-width: 480px) { .secondary-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    <div class="hero-card">
+      <div class="hero-avatar"><img id="resultHeroImage" alt=""></div>
+      <div class="hero-details">
+        <span class="cluster-tag">上位タイプ</span>
+        <h2 id="resultHeroName">${type_main}${type_sub ? `（サブ: ${type_sub}）` : ''}</h2>
+      </div>
+    </div>
 
-/* ===== トースト ===== */
-.toast {
-  position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);
-  background: rgba(10, 18, 42, 0.92);
-  border: 1px solid rgba(220, 245, 255, 0.70);
-  border-radius: 14px; padding: 14px 18px; color: var(--fg); font-size: 0.95rem;
-  max-width: calc(100% - 40px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-}
-.toast.error { border-color: rgba(255, 77, 109, 0.5); color: var(--danger); }
+    <section class="dials">
+      ${dials.map(renderDial).join('')}
+    </section>
 
-.hidden { display: none !important; }
+    <section class="prob">
+      <h3>近接タイプ（上位5）</h3>
+      <ul class="prob-list">${probList}</ul>
+    </section>
 
-/* ===== 結果カード内部 ===== */
-.result-card {
-  padding: 32px; margin: 0 20px 136px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.30), rgba(200,235,255,0.22));
-  border-radius: 24px; box-shadow: 0 28px 76px rgba(0, 0, 0, 0.55), var(--glow);
-  border: 1px solid var(--border);
-}
-.result-header { margin-bottom: 20px; }
-.result-header h1 { margin: 0 0 8px; font-size: 1.6rem; font-weight: 700; }
-.result-header p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+    <div class="share-actions">
+      <h3>シェアする</h3>
+      <div class="share-buttons">
+        <button type="button" class="share-btn" id="shareWebButton">端末でシェア</button>
+        <button type="button" class="share-btn" id="shareCopyButton">リンクをコピー</button>
+      </div>
+    </div>
+  `;
 
-.hero-card { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
-.hero-avatar { width: 84px; height: 84px; border-radius: 16px; overflow: hidden; border: 1px solid rgba(220, 245, 255, 0.75); box-shadow: 0 12px 28px rgba(0,0,0,.4); }
-.hero-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.hero-details { flex: 1; }
+  root.classList.remove('hidden');
+  root.scrollIntoView({ behavior: 'smooth' });
 
-.cluster-tag { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(220, 245, 255, 0.75); color: var(--accent); font-size: 0.85rem; margin-bottom: 8px; }
-
-.result-hero-name, #resultHeroName { margin: 0; font-size: 1.4rem; font-weight: 700; color: var(--fg); }
-.result-summary { margin: 12px 0 20px; font-size: 1rem; color: var(--fg); }
-
-.share-preview { display: grid; gap: 12px; margin-bottom: 24px; }
-.share-preview img { width: 100%; border-radius: 16px; border: 1px solid rgba(220, 245, 255, 0.70); }
-
-.share-actions { margin-bottom: 28px; }
-.share-actions h3 { margin: 0 0 12px; font-size: 1.1rem; }
-.share-buttons { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-.share-btn {
-  padding: 10px 14px; border-radius: 12px;
-  border: 1px solid rgba(220, 245, 255, 0.70);
-  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(200,235,255,0.10));
-  color: var(--fg); font-weight: 700; cursor: pointer;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.30);
-}
-.share-btn:hover { background: rgba(255,255,255,0.18); }
-.share-note { margin: 12px 0 0; color: var(--muted); font-size: 0.85rem; }
-
-/* ===== スコアは非表示 ===== */
-.result-scores { display:none !important; }
-
-/* ===== スケルトン/スピナー ===== */
-.spinner { width: 20px; height: 20px; border-radius: 50%; border: 3px solid rgba(255,255,255,0.25); border-top-color: var(--bg-grad-b); animation: spin .8s linear infinite; display: inline-block; }
-.btn-content { display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
-.skeleton { position: relative; overflow: hidden; }
-.skeleton-line { height: 16px; background: rgba(255,255,255,0.14); border-radius: 8px; margin-bottom: 12px; }
-.skeleton-title { width: 60%; height: 20px; }
-.skeleton-line:last-child { margin-bottom: 0; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ===== レイアウト（中央寄せ） ===== */
-@media (min-width: 600px) {
-  body { align-items: center; }
-  .app {
-    width: min(560px, 100%);
-    margin: 0 auto;
-    border-radius: 24px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%);
-  }
-  .footer { border-bottom-left-radius: 24px; border-bottom-right-radius: 24px; }
-}
-@media (min-width: 540px) { .narrative-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-
-/* ===== 基本情報フォーム（カードと同調） ===== */
-.demographics {
-  position: relative;
-  background: linear-gradient(135deg, rgba(255,255,255,0.30), rgba(200,235,255,0.22));
-  border: 1px solid var(--border);
-  border-radius: 22px;
-  box-shadow:
-    0 28px 72px rgba(0,0,0,0.55),
-    0 0 72px rgba(120,190,255,0.60);
-  padding: 48px;
-  margin: 0 20px 120px; /* 基本情報→Q1の間隔を広く */
-  transform: translateY(0);
-  transition: transform .25s ease, box-shadow .25s ease, background .25s ease, border-color .25s ease;
-}
-.demographics::before{
-  content:""; position:absolute; inset:0; border-radius:inherit;
-  background: linear-gradient(180deg, var(--glass-hl), rgba(255,255,255,0) 45%);
-  pointer-events:none; mix-blend-mode: screen;
-}
-.demographics::after{
-  content:""; position:absolute; inset:2px; border-radius:calc(22px - 2px);
-  box-shadow:
-    inset 0 0 30px var(--glass-in1),
-    inset 0 0 18px var(--glass-in2);
-  pointer-events:none;
-}
-@supports ((-webkit-backdrop-filter: blur(24px)) or (backdrop-filter: blur(24px))){
-  .demographics{ -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); }
+  document.getElementById('shareWebButton')?.addEventListener('click', () => {
+    const text = `私のアーキタイプは「${type_main}」${type_sub ? `（サブ: ${type_sub}）` : ''}。信頼度${(confidence*100).toFixed(0)}%`;
+    if (navigator.share) navigator.share({ text }).catch(() => copyToClipboard(text));
+    else copyToClipboard(text);
+    toast('結果テキストを共有しました');
+  });
+  document.getElementById('shareCopyButton')?.addEventListener('click', () => {
+    const url = location.href;
+    copyToClipboard(url);
+    toast('リンクをコピーしました');
+  });
 }
 
-.demographics-title { margin: 0 0 18px; font-size: 1.14rem; font-weight: 700; color:#f0f6ff; letter-spacing:.2px; }
+/* -----------------------------
+ * 進捗/ダイヤル
+ * --------------------------- */
+function updateCounters() {
+  const form = document.getElementById('survey-form');
+  if (!form) return;
+  const answered = form.querySelectorAll('input[type="radio"]:checked').length;
+  const total = form.querySelectorAll('.question-card .likert-input').length / 6; // 1問=6択
+  const rem = Math.max(0, total - answered);
 
-.demographics-field {
-  display: flex; flex-direction: column; gap: 10px;
-  margin-bottom: 20px; position: relative; z-index: 0;
-}
-.demographics-field:focus-within { z-index: 5; }
-.field-label { color: var(--muted); display: block; }
+  document.getElementById('answeredCount')?.replaceChildren(document.createTextNode(String(answered)));
+  document.getElementById('remainingCount')?.replaceChildren(document.createTextNode(String(rem)));
 
-.demographics-field select {
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px solid rgba(220,245,255,0.75);
-  background: rgba(255,255,255,0.18);
-  color: var(--fg);
-  font-size: 16px;   /* iOSズーム回避＆行間UP */
-  appearance: none;
-  line-height: 1.5;
+  const bar = document.getElementById('progressFill');
+  if (bar) bar.style.width = `${Math.round((answered / Math.max(total, 1)) * 100)}%`;
 }
-.demographics-field select:focus { position: relative; z-index: 6; }
-.demographics-field select option { padding: 10px 12px; line-height: 1.9; font-size: 16px; }
-.demographics-note { margin: 10px 0 0; font-size: 0.85rem; color: var(--muted); }
+
+function pickFactorDials(vec25) {
+  const keys = [
+    'Trait.Extraversion','Trait.Conscientiousness','Trait.Openness','Trait.Agreeableness','Trait.Neuroticism',
+    'Orientation.Promotion','Orientation.Prevention',
+    'Value.Achievement','Value.Autonomy','Value.Security'
+  ];
+  return keys.map(k => ({ key: k, label: prettyLabel(k), value: Math.round((vec25[k] ?? 0.5)*100) }));
+}
+
+function renderDial({ label, value }) {
+  return `
+    <div class="dial">
+      <div class="dial-head"><span class="label">${label}</span><span class="num">${value}</span></div>
+      <div class="bar"><span style="width:${value}%"></span></div>
+    </div>
+  `;
+}
+
+function prettyLabel(key) {
+  const map = {
+    'Trait.Extraversion': '外向性',
+    'Trait.Conscientiousness': '誠実性',
+    'Trait.Openness': '開放性',
+    'Trait.Agreeableness': '協調性',
+    'Trait.Neuroticism': '安定性',
+    'Orientation.Promotion': '促進志向',
+    'Orientation.Prevention': '予防志向',
+    'Value.Achievement': '達成価値',
+    'Value.Autonomy': '自律価値',
+    'Value.Security': '安定価値',
+  };
+  return map[key] || key;
+}
+
+/* -----------------------------
+ * helpers
+ * --------------------------- */
+function chunk(arr, n) { const out = []; for (let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
+function groupBy(arr, keyFn) { return arr.reduce((m, x) => { const k = keyFn(x); (m[k] ||= []).push(x); return m; }, {}); }
+function escapeHtml(s = "") {
+  return String(s)
+    .replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    }[c]));
+}
+function copyToClipboard(text) { navigator.clipboard?.writeText(text).catch(()=>{}); }
+function toast(msg) {
+  let t = document.querySelector('.toast');
+  if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
