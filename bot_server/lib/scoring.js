@@ -3,7 +3,7 @@
 // 依存: /data/questions.v1.js, /lib/archetype-weights.v1.json
 
 import QUESTIONS from "../data/questions.v1.js";
-import WEIGHTS from "./archetype-weights.v1.json" assert { type: "json" };
++ import WEIGHTS from "./archetype-weights.v1.json";
 
 /**
  * 回答フォーマット
