@@ -43,7 +43,7 @@ async function loadWeights() {
 /* ----------------------------- */
 const QUESTION_VERSION = 'v1';
 
-/* 6件法（左：とてもそう思う → 右：まったくそう思わない） */
+/* 6件法（左：とてもそう思う → 右：まったくそう思わない）*/
 const LIKERT_REVERSED = [
   { value: 6, label: 'とてもそう思う' },
   { value: 5, label: 'かなりそう思う' },
@@ -57,7 +57,7 @@ const LIKERT_REVERSED = [
 window.addEventListener('DOMContentLoaded', () => { mountApp(); });
 
 async function mountApp() {
-  const mount = document.querySelector('#questions'); // index.html 側の領域
+  const mount = document.querySelector('#questions');
   if (!mount) { console.error('[app] #questions not found'); return; }
 
   const qs = await loadQuestions();
@@ -67,20 +67,18 @@ async function mountApp() {
   }
 
   mount.innerHTML = renderSurvey(qs);
-  bindSurveyHandlers();
+  bindSurveyHandlers();     // ← フッターに結線
   updateCounters();
-  wireFooterNav(); // ← フッターでページ遷移を制御
 }
 
 /* -----------------------------
- * 設問UI（CSSに合わせたマークアップ）
+ * 設問UI（ページ内ナビは生成しない）
  * --------------------------- */
 function renderSurvey(qs) {
-  const groups = chunk(qs, 10);
+  const groups = chunk(qs, 10); // 36問なら 10/10/10/6 の4ページ
   const pagesHtml = groups.map((g, pageIdx) => `
     <section class="page" data-page="${pageIdx}">
       ${g.map(renderItem).join('')}
-      <!-- ページ内のボタンは作らない。フッターで統一表示 -->
     </section>
   `).join('');
 
@@ -92,7 +90,7 @@ function renderSurvey(qs) {
   `;
 }
 
-/* 1問のカード（ひし形下の可視ラベルは削除／sr-onlyのみ） */
+/* 1問カード（ひし形下の可視ラベルは無し） */
 function renderItem(q) {
   const name = q.id;
   const opts = LIKERT_REVERSED.map((o) => {
@@ -124,41 +122,20 @@ function renderItem(q) {
 }
 
 /* -----------------------------
- * ページング／検証（フッターのボタンで操作）
+ * ページング（フッターの既存ボタンで制御）
  * --------------------------- */
 function bindSurveyHandlers() {
   const form = document.querySelector('#survey-form');
   const pages = [...form.querySelectorAll('.page')];
   let pageIndex = 0;
 
-  // 進捗、ページ表示
-  function updatePage() {
-    pages.forEach((p, i) => (p.hidden = i !== pageIndex));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    updateCounters();
-    updateFooterButtons();
-  }
-
-  function validateCurrentPage() {
-    const current = pages[pageIndex];
-    const inputs = current.querySelectorAll('input[type="radio"]');
-    const groups = groupBy([...inputs], (el) => el.name);
-    return Object.values(groups).every((arr) => arr.some((el) => el.checked));
-  }
-
-  function validateAll() {
-    const inputs = form.querySelectorAll('input[type="radio"]');
-    const groups = groupBy([...inputs], (el) => el.name);
-    return Object.values(groups).every((arr) => arr.some((el) => el.checked));
-  }
-
-  // フッターボタン取得
-  const prevBtn = document.getElementById('retryButton');    // secondary を「戻る」に再利用
-  const nextBtn = document.getElementById('submitButton');   // primary を「次へ／結果を見る」に再利用
+  // 既存フッター要素
+  const backBtn = document.getElementById('retryButton');   // secondary
+  const nextBtn = document.getElementById('submitButton');  // primary
   const nextLabel = document.getElementById('submitContent');
 
-  // クリック挙動
-  prevBtn?.addEventListener('click', (e) => {
+  // クリックハンドラ
+  backBtn?.addEventListener('click', (e) => {
     e.preventDefault();
     if (pageIndex > 0) {
       pageIndex -= 1;
@@ -169,30 +146,53 @@ function bindSurveyHandlers() {
     e.preventDefault();
     const isLast = pageIndex === pages.length - 1;
     if (!isLast) {
-      if (!validateCurrentPage()) return toast('未回答の項目があります');
+      if (!validateCurrentPage()) { toast('未回答の項目があります'); return; }
       pageIndex = Math.min(pages.length - 1, pageIndex + 1);
       updatePage();
     } else {
-      if (!validateAll()) return toast('未回答の項目があります');
-      onSubmit(); // 結果へ
+      if (!validateAll()) { toast('未回答の項目があります'); return; }
+      onSubmit();
     }
   });
 
-  // 入力で次へ活性/非活性を更新
+  // 入力のたびに進捗/活性を更新
   form.addEventListener('change', () => {
     updateCounters();
-    updateFooterButtons();
+    refreshFooter();
   });
 
-  // フッターボタンの表示状態・ラベル
-  function updateFooterButtons() {
+  // 初期表示
+  updatePage();
+
+  function updatePage() {
+    pages.forEach((p, i) => p.hidden = i !== pageIndex);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    updateCounters();
+    refreshFooter();
+  }
+
+  function validateCurrentPage() {
+    const current = pages[pageIndex];
+    const inputs = current.querySelectorAll('input[type="radio"]');
+    const groups = groupBy([...inputs], el => el.name);
+    return Object.values(groups).every(arr => arr.some(el => el.checked));
+  }
+
+  function validateAll() {
+    const inputs = form.querySelectorAll('input[type="radio"]');
+    const groups = groupBy([...inputs], el => el.name);
+    return Object.values(groups).every(arr => arr.some(el => el.checked));
+  }
+
+  function refreshFooter() {
     const isFirst = pageIndex === 0;
     const isLast  = pageIndex === pages.length - 1;
 
-    // 戻る
-    if (prevBtn) {
-      prevBtn.classList.toggle('hidden', isFirst); // 1ページ目は隠す
-      prevBtn.textContent = '戻る';
+    // 戻る：1ページ目は隠す
+    if (backBtn) {
+      backBtn.classList.toggle('hidden', isFirst);
+      backBtn.textContent = '戻る';
+      backBtn.disabled = isFirst;
     }
 
     // 次へ／結果を見る
@@ -202,12 +202,9 @@ function bindSurveyHandlers() {
       nextBtn.classList.remove('hidden');
     }
 
-    // 結果アクションは診断前は常に隠す
+    // 診断前は結果用アクションを隠す
     document.getElementById('resultActions')?.classList.add('hidden');
   }
-
-  // 初期表示
-  updatePage();
 }
 
 /* -----------------------------
@@ -275,18 +272,18 @@ function renderResult({ diag /*, qc*/ }) {
   root.classList.remove('hidden');
   root.scrollIntoView({ behavior: 'smooth' });
 
-  // 結果表示中はフッターを「もう一度」などに切り替える
-  const prevBtn = document.getElementById('retryButton');
+  // 結果表示後のフッター
+  const backBtn = document.getElementById('retryButton');
   const nextBtn = document.getElementById('submitButton');
   const nextLabel = document.getElementById('submitContent');
 
-  if (prevBtn) {
-    prevBtn.classList.remove('hidden');
-    prevBtn.textContent = 'もう一度診断する';
-    prevBtn.onclick = () => location.reload();
+  if (backBtn) {
+    backBtn.classList.remove('hidden');
+    backBtn.textContent = 'もう一度診断する';
+    backBtn.onclick = () => location.reload();
   }
   if (nextBtn && nextLabel) {
-    nextBtn.classList.add('hidden'); // 診断直後は次のナビは不要
+    nextBtn.classList.add('hidden'); // 診断直後はナビ不要
   }
 
   document.getElementById('shareWebButton')?.addEventListener('click', () => {
@@ -356,17 +353,12 @@ function prettyLabel(key) {
 /* -----------------------------
  * helpers
  * --------------------------- */
-function chunk(arr, n) { const out = []; for (let i=0;i$arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
+function chunk(arr, n) { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; }
 function groupBy(arr, keyFn) { return arr.reduce((m, x) => { const k = keyFn(x); (m[k] ||= []).push(x); return m; }, {}); }
 function escapeHtml(s = "") {
-  return String(s)
-    .replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    }[c]));
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
 }
 function copyToClipboard(text) { navigator.clipboard?.writeText(text).catch(()=>{}); }
 function toast(msg) {
