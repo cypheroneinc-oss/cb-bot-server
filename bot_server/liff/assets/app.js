@@ -69,7 +69,7 @@ async function mountApp() {
   mount.innerHTML = renderSurvey(qs);
   bindSurveyHandlers();
   updateCounters();
-  wireFooterSubmit();
+  wireFooterNav(); // ← フッターでページ遷移を制御
 }
 
 /* -----------------------------
@@ -80,10 +80,7 @@ function renderSurvey(qs) {
   const pagesHtml = groups.map((g, pageIdx) => `
     <section class="page" data-page="${pageIdx}">
       ${g.map(renderItem).join('')}
-      <div class="page-actions">
-        ${pageIdx > 0 ? '<button class="btn prev" type="button">戻る</button>' : ''}
-        ${pageIdx < groups.length - 1 ? '<button class="btn next primary" type="button">次へ</button>' : ''}
-      </div>
+      <!-- ページ内のボタンは作らない。フッターで統一表示 -->
     </section>
   `).join('');
 
@@ -127,91 +124,90 @@ function renderItem(q) {
 }
 
 /* -----------------------------
- * 入力・ページング・検証
+ * ページング／検証（フッターのボタンで操作）
  * --------------------------- */
 function bindSurveyHandlers() {
   const form = document.querySelector('#survey-form');
   const pages = [...form.querySelectorAll('.page')];
   let pageIndex = 0;
-  updatePage();
 
-  form.addEventListener('click', (e) => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    e.preventDefault();
-
-    if (btn.classList.contains('next')) {
-      if (validatePage()) {
-        pageIndex = Math.min(pages.length - 1, pageIndex + 1);
-        updatePage();
-      }
-    }
-    if (btn.classList.contains('prev')) {
-      pageIndex = Math.max(0, pageIndex - 1);
-      updatePage();
-    }
-  });
-
-  form.addEventListener('change', updateCounters);
-
+  // 進捗、ページ表示
   function updatePage() {
     pages.forEach((p, i) => (p.hidden = i !== pageIndex));
     window.scrollTo({ top: 0, behavior: 'smooth' });
     updateCounters();
-    toggleFooter(pageIndex === pages.length - 1); // ★ 最終ページだけ送信ボタンを表示
+    updateFooterButtons();
   }
 
-  function validatePage() {
+  function validateCurrentPage() {
     const current = pages[pageIndex];
     const inputs = current.querySelectorAll('input[type="radio"]');
-    const groups = groupBy([...inputs], el => el.name);
-    const valid = Object.values(groups).every(arr => arr.some(el => el.checked));
-    if (!valid) toast('未回答の項目があります');
-    return valid;
+    const groups = groupBy([...inputs], (el) => el.name);
+    return Object.values(groups).every((arr) => arr.some((el) => el.checked));
   }
 
   function validateAll() {
     const inputs = form.querySelectorAll('input[type="radio"]');
-    const groups = groupBy([...inputs], el => el.name);
-    const valid = Object.values(groups).every(arr => arr.some(el => el.checked));
-    if (!valid) toast('未回答の項目があります');
-    return valid;
+    const groups = groupBy([...inputs], (el) => el.name);
+    return Object.values(groups).every((arr) => arr.some((el) => el.checked));
   }
-}
 
-/* フッターの送信ボタンを配線（最終ページのみ表示） */
-function wireFooterSubmit() {
-  const btn = document.getElementById('submitButton');
-  if (!btn) return;
+  // フッターボタン取得
+  const prevBtn = document.getElementById('retryButton');    // secondary を「戻る」に再利用
+  const nextBtn = document.getElementById('submitButton');   // primary を「次へ／結果を見る」に再利用
+  const nextLabel = document.getElementById('submitContent');
 
-  // 初期は非表示・無効
-  btn.classList.add('hidden');
-  btn.disabled = true;
-
-  btn.addEventListener('click', (e) => {
+  // クリック挙動
+  prevBtn?.addEventListener('click', (e) => {
     e.preventDefault();
-    const form = document.querySelector('#survey-form');
-    if (!form) return;
-    const inputs = form.querySelectorAll('input[type="radio"]');
-    const groups = groupBy([...inputs], el => el.name);
-    const ok = Object.values(groups).every(arr => arr.some(el => el.checked));
-    if (!ok) return toast('未回答の項目があります');
-    onSubmit();
+    if (pageIndex > 0) {
+      pageIndex -= 1;
+      updatePage();
+    }
   });
-}
+  nextBtn?.addEventListener('click', (e) => {
+    e.preventDefault();
+    const isLast = pageIndex === pages.length - 1;
+    if (!isLast) {
+      if (!validateCurrentPage()) return toast('未回答の項目があります');
+      pageIndex = Math.min(pages.length - 1, pageIndex + 1);
+      updatePage();
+    } else {
+      if (!validateAll()) return toast('未回答の項目があります');
+      onSubmit(); // 結果へ
+    }
+  });
 
-/* 最終ページだけ送信ボタンを出して有効化 */
-function toggleFooter(isLastPage) {
-  const btn = document.getElementById('submitButton');
-  if (!btn) return;
-  if (isLastPage) {
-    btn.classList.remove('hidden');
-    btn.disabled = false;
+  // 入力で次へ活性/非活性を更新
+  form.addEventListener('change', () => {
+    updateCounters();
+    updateFooterButtons();
+  });
+
+  // フッターボタンの表示状態・ラベル
+  function updateFooterButtons() {
+    const isFirst = pageIndex === 0;
+    const isLast  = pageIndex === pages.length - 1;
+
+    // 戻る
+    if (prevBtn) {
+      prevBtn.classList.toggle('hidden', isFirst); // 1ページ目は隠す
+      prevBtn.textContent = '戻る';
+    }
+
+    // 次へ／結果を見る
+    if (nextBtn && nextLabel) {
+      nextLabel.textContent = isLast ? '結果を見る' : '次へ';
+      nextBtn.disabled = isLast ? !validateAll() : !validateCurrentPage();
+      nextBtn.classList.remove('hidden');
+    }
+
+    // 結果アクションは診断前は常に隠す
     document.getElementById('resultActions')?.classList.add('hidden');
-  } else {
-    btn.classList.add('hidden');
-    btn.disabled = true;
   }
+
+  // 初期表示
+  updatePage();
 }
 
 /* -----------------------------
@@ -225,7 +221,6 @@ async function onSubmit() {
 
   const diag = diagnose(answers, { weights });
   renderResult({ diag, qc });
-  // 保存するならここでfetch
 }
 
 function collectAnswers() {
@@ -279,6 +274,20 @@ function renderResult({ diag /*, qc*/ }) {
 
   root.classList.remove('hidden');
   root.scrollIntoView({ behavior: 'smooth' });
+
+  // 結果表示中はフッターを「もう一度」などに切り替える
+  const prevBtn = document.getElementById('retryButton');
+  const nextBtn = document.getElementById('submitButton');
+  const nextLabel = document.getElementById('submitContent');
+
+  if (prevBtn) {
+    prevBtn.classList.remove('hidden');
+    prevBtn.textContent = 'もう一度診断する';
+    prevBtn.onclick = () => location.reload();
+  }
+  if (nextBtn && nextLabel) {
+    nextBtn.classList.add('hidden'); // 診断直後は次のナビは不要
+  }
 
   document.getElementById('shareWebButton')?.addEventListener('click', () => {
     const text = `私のアーキタイプは「${type_main}」${type_sub ? `（サブ: ${type_sub}）` : ''}。信頼度${(confidence*100).toFixed(0)}%`;
@@ -347,7 +356,7 @@ function prettyLabel(key) {
 /* -----------------------------
  * helpers
  * --------------------------- */
-function chunk(arr, n) { const out = []; for (let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
+function chunk(arr, n) { const out = []; for (let i=0;i$arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
 function groupBy(arr, keyFn) { return arr.reduce((m, x) => { const k = keyFn(x); (m[k] ||= []).push(x); return m; }, {}); }
 function escapeHtml(s = "") {
   return String(s)
