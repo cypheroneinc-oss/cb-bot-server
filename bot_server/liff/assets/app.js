@@ -243,7 +243,16 @@ function shareResult(typeMain, typeSub, conf) {
 // helpers
 function chunk(arr, n) { const out = []; for (let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
 function groupBy(arr, keyFn) { return arr.reduce((m, x) => { const k = keyFn(x); (m[k] ||= []).push(x); return m; }, {}); }
-function escapeHtml(s='') { return s.replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\\'':'&#39;'}[c])); }
+function escapeHtml(s = "") {
+  return String(s)
+    .replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    }[c]));
+}
 function copyToClipboard(text) { navigator.clipboard?.writeText(text).catch(()=>{}); }
 function toast(msg) { let t = document.querySelector('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); } t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1600); }
 function resolveLiffId() { const meta = document.querySelector('meta[name="liff-id"]'); return (meta && meta.content) || (window.__LIFF_ID__ || ''); }
