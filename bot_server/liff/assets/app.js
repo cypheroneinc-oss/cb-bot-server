@@ -1,6 +1,9 @@
 // filename: bot_server/liff/assets/app.js
 import { diagnose, quickQC } from '../../lib/scoring.js';
 
+/* -----------------------------
+ * データの動的ロード
+ * --------------------------- */
 let QUESTIONS = null;
 async function loadQuestions() {
   if (QUESTIONS) return QUESTIONS;
@@ -17,7 +20,6 @@ async function loadQuestions() {
   return null;
 }
 
-// 重み（weights）の動的ロード
 let WEIGHTS = null;
 async function loadWeights() {
   if (WEIGHTS) return WEIGHTS;
@@ -29,7 +31,7 @@ async function loadWeights() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json && typeof json === 'object' && Object.keys(json).length >= 12) {
-        WEIGHTS = json; 
+        WEIGHTS = json;
         return WEIGHTS;
       }
     } catch (e) { lastErr = e; }
@@ -38,12 +40,16 @@ async function loadWeights() {
   return null;
 }
 
-// ====== LIFF設定 ======
+/* -----------------------------
+ * LIFF placeholders（必要なら使う）
+ * --------------------------- */
 const LIFF_ID = resolveLiffId();
 const BASE_URL = resolveBaseUrl();
 const QUESTION_VERSION = 'v1';
 
-// 6法同意ラベル
+/* -----------------------------
+ * 6法同意ラベル
+ * --------------------------- */
 const LIKERT_OPTIONS = [
   { value: 6, label: 'とてもそう思う' },
   { value: 5, label: 'かなりそう思う' },
@@ -53,46 +59,50 @@ const LIKERT_OPTIONS = [
   { value: 1, label: 'まったくそう思わない' },
 ];
 
+/* -----------------------------
+ * エントリポイント
+ * --------------------------- */
 window.addEventListener('DOMContentLoaded', () => { mountApp(); });
 
 async function mountApp() {
-  const app = document.querySelector('#app');
-  if (!app) { console.error('[app] #app not found'); return; }
+  const app = document.querySelector('#questions'); // ← index.htmlの既存要素
+  if (!app) { console.error('[app] #questions not found'); return; }
 
   const qs = await loadQuestions();
   if (!qs) {
-    app.innerHTML = `<div class="fatal">設問データの読み込みに失敗しました。/data/questions.v1.js の配置とパスを確認してください。</div>`;
+    app.innerHTML = `<div class="load-error">設問データの読み込みに失敗しました。/data/questions.v1.js の配置とパスを確認してください。</div>`;
     return;
   }
 
   app.innerHTML = renderSurvey(qs);
   bindSurveyHandlers();
+  updateCounters(); // 初期化
+  wireFooterSubmit(); // フッターの「送信する」ボタンも使えるように
 }
 
-// ====== Survey UI ======
+/* -----------------------------
+ * Survey UI（設問本体だけ描画）
+ * --------------------------- */
 function renderSurvey(qs) {
-  const groups = chunk(qs, 10);
+  const groups = chunk(qs, 10); // 10問ごとページング
   const pagesHtml = groups.map((qs, i) => `
     <section class="page" data-page="${i}">
       ${qs.map(renderItem).join('')}
       <div class="page-actions">
         ${i > 0 ? '<button class="btn prev">戻る</button>' : ''}
-        ${i < groups.length - 1 ? '<button class="btn next">次へ</button>' : '<button class="btn submit primary">結果を見る</button>'}
+        ${i < groups.length - 1
+          ? '<button class="btn next">次へ</button>'
+          : '<button class="btn submit primary">結果を見る</button>'}
       </div>
     </section>
   `).join('');
 
+  // ヘッダ/フッタは index.html 側のものを使うため、ここではボディのみ返す
   return `
-    <div class="survey">
-      <header class="survey-head">
-        <h1>働き方アーキタイプ診断</h1>
-        <p class="desc">直感で答えてOK。合計36問、約4分で終わる。</p>
-      </header>
-      <form id="survey-form">
-        ${pagesHtml}
-      </form>
-      <div id="result" class="result" hidden></div>
-    </div>
+    <form id="survey-form" aria-live="polite">
+      ${pagesHtml}
+    </form>
+    <div id="result" class="result" hidden></div>
   `;
 }
 
@@ -112,39 +122,68 @@ function renderItem(q) {
   `;
 }
 
+/* -----------------------------
+ * ハンドラ
+ * --------------------------- */
 function bindSurveyHandlers() {
   const form = document.querySelector('#survey-form');
   const pages = [...form.querySelectorAll('.page')];
   let pageIndex = 0; updatePage();
 
+  // ページングボタン
   form.addEventListener('click', (e) => {
     const target = e.target.closest('button');
     if (!target) return;
     e.preventDefault();
+
     if (target.classList.contains('next')) { if (validatePage()) { pageIndex++; updatePage(); } }
     if (target.classList.contains('prev')) { pageIndex = Math.max(0, pageIndex - 1); updatePage(); }
     if (target.classList.contains('submit')) { if (validateAll()) onSubmit(); }
   });
 
+  // 回答が変わったらカウンタとプログレス更新
+  form.addEventListener('change', updateCounters);
+
   function updatePage() {
     pages.forEach((p, i) => p.hidden = i !== pageIndex);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    updateCounters();
   }
+
   function validatePage() {
     const current = pages[pageIndex];
     const inputs = current.querySelectorAll('input[type="radio"]');
     const groups = groupBy([...inputs], el => el.name);
     const valid = Object.values(groups).every(arr => arr.some(el => el.checked));
-    if (!valid) toast('未回答の項目があります'); return valid;
+    if (!valid) toast('未回答の項目があります');
     return valid;
   }
+
   function validateAll() {
     const inputs = form.querySelectorAll('input[type="radio"]');
     const groups = groupBy([...inputs], el => el.name);
     const valid = Object.values(groups).every(arr => arr.some(el => el.checked));
-    if (!valid) toast('未回答の項目があります'); return valid;
+    if (!valid) toast('未回答の項目があります');
     return valid;
   }
+}
+
+// フッターの「送信する」ボタンも使えるよう配線
+function wireFooterSubmit() {
+  const footerBtn = document.getElementById('submitButton');
+  if (!footerBtn) return;
+  footerBtn.disabled = false;
+  footerBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const ok = (() => {
+      const form = document.querySelector('#survey-form');
+      const inputs = form.querySelectorAll('input[type="radio"]');
+      const groups = groupBy([...inputs], el => el.name);
+      return Object.values(groups).every(arr => arr.some(el => el.checked));
+    })();
+    if (!ok) return toast('未回答の項目があります');
+    onSubmit();
+  });
 }
 
 async function onSubmit() {
@@ -154,7 +193,8 @@ async function onSubmit() {
   if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
   const diag = diagnose(answers, { weights });
   renderResult({ diag, qc });
-  // 保存APIを使う場合はここで fetch(BASE_URL + '/api/diagnosis/submit', ...) を実行
+  // 必要なら保存APIへ送る:
+  // await fetch(BASE_URL + '/api/diagnosis/submit', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ answers, diag, qc, ver: QUESTION_VERSION }) });
 }
 
 function collectAnswers() {
@@ -162,8 +202,10 @@ function collectAnswers() {
   return [...inputs].map(el => ({ id: el.name, value: Number(el.value) }));
 }
 
-// ====== Result UI ======
-function renderResult({ diag, qc }) {
+/* -----------------------------
+ * 結果UI
+ * --------------------------- */
+function renderResult({ diag /*, qc */ }) {
   const root = document.querySelector('#result');
   const { type_main, type_sub, confidence, balanceIndex, prob, vec } = diag;
 
@@ -194,9 +236,29 @@ function renderResult({ diag, qc }) {
   `;
 
   root.hidden = false;
-  document.querySelector('.survey').scrollIntoView({ behavior: 'smooth' });
+  root.scrollIntoView({ behavior: 'smooth' });
+
   root.querySelector('.restart')?.addEventListener('click', () => location.reload());
   root.querySelector('.share')?.addEventListener('click', () => shareResult(type_main, type_sub, confidence));
+}
+
+/* -----------------------------
+ * 進捗カウンタ／ダイヤル
+ * --------------------------- */
+function updateCounters() {
+  const form = document.getElementById('survey-form');
+  if (!form) return;
+  const answered = form.querySelectorAll('input[type="radio"]:checked').length;
+  const total = form.querySelectorAll('.q').length;
+  const rem = Math.max(0, total - answered);
+
+  const ac = document.getElementById('answeredCount');
+  const rc = document.getElementById('remainingCount');
+  if (ac) ac.innerText = String(answered);
+  if (rc) rc.innerText = String(rem);
+
+  const bar = document.getElementById('progressFill');
+  if (bar) bar.style.width = `${Math.round((answered / Math.max(total,1)) * 100)}%`;
 }
 
 function pickFactorDials(vec25) {
@@ -233,6 +295,9 @@ function prettyLabel(key) {
   return map[key] || key;
 }
 
+/* -----------------------------
+ * 共有
+ * --------------------------- */
 function shareResult(typeMain, typeSub, conf) {
   const text = `私のアーキタイプは「${typeMain}」${typeSub ? `（サブ: ${typeSub}）` : ''}。信頼度${(conf*100).toFixed(0)}%`;
   if (navigator.share) navigator.share({ text }).catch(() => copyToClipboard(text));
@@ -240,7 +305,9 @@ function shareResult(typeMain, typeSub, conf) {
   toast('結果テキストを共有しました');
 }
 
-// helpers
+/* -----------------------------
+ * helpers
+ * --------------------------- */
 function chunk(arr, n) { const out = []; for (let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
 function groupBy(arr, keyFn) { return arr.reduce((m, x) => { const k = keyFn(x); (m[k] ||= []).push(x); return m; }, {}); }
 function escapeHtml(s = "") {
@@ -254,6 +321,11 @@ function escapeHtml(s = "") {
     }[c]));
 }
 function copyToClipboard(text) { navigator.clipboard?.writeText(text).catch(()=>{}); }
-function toast(msg) { let t = document.querySelector('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); } t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1600); }
+function toast(msg) { 
+  let t = document.querySelector('.toast');
+  if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 1600);
+}
 function resolveLiffId() { const meta = document.querySelector('meta[name="liff-id"]'); return (meta && meta.content) || (window.__LIFF_ID__ || ''); }
 function resolveBaseUrl() { const meta = document.querySelector('meta[name="app-base-url"]'); return (meta && meta.content) || (window.__BASE_URL__ || ''); }
