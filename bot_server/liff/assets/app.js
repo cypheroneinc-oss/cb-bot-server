@@ -1,17 +1,10 @@
-// filename: bot_server/liff/assets/app.js（Cロジック診断 配線済み・完全版）
-// 依存: ../../data/questions.v1.js, ../../lib/scoring.js, ../../lib/archetype-weights.v1.json
-// 目的: 36問の回答収集 → Cロジック診断 → 12タイプ出力（主/サブ＋根拠ダイヤル）
-
-// 動的ロード（ビルド環境差異に強くする）
+// filename: bot_server/liff/assets/app.js
 import { diagnose, quickQC } from '../../lib/scoring.js';
+
 let QUESTIONS = null;
 async function loadQuestions() {
   if (QUESTIONS) return QUESTIONS;
-  // 相対パス候補を順に試す
-  const candidates = [
-    '../../data/questions.v1.js',
-    '/data/questions.v1.js',
-  ];
+  const candidates = ['../../data/questions.v1.js', '/data/questions.v1.js'];
   let lastErr;
   for (const p of candidates) {
     try {
@@ -24,14 +17,11 @@ async function loadQuestions() {
   return null;
 }
 
-// 重み（weights）の動的ロード（JSON import 非依存）
+// 重み（weights）の動的ロード
 let WEIGHTS = null;
 async function loadWeights() {
   if (WEIGHTS) return WEIGHTS;
-  const candidates = [
-    '../../lib/archetype-weights.v1.json',
-    '/lib/archetype-weights.v1.json',
-  ];
+  const candidates = ['../../lib/archetype-weights.v1.json', '/lib/archetype-weights.v1.json'];
   let lastErr;
   for (const p of candidates) {
     try {
@@ -39,7 +29,7 @@ async function loadWeights() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json && typeof json === 'object' && Object.keys(json).length >= 12) {
-        WEIGHTS = json;
+        WEIGHTS = json; 
         return WEIGHTS;
       }
     } catch (e) { lastErr = e; }
@@ -48,12 +38,12 @@ async function loadWeights() {
   return null;
 }
 
-// ====== LIFF設定（既存実装を尊重。必要に応じて置換可） ======
+// ====== LIFF設定 ======
 const LIFF_ID = resolveLiffId();
 const BASE_URL = resolveBaseUrl();
 const QUESTION_VERSION = 'v1';
 
-// 6法同意のラベル（UIは既存のコンポーネントを再利用）
+// 6法同意ラベル
 const LIKERT_OPTIONS = [
   { value: 6, label: 'とてもそう思う' },
   { value: 5, label: 'かなりそう思う' },
@@ -63,7 +53,6 @@ const LIKERT_OPTIONS = [
   { value: 1, label: 'まったくそう思わない' },
 ];
 
-// ====== エントリポイント ======
 window.addEventListener('DOMContentLoaded', () => { mountApp(); });
 
 async function mountApp() {
@@ -76,17 +65,13 @@ async function mountApp() {
     return;
   }
 
-  // レンダリング
   app.innerHTML = renderSurvey(qs);
-
-  // イベント配線
   bindSurveyHandlers();
 }
 
 // ====== Survey UI ======
 function renderSurvey(qs) {
-  const groups = chunk(qs, 10); // 10問ごとに区切る（UX安定）
-
+  const groups = chunk(qs, 10);
   const pagesHtml = groups.map((qs, i) => `
     <section class="page" data-page="${i}">
       ${qs.map(renderItem).join('')}
@@ -136,7 +121,6 @@ function bindSurveyHandlers() {
     const target = e.target.closest('button');
     if (!target) return;
     e.preventDefault();
-
     if (target.classList.contains('next')) { if (validatePage()) { pageIndex++; updatePage(); } }
     if (target.classList.contains('prev')) { pageIndex = Math.max(0, pageIndex - 1); updatePage(); }
     if (target.classList.contains('submit')) { if (validateAll()) onSubmit(); }
@@ -146,21 +130,19 @@ function bindSurveyHandlers() {
     pages.forEach((p, i) => p.hidden = i !== pageIndex);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-
   function validatePage() {
     const current = pages[pageIndex];
     const inputs = current.querySelectorAll('input[type="radio"]');
     const groups = groupBy([...inputs], el => el.name);
     const valid = Object.values(groups).every(arr => arr.some(el => el.checked));
-    if (!valid) toast('未回答の項目があります');
+    if (!valid) toast('未回答の項目があります'); return valid;
     return valid;
   }
-
   function validateAll() {
     const inputs = form.querySelectorAll('input[type="radio"]');
     const groups = groupBy([...inputs], el => el.name);
     const valid = Object.values(groups).every(arr => arr.some(el => el.checked));
-    if (!valid) toast('未回答の項目があります');
+    if (!valid) toast('未回答の項目があります'); return valid;
     return valid;
   }
 }
@@ -172,52 +154,39 @@ async function onSubmit() {
   if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
   const diag = diagnose(answers, { weights });
   renderResult({ diag, qc });
-  // 送信保存が必要ならここで fetch(BASE_URL + '/api/diagnosis/submit', ...) を実行
+  // 保存APIを使う場合はここで fetch(BASE_URL + '/api/diagnosis/submit', ...) を実行
 }
 
 function collectAnswers() {
   const inputs = document.querySelectorAll('#survey-form input[type="radio"]:checked');
-  const ans = [...inputs].map(el => ({ id: el.name, value: Number(el.value) }));
-  return ans;
+  return [...inputs].map(el => ({ id: el.name, value: Number(el.value) }));
 }
 
 // ====== Result UI ======
 function renderResult({ diag, qc }) {
   const root = document.querySelector('#result');
-  const { type_main, type_sub, confidence, balanceIndex, prob, vec, sub, norm } = diag;
+  const { type_main, type_sub, confidence, balanceIndex, prob, vec } = diag;
 
   const probList = Object.entries(prob)
     .sort((a,b) => b[1]-a[1])
     .slice(0, 5)
-    .map(([k,v]) => `<li><span class="t">${k}</span><span class="v">${(v*100).toFixed(1)}%</span></li>`) 
+    .map(([k,v]) => `<li><span class="t">${k}</span><span class="v">${(v*100).toFixed(1)}%</span></li>`)
     .join('');
 
-  // 因子ダイヤル（主要10キーを抜粋表示）
-  const dials = pickFactorDials(diag.vec);
+  const dials = pickFactorDials(vec);
 
   root.innerHTML = `
     <div class="result-head">
       <h2>あなたのタイプ</h2>
-      <div class="type-main">
-        <span class="badge">主</span>
-        <strong>${type_main}</strong>
-      </div>
+      <div class="type-main"><span class="badge">主</span><strong>${type_main}</strong></div>
       ${type_sub ? `<div class="type-sub"><span class="badge">サブ</span><strong>${type_sub}</strong></div>` : ''}
       <div class="meta">
         <span>信頼度: ${(confidence*100).toFixed(0)}%</span>
         <span>二相指数: ${(balanceIndex*100).toFixed(0)}%</span>
       </div>
     </div>
-
-    <section class="dials">
-      ${dials.map(renderDial).join('')}
-    </section>
-
-    <section class="prob">
-      <h3>近接タイプ（上位5）</h3>
-      <ul class="prob-list">${probList}</ul>
-    </section>
-
+    <section class="dials">${dials.map(renderDial).join('')}</section>
+    <section class="prob"><h3>近接タイプ（上位5）</h3><ul class="prob-list">${probList}</ul></section>
     <section class="cta">
       <button class="btn restart">もう一度やる</button>
       <button class="btn share">結果をシェア</button>
@@ -226,13 +195,11 @@ function renderResult({ diag, qc }) {
 
   root.hidden = false;
   document.querySelector('.survey').scrollIntoView({ behavior: 'smooth' });
-
   root.querySelector('.restart')?.addEventListener('click', () => location.reload());
   root.querySelector('.share')?.addEventListener('click', () => shareResult(type_main, type_sub, confidence));
 }
 
 function pickFactorDials(vec25) {
-  // 表示する10キー（UI簡潔化）
   const keys = [
     'Trait.Extraversion','Trait.Conscientiousness','Trait.Openness','Trait.Agreeableness','Trait.Neuroticism',
     'Orientation.Promotion','Orientation.Prevention',
@@ -241,13 +208,10 @@ function pickFactorDials(vec25) {
   return keys.map(k => ({ key: k, label: prettyLabel(k), value: Math.round((vec25[k] ?? 0.5)*100) }));
 }
 
-function renderDial({ key, label, value }) {
+function renderDial({ label, value }) {
   return `
     <div class="dial">
-      <div class="dial-head">
-        <span class="label">${label}</span>
-        <span class="num">${value}</span>
-      </div>
+      <div class="dial-head"><span class="label">${label}</span><span class="num">${value}</span></div>
       <div class="bar"><span style="width:${value}%"></span></div>
     </div>
   `;
@@ -271,32 +235,16 @@ function prettyLabel(key) {
 
 function shareResult(typeMain, typeSub, conf) {
   const text = `私のアーキタイプは「${typeMain}」${typeSub ? `（サブ: ${typeSub}）` : ''}。信頼度${(conf*100).toFixed(0)}%`;
-  if (navigator.share) {
-    navigator.share({ text }).catch(() => copyToClipboard(text));
-  } else {
-    copyToClipboard(text);
-  }
+  if (navigator.share) navigator.share({ text }).catch(() => copyToClipboard(text));
+  else copyToClipboard(text);
   toast('結果テキストを共有しました');
 }
 
-// ====== helpers ======
+// helpers
 function chunk(arr, n) { const out = []; for (let i=0;i<arr.length;i+=n) out.push(arr.slice(i,i+n)); return out; }
 function groupBy(arr, keyFn) { return arr.reduce((m, x) => { const k = keyFn(x); (m[k] ||= []).push(x); return m; }, {}); }
-function escapeHtml(s='') { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+function escapeHtml(s='') { return s.replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\\'':'&#39;'}[c])); }
 function copyToClipboard(text) { navigator.clipboard?.writeText(text).catch(()=>{}); }
-function toast(msg) {
-  let t = document.querySelector('.toast');
-  if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
-  t.textContent = msg; t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 1600);
-}
-
-// ====== 既存のplaceholders ======
-function resolveLiffId() {
-  const meta = document.querySelector('meta[name="liff-id"]');
-  return (meta && meta.content) || (window.__LIFF_ID__ || '');
-}
-function resolveBaseUrl() {
-  const meta = document.querySelector('meta[name="app-base-url"]');
-  return (meta && meta.content) || (window.__BASE_URL__ || '');
-}
+function toast(msg) { let t = document.querySelector('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); } t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1600); }
+function resolveLiffId() { const meta = document.querySelector('meta[name="liff-id"]'); return (meta && meta.content) || (window.__LIFF_ID__ || ''); }
+function resolveBaseUrl() { const meta = document.querySelector('meta[name="app-base-url"]'); return (meta && meta.content) || (window.__BASE_URL__ || ''); }
