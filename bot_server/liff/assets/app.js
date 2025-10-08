@@ -82,9 +82,7 @@ function renderSurvey(qs) {
       ${g.map(renderItem).join('')}
       <div class="page-actions">
         ${pageIdx > 0 ? '<button class="btn prev" type="button">戻る</button>' : ''}
-        ${pageIdx < groups.length - 1
-          ? '<button class="btn next" type="button">次へ</button>'
-          : '<button class="btn submit primary" type="button">結果を見る</button>'}
+        ${pageIdx < groups.length - 1 ? '<button class="btn next primary" type="button">次へ</button>' : ''}
       </div>
     </section>
   `).join('');
@@ -134,7 +132,8 @@ function renderItem(q) {
 function bindSurveyHandlers() {
   const form = document.querySelector('#survey-form');
   const pages = [...form.querySelectorAll('.page')];
-  let pageIndex = 0; updatePage();
+  let pageIndex = 0;
+  updatePage();
 
   form.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
@@ -151,17 +150,15 @@ function bindSurveyHandlers() {
       pageIndex = Math.max(0, pageIndex - 1);
       updatePage();
     }
-    if (btn.classList.contains('submit')) {
-      if (validateAll()) onSubmit();
-    }
   });
 
   form.addEventListener('change', updateCounters);
 
   function updatePage() {
-    pages.forEach((p, i) => p.hidden = i !== pageIndex);
+    pages.forEach((p, i) => (p.hidden = i !== pageIndex));
     window.scrollTo({ top: 0, behavior: 'smooth' });
     updateCounters();
+    toggleFooter(pageIndex === pages.length - 1); // ★ 最終ページだけ送信ボタンを表示
   }
 
   function validatePage() {
@@ -182,23 +179,39 @@ function bindSurveyHandlers() {
   }
 }
 
-/* フッターの送信ボタンを配線 */
+/* フッターの送信ボタンを配線（最終ページのみ表示） */
 function wireFooterSubmit() {
   const btn = document.getElementById('submitButton');
   if (!btn) return;
-  btn.disabled = false;
+
+  // 初期は非表示・無効
+  btn.classList.add('hidden');
+  btn.disabled = true;
+
   btn.addEventListener('click', (e) => {
     e.preventDefault();
-    const ok = (() => {
-      const form = document.querySelector('#survey-form');
-      if (!form) return false;
-      const inputs = form.querySelectorAll('input[type="radio"]');
-      const groups = groupBy([...inputs], el => el.name);
-      return Object.values(groups).every(arr => arr.some(el => el.checked));
-    })();
+    const form = document.querySelector('#survey-form');
+    if (!form) return;
+    const inputs = form.querySelectorAll('input[type="radio"]');
+    const groups = groupBy([...inputs], el => el.name);
+    const ok = Object.values(groups).every(arr => arr.some(el => el.checked));
     if (!ok) return toast('未回答の項目があります');
     onSubmit();
   });
+}
+
+/* 最終ページだけ送信ボタンを出して有効化 */
+function toggleFooter(isLastPage) {
+  const btn = document.getElementById('submitButton');
+  if (!btn) return;
+  if (isLastPage) {
+    btn.classList.remove('hidden');
+    btn.disabled = false;
+    document.getElementById('resultActions')?.classList.add('hidden');
+  } else {
+    btn.classList.add('hidden');
+    btn.disabled = true;
+  }
 }
 
 /* -----------------------------
