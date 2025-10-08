@@ -1,110 +1,59 @@
-export default [
-  // Q01–Q24: Likert 6段（左=YES／右=NO）
-  // 共通仕様：choices = POS / NEG（mapLikertToChoiceがscale→choiceKeyに変換）
+// Cロジック診断 用 36問（6法同意）
+// スケール: 1=まったくそう思わない … 6=とてもそう思う
+// reverse=true の項目はスコアを (7 - 回答値) で反転
 
-  { id: "Q01", text: "人が集まる場では\n自分が中心になるより\n周りを見て動く方が多い？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+const QUESTIONS = [
+  // ========== Trait（性格）10問 ==========
+  { id: "T-E-01", axis: "Trait", subfactor: "Extraversion", reverse: false, text: "みんなの前に立つと、自然にスイッチが入る。" },
+  { id: "T-E-02", axis: "Trait", subfactor: "Extraversion", reverse: true,  text: "一人の時間のほうが落ち着く。" },
 
-  { id: "Q02", text: "うまくいかなくても\n『まあ次でいいか』と思えるタイプ？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "T-C-01", axis: "Trait", subfactor: "Conscientiousness", reverse: false, text: "予定を立てると安心して動けるタイプだ。" },
+  { id: "T-C-02", axis: "Trait", subfactor: "Conscientiousness", reverse: true,  text: "その日の気分で動くことが多い。" },
 
-  { id: "Q03", text: "新しい方法よりもまずは\n今のやり方を理解してから動きたい？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "T-O-01", axis: "Trait", subfactor: "Openness", reverse: false, text: "「今までと違うやり方」にワクワクする。" },
+  { id: "T-O-02", axis: "Trait", subfactor: "Openness", reverse: true,  text: "決まったやり方を変えるのはあまり得意じゃない。" },
 
-  { id: "Q04", text: "決まりや指示があっても\n意見を曲げずに動くことがある？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "T-A-01", axis: "Trait", subfactor: "Agreeableness", reverse: false, text: "空気の変化に気づくと、ついフォローに回る。" },
+  { id: "T-A-02", axis: "Trait", subfactor: "Agreeableness", reverse: true,  text: "自分の意見を通すほうが大事だ。" },
 
-  { id: "Q05", text: "初めての場所や体験より\n慣れた環境の方が落ち着く？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  { id: "T-N-01", axis: "Trait", subfactor: "Neuroticism", reverse: false, text: "ミスしたことを、頭の中で何度も思い返してしまう。" },
+  { id: "T-N-02", axis: "Trait", subfactor: "Neuroticism", reverse: true,  text: "困難があっても、わりとすぐ切り替えられる。" },
 
-  { id: "Q06", text: "同じことの繰り返しでも\n安心できる部分がある？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  // ========== Value（価値観）6問 ==========
+  { id: "V-AUT-01", axis: "Value", subfactor: "Autonomy", reverse: false, text: "周りよりも、自分の中の“正しさ”で動きたい。" },
+  { id: "V-ACH-01", axis: "Value", subfactor: "Achievement", reverse: false, text: "目標があると、全力でそこに集中できる。" },
+  { id: "V-SEC-01", axis: "Value", subfactor: "Security", reverse: false, text: "先の見える環境のほうが、落ち着いて力を出せる。" },
+  { id: "V-UNI-01", axis: "Value", subfactor: "Universalism", reverse: false, text: "人の役に立てると、それだけで一日が報われる気がする。" },
+  { id: "V-STI-01", axis: "Value", subfactor: "Stimulation", reverse: false, text: "変化があると、自然と気持ちが前に向く。" },
+  { id: "V-POW-01", axis: "Value", subfactor: "Power", reverse: false, text: "流れを作ったり、方針を決める役にやりがいを感じる。" },
 
-  { id: "Q07", text: "頭に浮かんだアイデアを\nすぐ形にせず、寝かせて考える方？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  // ========== Motivation（動機）4問 ==========
+  { id: "M-AUT-01", axis: "Motivation", subfactor: "Autonomy", reverse: false, text: "やることを自分で決めた瞬間、やる気が出る。" },
+  { id: "M-COM-01", axis: "Motivation", subfactor: "Competence", reverse: false, text: "「これは自分が得意だ」と思うと集中できる。" },
+  { id: "M-REL-01", axis: "Motivation", subfactor: "Relatedness", reverse: false, text: "誰かに「助かった」と言われると、もう一歩頑張れる。" },
+  { id: "M-SAF-01", axis: "Motivation", subfactor: "Safety", reverse: false, text: "余計な不安がないと、やることに集中できる。" },
 
-  { id: "Q08", text: "自分の考えがみんなと同じでも\nそれはそれで安心できる？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  // ========== Orientation（志向）3問 ==========
+  { id: "O-PRO-01", axis: "Orientation", subfactor: "Promotion", reverse: false, text: "やったことのないことに誘われると、ワクワクする。" },
+  { id: "O-PRE-01", axis: "Orientation", subfactor: "Prevention", reverse: false, text: "うまくいくかどうかより、失敗しない方法を先に考える。" },
+  { id: "O-PRO-02", axis: "Orientation", subfactor: "Promotion", reverse: false, text: "慎重さよりも、必要ならスピードを優先する。" },
 
-  { id: "Q09", text: "答えが出ないことも\n『そういうものか』と受け止められる？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
+  // ========== Interest（興味）8問 ==========
+  { id: "I-ART-01", axis: "Interest", subfactor: "Artistic", reverse: false, text: "頭に浮かんだイメージを、形にしたくなる。" },
+  { id: "I-SOC-01", axis: "Interest", subfactor: "Social", reverse: false, text: "誰かの役に立てる瞬間にやりがいを感じる。" },
+  { id: "I-ENT-01", axis: "Interest", subfactor: "Enterprising", reverse: false, text: "みんなが迷っていると、自然に仕切ってしまう。" },
+  { id: "I-INV-01", axis: "Interest", subfactor: "Investigative", reverse: false, text: "物事の「なぜ？」を考えるのがクセになっている。" },
+  { id: "I-REA-01", axis: "Interest", subfactor: "Realistic", reverse: false, text: "手を動かして何かを完成させるのが気持ちいい。" },
+  { id: "I-CON-01", axis: "Interest", subfactor: "Conventional", reverse: false, text: "手順がはっきりしているほうが落ち着く。" },
+  { id: "I-ART-02", axis: "Interest", subfactor: "Artistic", reverse: true,  text: "形に残らない作業には、あまり興味が湧かない。" },
+  { id: "I-SOC-02", axis: "Interest", subfactor: "Social", reverse: true,  text: "他人の問題に、できれば深入りしたくない。" },
 
-  { id: "Q10", text: "細かい根拠よりも\nまず直感で動くことが多い？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q11", text: "目立つ変化より\n徐々に良くしていく方が好き？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q12", text: "変化が多すぎる環境より\n一定のペースを保てる環境が\n向いてると思う？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q13", text: "人が落ち込んでいても\n相手のペースを尊重して見守る方？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q14", text: "困っている人がいても\n自分ができる範囲を考えて動く？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q15", text: "グループでは\nリーダーよりもサポート側\nでいる方が落ち着く？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q16", text: "ルールがなくても\n状況を見て柔軟に動ける方？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q17", text: "みんなで過ごすより\nひとり時間で\nリセットしたくなる？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q18", text: "みんなの輪に入りづらくても\n無理に合わせようとは思わない？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q19", text: "誰かといてしーんとした時でも\n気まずさをあまり感じない方？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q20", text: "退屈な時間があっても\n心の整理やアイデア出しに使える方？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q21", text: "大切な人や物がなくても\n自分のために頑張れる？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q22", text: "自分の意見が通らなくても\n『仕方ない』と切り替えられる？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q23", text: "理想よりも\n現実的にできることから\n考える方？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-  { id: "Q24", text: "信じていたことが違っても\n現実を受け止めて前に進める？",
-    choices: [{ key: "POS", label: "YES" }, { key: "NEG", label: "NO" }] },
-
-
-  // Q25–Q30: Gate（二択・A/B）
-  // 共通仕様：choices = A / B（タイブレークと軽い加点に使用）
-  { id: "Q25", text: "リーダーになるなら →",
-    choices: [
-      { key: "A", label: "みんなを前で引っ張る" },
-      { key: "B", label: "バランス見て全体をまとめる" }
-    ]},
-  { id: "Q26", text: "楽しいのは →",
-    choices: [
-      { key: "A", label: "新しいことを試す" },
-      { key: "B", label: "正しい答えを探す" }
-    ]},
-  { id: "Q27", text: "近いのは →",
-    choices: [
-      { key: "A", label: "人と深くつながりたい" },
-      { key: "B", label: "人を支えたい" }
-    ]},
-  { id: "Q28", text: "自分らしいのは →",
-    choices: [
-      { key: "A", label: "場を盛り上げたい" },
-      { key: "B", label: "みんなと同じ空気でいたい" }
-    ]},
-  { id: "Q29", text: "変えるなら →",
-    choices: [
-      { key: "A", label: "いらないものは壊す" },
-      { key: "B", label: "工夫して変化を起こす" }
-    ]},
-  { id: "Q30", text: "ワクワクするのは →",
-    choices: [
-      { key: "A", label: "知識を集めて理解する" },
-      { key: "B", label: "形にして表現する" }
-    ]}
+  // ========== Fit（適合）5問 ==========
+  { id: "F-SAFE-01", axis: "Fit", subfactor: "PsychSafety", reverse: false, text: "自分の意見を言っても、ちゃんと聞いてもらえるとホッとする。" },
+  { id: "F-FLEX-01", axis: "Fit", subfactor: "Flexibility", reverse: false, text: "考え方が違う人とも、一緒にやってみようと思える。" },
+  { id: "F-TRST-01", axis: "Fit", subfactor: "Trust", reverse: false, text: "信頼できる人がそばにいると、挑戦しやすい。" },
+  { id: "F-COOP-01", axis: "Fit", subfactor: "Collaboration", reverse: false, text: "誰かと力を合わせると、普段より集中できる。" },
+  { id: "F-FLEX-02", axis: "Fit", subfactor: "Flexibility", reverse: true,  text: "合わないと思えば、早めに距離を置くほうだ。" }
 ];
+
+export default QUESTIONS;
