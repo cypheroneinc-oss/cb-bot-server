@@ -24,6 +24,30 @@ async function loadQuestions() {
   return null;
 }
 
+// 重み（weights）の動的ロード（JSON import 非依存）
+let WEIGHTS = null;
+async function loadWeights() {
+  if (WEIGHTS) return WEIGHTS;
+  const candidates = [
+    '../../lib/archetype-weights.v1.json',
+    '/lib/archetype-weights.v1.json',
+  ];
+  let lastErr;
+  for (const p of candidates) {
+    try {
+      const res = await fetch(p, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json && typeof json === 'object' && Object.keys(json).length >= 12) {
+        WEIGHTS = json;
+        return WEIGHTS;
+      }
+    } catch (e) { lastErr = e; }
+  }
+  console.error('[weights] failed to load', lastErr);
+  return null;
+}
+
 // ====== LIFF設定（既存実装を尊重。必要に応じて置換可） ======
 const LIFF_ID = resolveLiffId();
 const BASE_URL = resolveBaseUrl();
@@ -144,7 +168,9 @@ function bindSurveyHandlers() {
 async function onSubmit() {
   const answers = collectAnswers();
   const qc = quickQC(answers);
-  const diag = diagnose(answers);
+  const weights = await loadWeights();
+  if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
+  const diag = diagnose(answers, { weights });
   renderResult({ diag, qc });
   // 送信保存が必要ならここで fetch(BASE_URL + '/api/diagnosis/submit', ...) を実行
 }
