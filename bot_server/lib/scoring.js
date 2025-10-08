@@ -1,659 +1,267 @@
-import crypto from 'node:crypto';
-import {
-  DATASET_VERSION,
-  getQuestionByCode,
-  getQuestionDataset,
-  listQuestionCodes,
-} from './questions/index.js';
+// Cロジック診断・判定ユーティリティ v1
+// 依存: /data/questions.v1.js（既に作成済み）
+// 目的: 回答配列 → 下位因子25Dベクトル → 12アーキタイプ確率 → 主/サブタイプ + 指標
 
-const QUESTION_VERSION = DATASET_VERSION;
-const QUESTION_IDS = listQuestionCodes(QUESTION_VERSION);
+import QUESTIONS from "../data/questions.v1.js";
 
-const SAFETY_MATRIX = new Map([
-  ['high:high', 12],
-  ['high:mid', 11],
-  ['high:low', 9],
-  ['mid:high', 10],
-  ['mid:mid', 9],
-  ['mid:low', 8],
-  ['low:high', 7],
-  ['low:mid', 6],
-  ['low:low', 8]
-]);
-
-const WORKSTYLE_WEIGHTS = {
-  speed: 4,
-  improv: 3,
-  structured: 4,
-  logical: 3,
-  careful: 3,
-  intuitive: 3
-};
-
-const MOTIVATION_ORDER = [
-  'achieve',
-  'approval',
-  'contribution',
-  'security',
-  'curiosity',
-  'autonomy',
-  'connection',
-  'growth'
-];
-
-const SYNC_CATEGORIES = [
-  'high_tension',
-  'natural',
-  'quiet_hot',
-  'logical_cool',
-  'relaxed',
-  'tsukkomi'
-];
-
-const NG_CATEGORIES = [
-  'pressure',
-  'instant_reply',
-  'read_between_lines',
-  'monotony',
-  'no_autonomy',
-  'no_change'
-];
-
-const CLUSTERS = ['challenge', 'creative', 'support', 'strategy'];
-
-/* ───────── 追加：12アーキタイプ用定義 ───────── */
-const ARCHETYPES = [
-  'hero','outlaw','explorer','creator','sage','magician',
-  'caregiver','ruler','everyman','jester','lover','innocent'
-];
-
-/** 
- * 各設問→アーキタイプ割当と極性
- * POS/NEG は mapLikertToChoice で決まる choiceKey と突き合わせる
- * weight は回答に付与される w（0.25〜0.75）をそのまま用いる
- *
- * 方針：
- * - 12タイプ×2問ずつ（24問）をカバー
- * - 反対極性は －w で集計し、両極のバイアスを打ち消し
+/**
+ * 回答フォーマット
+ * @typedef {Object} Answer
+ * @property {string} id - 質問ID（QUESTIONS[].id と一致）
+ * @property {number} value - 1..6 の整数（6法同意）
  */
-const QUESTION_TO_ARCH = {
-  // Hero（主体性・達成志向）
-  Q01: [{ type: 'hero', polarity: 'NEG' }], // 中心にならない=POS → Heroとは逆極
-  Q02: [{ type: 'hero', polarity: 'NEG' }], // 失敗を軽く流す=POS → Heroとは逆極
 
-  // Outlaw（反体制・自律）
-  Q04: [{ type: 'outlaw', polarity: 'POS' }],
-  Q16: [{ type: 'outlaw', polarity: 'POS' }],
-
-  // Explorer（自律・自由・未知志向）
-  Q05: [{ type: 'explorer', polarity: 'NEG' }], // 慣れ優先=POS → Explorerとは逆極
-  Q17: [{ type: 'explorer', polarity: 'POS' }],
-
-  // Creator（創造・表現）
-  Q07: [{ type: 'creator', polarity: 'POS' }],
-  Q20: [{ type: 'creator', polarity: 'POS' }],
-
-  // Sage（真理・分析）
-  Q09: [{ type: 'sage', polarity: 'NEG' }],   // “そういうもの”受容=POS → 探究欲とは逆極
-  Q10: [{ type: 'sage', polarity: 'NEG' }],   // 直感優先=POS → 根拠重視とは逆極
-
-  // Magician（変容・ビジョン駆動）
-  Q12: [{ type: 'magician', polarity: 'NEG' }], // 安定志向=POS → 変化志向とは逆極
-  Q23: [{ type: 'magician', polarity: 'NEG' }], // 現実優先=POS → 理想/変容先導とは逆極
-
-  // Caregiver（支援・配慮）
-  Q13: [{ type: 'caregiver', polarity: 'POS' }],
-  Q14: [{ type: 'caregiver', polarity: 'POS' }],
-
-  // Ruler（秩序・統率）
-  Q03: [{ type: 'ruler', polarity: 'POS' }],  // 既存理解→構造志向
-  Q15: [{ type: 'ruler', polarity: 'NEG' }],  // サポート志向=POS → リードとは逆極
-
-  // Everyman（共感・同質性・受容）
-  Q08: [{ type: 'everyman', polarity: 'POS' }],
-  Q22: [{ type: 'everyman', polarity: 'POS' }],
-
-  // Jester（楽しさ・退屈拒否）
-  Q06: [{ type: 'jester', polarity: 'NEG' }], // ルーチン好き=POS → Jesterとは逆極
-  Q19: [{ type: 'jester', polarity: 'NEG' }], // 沈黙OK=POS → 場の高揚とは逆極
-
-  // Lover（絆・情熱）
-  Q18: [{ type: 'lover', polarity: 'NEG' }],  // 合わせない=POS → 調和志向とは逆極
-  Q21: [{ type: 'lover', polarity: 'NEG' }],  // 自分の為だけに頑張れる=POS → 関係駆動とは逆極
-
-  // Innocent（信頼・善性・受容）
-  Q24: [{ type: 'innocent', polarity: 'POS' }],
-  // Q06は両極を持たせる（Innocentは反対に「繰り返しの安心」を好む）
-  // すでに Jester: NEG を与えているため、Innocent 側は POS を与える
-  // 重複割当を明示的に許可（同一設問で対立タイプのベクトルを分離）
-  Q06_extra_innocent: [{ type: 'innocent', polarity: 'POS', questionId: 'Q06' }],
+/** 下位因子キー一覧（25D） */
+export const SUBFACTORS = {
+  Trait: ["Extraversion", "Conscientiousness", "Openness", "Agreeableness", "Neuroticism"],
+  Value: ["Autonomy", "Achievement", "Security", "Universalism", "Stimulation", "Power"],
+  Motivation: ["Autonomy", "Competence", "Relatedness", "Safety"],
+  Orientation: ["Promotion", "Prevention"],
+  Interest: ["Artistic", "Social", "Enterprising", "Investigative", "Realistic", "Conventional"],
+  Fit: ["PsychSafety", "Flexibility", "Trust", "Collaboration"],
 };
 
-/* ───────── ここまで追加定義 ───────── */
-
-export function aggregateAnswers(answers, { expectedQuestionCount = 30 } = {}) {
-  if (!Array.isArray(answers)) {
-    throw new Error('Answers must be an array');
-  }
-  if (answers.length !== expectedQuestionCount) {
-    throw new Error(`Exactly ${expectedQuestionCount} answers are required`);
-  }
-
-  const seenQuestions = new Set();
-  const selection = [];
-  const counts = {
-    MBTI: {},
-    WorkStyle: {},
-    Motivation: {},
-    NG: {},
-    Sync: {},
-    BigFive: { agreeableness: {}, extraversion: {} },
-    ClusterHints: {},
-    // 追加：アーキタイプ生配列（計算は別関数で）
-  };
-
-  for (const answer of answers) {
-    const { questionId, choiceKey, w: answerWeight } = answer ?? {};
-    if (typeof questionId !== 'string' || typeof choiceKey !== 'string') {
-      throw new Error('Each answer must contain questionId and choiceKey');
-    }
-    if (seenQuestions.has(questionId)) {
-      throw new Error(`Duplicate answer for question ${questionId}`);
-    }
-    if (!QUESTION_IDS.includes(questionId)) {
-      throw new Error(`Unknown question id: ${questionId}`);
-    }
-
-    const question = getQuestionByCode(questionId);
-    let choice = question.choices.find((c) => c.key === choiceKey);
-    if (!choice) {
-      throw new Error(`Unknown choice ${choiceKey} for question ${questionId}`);
-    }
-    if (typeof answerWeight === 'number' && Number.isFinite(answerWeight)) {
-      choice = { ...choice, w: answerWeight };
-    }
-
-    seenQuestions.add(questionId);
-    selection.push({ question, choice });
-
-    const { tags = {}, w = 1 } = choice;
-
-    if (tags.MBTI) {
-      for (const t of tags.MBTI) {
-        counts.MBTI[t] = (counts.MBTI[t] ?? 0) + w;
-      }
-    }
-    if (tags.WorkStyle) {
-      for (const t of tags.WorkStyle) {
-        counts.WorkStyle[t] = (counts.WorkStyle[t] ?? 0) + w;
-      }
-    }
-    if (tags.Motivation) {
-      for (const t of tags.Motivation) {
-        counts.Motivation[t] = (counts.Motivation[t] ?? 0) + w;
-      }
-    }
-    if (tags.NG) {
-      for (const t of tags.NG) {
-        counts.NG[t] = (counts.NG[t] ?? 0) + w;
-      }
-    }
-    if (tags.Sync) {
-      for (const t of tags.Sync) {
-        counts.Sync[t] = (counts.Sync[t] ?? 0) + w;
-      }
-    }
-    if (tags.BigFive) {
-      const { agreeableness, extraversion } = tags.BigFive;
-      if (agreeableness) {
-        counts.BigFive.agreeableness[agreeableness] =
-          (counts.BigFive.agreeableness[agreeableness] ?? 0) + w;
-      }
-      if (extraversion) {
-        counts.BigFive.extraversion[extraversion] =
-          (counts.BigFive.extraversion[extraversion] ?? 0) + w;
-      }
-    }
-    if (tags.CLUSTER_HINT) {
-      for (const t of tags.CLUSTER_HINT) {
-        counts.ClusterHints[t] = (counts.ClusterHints[t] ?? 0) + w;
-      }
-    }
-  }
-
-  if (seenQuestions.size !== expectedQuestionCount) {
-    throw new Error('Missing answers for one or more questions');
-  }
-
-  return { selection, counts };
-}
-
-function balanceScore(positive, negative, weight) {
-  const total = positive + negative;
-  if (total <= 0) return 0;
-  const diff = Math.abs(positive - negative);
-  const balance = 1 - diff / total;
-  return weight * balance;
-}
-
-function computeMbtiScore(counts) {
-  const dimensions = [
-    { positive: 'N', negative: 'T', weight: 10 },
-    { positive: 'J', negative: 'P', weight: 5 },
-    { positive: 'E', negative: 'I', weight: 5 }
-  ];
-  const score = dimensions.reduce((acc, dim) => {
-    const pos = counts[dim.positive] ?? 0;
-    const neg = counts[dim.negative] ?? 0;
-    return acc + balanceScore(pos, neg, dim.weight);
-  }, 0);
-  return Math.round(score);
-}
-
-/* Safety：Q13, Q17, Q19 */
-function computeSafetyScore(selection) {
-  const relevant = selection.filter(({ question }) => ['Q13', 'Q17', 'Q19'].includes(question.id));
-  let raw = 0;
-  let max = 0;
-
-  for (const { question, choice } of relevant) {
-    const { tags = {}, w = 1 } = choice;
-    const bigFive = tags.BigFive ?? {};
-    const key = `${bigFive.agreeableness ?? 'mid'}:${bigFive.extraversion ?? 'mid'}`;
-    raw += (SAFETY_MATRIX.get(key) ?? 8) * w;
-
-    const maxForQuestion = Math.max(
-      ...question.choices.map((c) => {
-        const bf = c.tags?.BigFive ?? {};
-        const k = `${bf.agreeableness ?? 'mid'}:${bf.extraversion ?? 'mid'}`;
-        return (SAFETY_MATRIX.get(k) ?? 8) * (c.w ?? 1);
-      })
-    );
-    max += maxForQuestion;
-  }
-
-  if (max === 0) return 0;
-  return Math.round((raw / max) * 20);
-}
-
-/* Workstyle：Q03, Q10, Q11, Q16 */
-function computeWorkstyleScore(selection) {
-  const relevant = selection.filter(({ question }) => ['Q03', 'Q10', 'Q11', 'Q16'].includes(question.id));
-  let raw = 0;
-  let max = 0;
-  for (const { question, choice } of relevant) {
-    const val = sumTagWeights(choice.tags?.WorkStyle ?? [], WORKSTYLE_WEIGHTS) * (choice.w ?? 1);
-    raw += val;
-
-    const maxChoice = Math.max(
-      ...question.choices.map((c) =>
-        sumTagWeights(c.tags?.WorkStyle ?? [], WORKSTYLE_WEIGHTS) * (c.w ?? 1)
-      )
-    );
-    max += maxChoice;
-  }
-  if (max === 0) return 0;
-  return Math.round((raw / max) * 15);
-}
-
-function sumTagWeights(tags, weightMap) {
-  return tags.reduce((acc, t) => acc + (weightMap[t] ?? 0), 0);
-}
-
-function computeMotivationScore(counts) {
-  const totals = MOTIVATION_ORDER.map((key) => counts[key] ?? 0);
-  const sorted = [...totals].sort((a, b) => b - a);
-  const top = sorted[0] ?? 0;
-  const second = sorted[1] ?? 0;
-  const third = sorted[2] ?? 0;
-  const topScore = (top / 4) * 15;
-  const secondScore = (second / 4) * 6;
-  const thirdScore = (third / 4) * 3;
-  const total = Math.min(15, topScore + secondScore + thirdScore);
-  return Math.round(total);
-}
-
-function computeNgScore(counts) {
-  const unique = NG_CATEGORIES.filter((c) => (counts[c] ?? 0) > 0).length;
-  const intensity = NG_CATEGORIES.reduce((acc, key) => acc + (counts[key] ?? 0), 0);
-  if (unique === 0) return 5;
-  const uniquenessScore = (unique / NG_CATEGORIES.length) * 10;
-  const intensityScore = Math.min(5, intensity);
-  return Math.round(uniquenessScore + intensityScore);
-}
-
-function computeSyncScore(counts) {
-  const totals = SYNC_CATEGORIES.map((key) => counts[key] ?? 0);
-  const maxCount = Math.max(...totals, 0);
-  if (maxCount === 0) return 5;
-  const diversity = totals.filter((v) => v > 0).length;
-  const primary = (maxCount / 4) * 10;
-  const diversityScore = Math.min(5, (diversity / SYNC_CATEGORIES.length) * 5);
-  return Math.round(Math.min(15, primary + diversityScore));
-}
-
-/* ───────── 追加：アーキタイプスコア計算 ───────── */
-function computeArchetypeScores(selection) {
-  const scores = Object.fromEntries(ARCHETYPES.map((t) => [t, 0]));
-  for (const { question, choice } of selection) {
-    const qid = question.id;
-    const weight = choice.w ?? 1;
-    const mappings = [
-      ...(QUESTION_TO_ARCH[qid] ?? []),
-      // Q06 の Innocent用の追加割当
-      ...(qid === (QUESTION_TO_ARCH.Q06_extra_innocent?.[0]?.questionId || '') ? QUESTION_TO_ARCH.Q06_extra_innocent : [])
-    ];
-    if (mappings.length === 0) continue;
-
-    for (const m of mappings) {
-      const sign = choice.key === m.polarity ? +1 : -1;
-      scores[m.type] += sign * weight;
-    }
-  }
-  // 正規化（-∞〜∞ → 0〜100 ではなく相対比較用に z 風スケール）
-  // ここでは最小限：負値も許容し、そのまま返す（上位比較は絶対値ではなく値で判定）
-  const order = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-  const primary = order[0]?.[0] ?? null;
-  return { scores, primary };
-}
-/* ───────── 追加ここまで ───────── */
-
-export function computeFactorScores(answers, precomputed) {
-  const { selection, counts } =
-    precomputed ?? aggregateAnswers(answers);
-  const mbti = computeMbtiScore(counts.MBTI);
-  const safety = computeSafetyScore(selection);
-  const workstyle = computeWorkstyleScore(selection);
-  const motivation = computeMotivationScore(counts.Motivation);
-  const ng = computeNgScore(counts.NG);
-  const sync = computeSyncScore(counts.Sync);
-
-  const total = Math.min(100, mbti + safety + workstyle + motivation + ng + sync);
-
-  // 追加：アーキタイプ
-  const { scores: archetypeScores, primary: primaryArchetype } = computeArchetypeScores(selection);
-
-  return {
-    mbti,
-    safety,
-    workstyle,
-    motivation,
-    ng,
-    sync,
-    total,
-    archetypeScores,
-    primaryArchetype
-  };
-}
-
-function safeRatio(a, b) {
-  if (b === 0) return 0;
-  return a / b;
-}
-
-function clusterBaseScores(counts) {
-  const { MBTI, WorkStyle, Motivation, NG, Sync, ClusterHints } = counts;
-
-  const challenge =
-    (MBTI.E ?? 0) +
-    (MBTI.N ?? 0) +
-    (MBTI.P ?? 0) +
-    (WorkStyle.speed ?? 0) +
-    (WorkStyle.improv ?? 0) +
-    (Motivation.achieve ?? 0) +
-    (Motivation.autonomy ?? 0) +
-    (Sync.high_tension ?? 0) +
-    (Sync.tsukkomi ?? 0) +
-    (ClusterHints.challenge ?? 0);
-
-  const creative =
-    (MBTI.N ?? 0) +
-    (WorkStyle.intuitive ?? 0) +
-    (WorkStyle.improv ?? 0) +
-    (Motivation.curiosity ?? 0) +
-    (Motivation.growth ?? 0) +
-    (Sync.quiet_hot ?? 0) +
-    (Sync.natural ?? 0) +
-    (ClusterHints.creative ?? 0);
-
-  const support =
-    (Motivation.contribution ?? 0) +
-    (Motivation.connection ?? 0) +
-    (NG.pressure ?? 0) +
-    (NG.no_autonomy ?? 0) +
-    (Sync.relaxed ?? 0) +
-    (Sync.natural ?? 0) +
-    (WorkStyle.careful ?? 0) +
-    (ClusterHints.support ?? 0);
-
-  const strategy =
-    (MBTI.I ?? 0) +
-    (MBTI.T ?? 0) +
-    (MBTI.J ?? 0) +
-    (WorkStyle.structured ?? 0) +
-    (WorkStyle.logical ?? 0) +
-    (Motivation.security ?? 0) +
-    (Sync.logical_cool ?? 0) +
-    (ClusterHints.strategy ?? 0);
-
-  return { challenge, creative, support, strategy };
-}
-
-function selectCluster(scores, counts) {
-  const order = Object.entries(scores).sort((a, b) => b[1] - a[1]);
-  const top = order[0];
-  const contenders = order.filter(([_, score]) => Math.abs(score - top[1]) <= 2);
-  if (contenders.length === 1) return top[0];
-
-  const tieBreakers = [
-    (cluster) => safeRatio(counts.Motivation?.[motivationFocus(cluster)] ?? 0, 4),
-    (cluster) => safeRatio(clusterSync(counts, cluster), 4),
-    (cluster) => safeRatio(clusterWorkstyle(counts, cluster), 4),
-    (cluster) => safeRatio(clusterMbti(counts, cluster), 4)
-  ];
-
-  let remaining = new Set(contenders.map(([key]) => key));
-  for (const scorer of tieBreakers) {
-    let bestScore = -Infinity;
-    let next = new Set();
-    for (const key of remaining) {
-      const score = scorer(key);
-      if (score > bestScore) {
-        bestScore = score;
-        next = new Set([key]);
-      } else if (score === bestScore) {
-        next.add(key);
-      }
-    }
-    if (next.size === 1) return [...next][0];
-    remaining = next;
-  }
-  return [...remaining][0];
-}
-
-function motivationFocus(cluster) {
-  switch (cluster) {
-    case 'challenge': return 'achieve';
-    case 'creative':  return 'growth';
-    case 'support':   return 'contribution';
-    case 'strategy':  return 'security';
-    default:          return 'achieve';
-  }
-}
-
-function clusterSync(counts, cluster) {
-  switch (cluster) {
-    case 'challenge': return (counts.Sync?.high_tension ?? 0) + (counts.Sync?.tsukkomi ?? 0);
-    case 'creative':  return (counts.Sync?.quiet_hot ?? 0) + (counts.Sync?.natural ?? 0);
-    case 'support':   return (counts.Sync?.relaxed ?? 0) + (counts.Sync?.natural ?? 0);
-    case 'strategy':  return counts.Sync?.logical_cool ?? 0;
-    default:          return 0;
-  }
-}
-
-function clusterWorkstyle(counts, cluster) {
-  switch (cluster) {
-    case 'challenge': return (counts.WorkStyle?.speed ?? 0) + (counts.WorkStyle?.improv ?? 0);
-    case 'creative':  return (counts.WorkStyle?.intuitive ?? 0) + (counts.WorkStyle?.improv ?? 0);
-    case 'support':   return counts.WorkStyle?.careful ?? 0;
-    case 'strategy':  return (counts.WorkStyle?.structured ?? 0) + (counts.WorkStyle?.logical ?? 0);
-    default:          return 0;
-  }
-}
-
-function clusterMbti(counts, cluster) {
-  switch (cluster) {
-    case 'challenge': return (counts.MBTI?.E ?? 0) + (counts.MBTI?.P ?? 0);
-    case 'creative':  return counts.MBTI?.N ?? 0;
-    case 'support':   return counts.MBTI?.I ?? 0;
-    case 'strategy':  return (counts.MBTI?.I ?? 0) + (counts.MBTI?.T ?? 0) + (counts.MBTI?.J ?? 0);
-    default:          return 0;
-  }
-}
-
-function xorShift32(seed) {
-  let x = seed | 0;
-  return () => {
-    x ^= x << 13;
-    x ^= x >>> 17;
-    x ^= x << 5;
-    return (x >>> 0) / 4294967296;
-  };
-}
-
-function pickStable(alternatives, sessionId) {
-  if (alternatives.length === 0) throw new Error('No alternatives provided');
-  if (alternatives.length === 1) return alternatives[0];
-  const hash = crypto.createHash('sha256').update(sessionId).digest();
-  const seed = hash.readUInt32BE(0);
-  const random = xorShift32(seed);
-  const index = Math.floor(random() * alternatives.length);
-  return alternatives[index];
-}
-
-const HERO_RULES = {
-  challenge: [
-    { slug: 'oda', predicate: ({ counts }) =>
-      (counts.WorkStyle?.speed ?? 0) >= 2 &&
-      (counts.Motivation?.achieve ?? 0) >= 2 &&
-      (counts.Sync?.high_tension ?? 0) >= 2 },
-    { slug: 'napoleon', predicate: ({ counts }) =>
-      (counts.Motivation?.achieve ?? 0) >= 2 &&
-      (counts.WorkStyle?.structured ?? 0) >= 1 },
-    { slug: 'ryoma', predicate: ({ counts }) =>
-      (counts.Motivation?.autonomy ?? 0) >= 2 &&
-      (counts.MBTI?.N ?? 0) >= 2 },
-    { slug: 'galileo', predicate: ({ counts }) => (counts.MBTI?.T ?? 0) >= 2 }
-  ],
-  creative: [
-    { slug: 'picasso', predicate: ({ counts }) => (counts.WorkStyle?.improv ?? 0) >= 4 },
-    { slug: 'beethoven', predicate: ({ counts }) =>
-      (counts.Sync?.quiet_hot ?? 0) >= 1 && (counts.Sync?.relaxed ?? 0) >= 1 },
-    { slug: 'murasaki', predicate: ({ counts }) =>
-      (counts.WorkStyle?.careful ?? 0) >= 2 && (counts.Motivation?.curiosity ?? 0) >= 2 },
-    { slug: 'davinci', predicate: ({ counts }) =>
-      (counts.WorkStyle?.intuitive ?? 0) >= 2 && (counts.Motivation?.growth ?? 0) >= 2 }
-  ],
-  support: [
-    { slug: 'mother_teresa', predicate: ({ counts }) => (counts.Motivation?.connection ?? 0) >= 3 },
-    { slug: 'shibusawa', predicate: ({ counts }) => (counts.Motivation?.growth ?? 0) >= 2 && (counts.WorkStyle?.structured ?? 0) >= 1 },
-    { slug: 'rikyu', predicate: ({ counts }) =>
-      (counts.Sync?.relaxed ?? 0) >= 2 || (counts.Motivation?.security ?? 0) >= 2 },
-    { slug: 'nightingale', predicate: ({ counts }) =>
-      (counts.WorkStyle?.careful ?? 0) >= 2 && (counts.Motivation?.contribution ?? 0) >= 2 }
-  ],
-  strategy: [
-    { slug: 'shotoku', predicate: ({ counts }) =>
-      (counts.Motivation?.contribution ?? 0) >= 1 && (counts.Sync?.natural ?? 0) >= 1 },
-    { slug: 'date', predicate: ({ counts }) => (counts.Motivation?.autonomy ?? 0) >= 2 },
-    { slug: 'einstein', predicate: ({ counts }) =>
-      (counts.Motivation?.curiosity ?? 0) >= 2 && (counts.WorkStyle?.logical ?? 0) >= 2 },
-    { slug: 'ieyasu', predicate: ({ counts }) =>
-      (counts.Motivation?.security ?? 0) >= 2 && (counts.WorkStyle?.structured ?? 0) >= 2 }
-  ]
+/**
+ * 初期重み行列（12タイプ × 下位因子25D）
+ * 合計=1.0/タイプ を基本方針に近似。
+ * 本番では /lib/archetype-weights.v1.json に外出しして学習で更新。
+ */
+export const ARCHETYPE_WEIGHTS = {
+  Hero: {
+    Trait: { Extraversion: 0.11, Conscientiousness: 0.09, Openness: 0.02, Agreeableness: 0.02, Neuroticism: -0.04 },
+    Value: { Achievement: 0.06, Autonomy: 0.03, Security: 0.02, Universalism: 0.01, Stimulation: 0.02, Power: 0.00 },
+    Motivation: { Competence: 0.07, Relatedness: 0.04, Autonomy: 0.03, Safety: 0.00 },
+    Orientation: { Promotion: 0.08, Prevention: -0.02 },
+    Interest: { Social: 0.06, Enterprising: 0.05, Artistic: 0.01, Investigative: 0.00, Realistic: 0.00, Conventional: 0.00 },
+    Fit: { Trust: 0.04, Collaboration: 0.05, PsychSafety: 0.03, Flexibility: 0.02 },
+  },
+  Outlaw: {
+    Trait: { Openness: 0.10, Extraversion: 0.03, Conscientiousness: -0.05, Agreeableness: -0.03, Neuroticism: 0.02 },
+    Value: { Autonomy: 0.07, Stimulation: 0.06, Universalism: 0.03, Achievement: 0.02, Security: -0.04, Power: 0.00 },
+    Motivation: { Autonomy: 0.08, Competence: 0.04, Relatedness: -0.02, Safety: -0.05 },
+    Orientation: { Promotion: 0.07, Prevention: -0.03 },
+    Interest: { Artistic: 0.06, Investigative: 0.05, Enterprising: 0.00, Social: 0.00, Realistic: 0.00, Conventional: -0.01 },
+    Fit: { Flexibility: 0.05, Trust: 0.02, Collaboration: -0.02, PsychSafety: -0.03 },
+  },
+  Explorer: {
+    Trait: { Openness: 0.10, Extraversion: 0.04, Conscientiousness: -0.02, Agreeableness: 0.01, Neuroticism: -0.01 },
+    Value: { Stimulation: 0.07, Autonomy: 0.05, Universalism: 0.02, Achievement: 0.02, Security: -0.03, Power: 0.00 },
+    Motivation: { Competence: 0.06, Autonomy: 0.05, Relatedness: 0.01, Safety: -0.02 },
+    Orientation: { Promotion: 0.08, Prevention: -0.02 },
+    Interest: { Investigative: 0.06, Realistic: 0.04, Enterprising: 0.03, Artistic: 0.00, Social: 0.00, Conventional: -0.01 },
+    Fit: { Flexibility: 0.04, Collaboration: 0.03, Trust: 0.02, PsychSafety: 0.00 },
+  },
+  Creator: {
+    Trait: { Openness: 0.11, Neuroticism: 0.02, Conscientiousness: 0.03, Agreeableness: 0.02, Extraversion: 0.02 },
+    Value: { Autonomy: 0.06, Stimulation: 0.05, Universalism: 0.04, Achievement: 0.03, Security: -0.02, Power: 0.00 },
+    Motivation: { Competence: 0.05, Autonomy: 0.06, Relatedness: 0.02, Safety: -0.01 },
+    Orientation: { Promotion: 0.06, Prevention: 0.00 },
+    Interest: { Artistic: 0.08, Investigative: 0.04, Enterprising: 0.00, Social: 0.00, Realistic: 0.00, Conventional: -0.01 },
+    Fit: { Flexibility: 0.04, Trust: 0.02, PsychSafety: 0.00, Collaboration: 0.02 },
+  },
+  Sage: {
+    Trait: { Conscientiousness: 0.07, Openness: 0.05, Agreeableness: 0.03, Extraversion: -0.01, Neuroticism: -0.04 },
+    Value: { Universalism: 0.06, Security: 0.05, Achievement: 0.03, Autonomy: 0.02, Stimulation: -0.04, Power: 0.00 },
+    Motivation: { Competence: 0.07, Autonomy: 0.04, Relatedness: 0.03, Safety: 0.02 },
+    Orientation: { Promotion: 0.00, Prevention: 0.07 },
+    Interest: { Investigative: 0.06, Conventional: 0.03, Enterprising: 0.00, Social: 0.00, Artistic: 0.00, Realistic: 0.00 },
+    Fit: { Trust: 0.06, PsychSafety: 0.05, Collaboration: 0.04, Flexibility: 0.02 },
+  },
+  Magician: {
+    Trait: { Openness: 0.10, Conscientiousness: 0.04, Extraversion: 0.03, Agreeableness: 0.02, Neuroticism: -0.03 },
+    Value: { Autonomy: 0.06, Stimulation: 0.04, Universalism: 0.04, Achievement: 0.02, Security: 0.00, Power: 0.00 },
+    Motivation: { Competence: 0.05, Autonomy: 0.05, Relatedness: 0.03, Safety: 0.00 },
+    Orientation: { Promotion: 0.06, Prevention: 0.02 },
+    Interest: { Artistic: 0.05, Investigative: 0.05, Enterprising: 0.02, Social: 0.00, Realistic: 0.00, Conventional: 0.00 },
+    Fit: { Flexibility: 0.04, Trust: 0.03, Collaboration: 0.03, PsychSafety: 0.02 },
+  },
+  Caregiver: {
+    Trait: { Agreeableness: 0.08, Conscientiousness: 0.06, Extraversion: 0.02, Openness: 0.00, Neuroticism: -0.03 },
+    Value: { Universalism: 0.07, Security: 0.05, Autonomy: 0.02, Achievement: 0.01, Stimulation: -0.03, Power: 0.00 },
+    Motivation: { Relatedness: 0.08, Competence: 0.05, Autonomy: 0.01, Safety: 0.03 },
+    Orientation: { Promotion: 0.01, Prevention: 0.06 },
+    Interest: { Social: 0.07, Conventional: 0.04, Enterprising: 0.00, Artistic: 0.00, Investigative: 0.00, Realistic: 0.00 },
+    Fit: { Trust: 0.06, Collaboration: 0.06, PsychSafety: 0.05, Flexibility: 0.02 },
+  },
+  Ruler: {
+    Trait: { Conscientiousness: 0.08, Extraversion: 0.05, Agreeableness: 0.03, Openness: 0.02, Neuroticism: -0.04 },
+    Value: { Achievement: 0.06, Security: 0.06, Power: 0.05, Autonomy: 0.02, Universalism: 0.00, Stimulation: -0.01 },
+    Motivation: { Competence: 0.06, Relatedness: 0.04, Autonomy: 0.03, Safety: 0.03 },
+    Orientation: { Promotion: 0.02, Prevention: 0.06 },
+    Interest: { Enterprising: 0.06, Conventional: 0.04 },
+    Fit: { Trust: 0.06, Collaboration: 0.05, PsychSafety: 0.05, Flexibility: 0.02 },
+  },
+  Everyman: {
+    Trait: { Agreeableness: 0.08, Extraversion: 0.03, Conscientiousness: 0.03, Neuroticism: -0.04, Openness: 0.02 },
+    Value: { Universalism: 0.06, Security: 0.05, Autonomy: 0.02, Achievement: 0.01, Stimulation: -0.03, Power: 0.00 },
+    Motivation: { Relatedness: 0.07, Safety: 0.04, Competence: 0.03, Autonomy: 0.02 },
+    Orientation: { Promotion: 0.02, Prevention: 0.05 },
+    Interest: { Social: 0.07, Conventional: 0.03 },
+    Fit: { Trust: 0.06, PsychSafety: 0.05, Collaboration: 0.06, Flexibility: 0.03 },
+  },
+  Jester: {
+    Trait: { Extraversion: 0.08, Agreeableness: 0.05, Openness: 0.04, Conscientiousness: -0.01, Neuroticism: -0.03 },
+    Value: { Stimulation: 0.06, Universalism: 0.04, Autonomy: 0.03, Achievement: 0.02, Security: -0.03, Power: 0.00 },
+    Motivation: { Relatedness: 0.06, Autonomy: 0.04, Competence: 0.03, Safety: -0.02 },
+    Orientation: { Promotion: 0.08, Prevention: -0.01 },
+    Interest: { Artistic: 0.05, Social: 0.05, Enterprising: 0.03 },
+    Fit: { Flexibility: 0.05, Collaboration: 0.04, Trust: 0.03, PsychSafety: 0.02 },
+  },
+  Lover: {
+    Trait: { Agreeableness: 0.08, Extraversion: 0.04, Neuroticism: 0.02, Conscientiousness: 0.03, Openness: 0.01 },
+    Value: { Universalism: 0.06, Security: 0.05, Autonomy: 0.02, Achievement: 0.01, Stimulation: -0.03, Power: 0.00 },
+    Motivation: { Relatedness: 0.08, Safety: 0.03, Competence: 0.02, Autonomy: 0.02 },
+    Orientation: { Promotion: 0.01, Prevention: 0.06 },
+    Interest: { Social: 0.07, Artistic: 0.04 },
+    Fit: { Trust: 0.06, PsychSafety: 0.06, Collaboration: 0.05, Flexibility: 0.03 },
+  },
+  Innocent: {
+    Trait: { Agreeableness: 0.06, Extraversion: 0.04, Neuroticism: -0.03, Openness: 0.03, Conscientiousness: 0.03 },
+    Value: { Security: 0.06, Universalism: 0.05, Autonomy: 0.03, Achievement: 0.01, Stimulation: 0.00, Power: 0.00 },
+    Motivation: { Relatedness: 0.06, Safety: 0.04, Autonomy: 0.03, Competence: 0.02 },
+    Orientation: { Promotion: 0.04, Prevention: 0.04 },
+    Interest: { Social: 0.06, Realistic: 0.04 },
+    Fit: { PsychSafety: 0.06, Trust: 0.05, Collaboration: 0.04, Flexibility: 0.03 },
+  },
 };
 
-function decideHero(cluster, counts, sessionId) {
-  const rules = HERO_RULES[cluster] ?? [];
-  for (const rule of rules) {
-    if (rule.predicate({ counts, cluster })) return rule.slug;
+/** ユーティリティ */
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const mean = arr => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
+const std = arr => {
+  const m = mean(arr); const v = mean(arr.map(x => (x - m) ** 2));
+  return Math.sqrt(v) || 1e-6;
+};
+
+/**
+ * 回答配列 → 下位因子スコア（平均値 1..6）
+ * @param {Answer[]} answers
+ * @returns {Record<string, number>} map: subfactorKey => meanScore(1..6)
+ */
+export function toSubfactorScores(answers) {
+  const meta = new Map(QUESTIONS.map(q => [q.id, q]));
+  const buckets = new Map(); // key: axis/subfactor
+
+  for (const ans of answers) {
+    const q = meta.get(ans.id);
+    if (!q) continue;
+    const key = `${q.axis}.${q.subfactor}`;
+    const raw = clamp(Number(ans.value) || 0, 1, 6);
+    const val = q.reverse ? 7 - raw : raw;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(val);
   }
-  const fallbacks = rules.map((rule) => rule.slug);
-  return pickStable(fallbacks, sessionId ?? 'default-session');
+
+  const out = {};
+  for (const [key, arr] of buckets.entries()) {
+    out[key] = mean(arr); // 1..6
+  }
+  return out;
 }
 
-export function runDiagnosis(answers, sessionId) {
-  const { selection, counts } = aggregateAnswers(answers);
-  const factorScores = computeFactorScores(answers, { selection, counts });
-  const baseScores = clusterBaseScores(counts);
-  const primaryCluster = selectCluster(baseScores, counts);
-  const heroSlug = decideHero(primaryCluster, counts, sessionId);
+/** 1..6 → 0..1 正規化（個人内Z→0..1） */
+export function normalizeSubfactors(subScores) {
+  const keys = Object.keys(subScores);
+  const vals = keys.map(k => subScores[k]);
+  const m = mean(vals);
+  const s = std(vals);
+  const z = Object.fromEntries(keys.map(k => [k, (subScores[k] - m) / s]));
+  // 0..1 に射影（Z in [-3, +3] を想定）
+  const norm = Object.fromEntries(keys.map(k => [k, clamp((z[k] + 3) / 6, 0, 1)]));
+  return norm;
+}
 
+/** ベクトル化（25Dが欠損しても0.5で埋める） */
+export function toVector25(normScores) {
+  const vec = {};
+  for (const [axis, subs] of Object.entries(SUBFACTORS)) {
+    for (const sf of subs) {
+      const key = `${axis}.${sf}`;
+      vec[key] = key in normScores ? normScores[key] : 0.5; // 中央で補完
+    }
+  }
+  return vec; // values in 0..1
+}
+
+/** アーキタイプごとのスコア（線形合成） */
+export function scoreArchetypes(vec25, weights = ARCHETYPE_WEIGHTS) {
+  const scores = {};
+  for (const [type, w] of Object.entries(weights)) {
+    let s = 0;
+    for (const [axis, subs] of Object.entries(w)) {
+      for (const [sf, coeff] of Object.entries(subs)) {
+        const key = `${axis}.${sf}`;
+        const x = vec25[key] ?? 0.5;
+        s += coeff * x;
+      }
+    }
+    scores[type] = s;
+  }
+  return scores; // 実数（未正規化）
+}
+
+/** ソフトマックス（温度tauで調整） */
+export function softmax(scores, tau = 1.0) {
+  const types = Object.keys(scores);
+  const vals = types.map(t => scores[t] / tau);
+  const maxv = Math.max(...vals);
+  const exps = vals.map(v => Math.exp(v - maxv));
+  const Z = exps.reduce((a, b) => a + b, 0) || 1e-6;
+  const probs = Object.fromEntries(types.map((t, i) => [t, exps[i] / Z]));
+  return probs;
+}
+
+/** 最終判定 */
+export function decide(vec25, weights = ARCHETYPE_WEIGHTS) {
+  const raw = scoreArchetypes(vec25, weights);
+  const prob = softmax(raw, 0.9); // 少し鋭く
+  const ranked = Object.entries(prob).sort((a, b) => b[1] - a[1]);
+  const [t1, p1] = ranked[0];
+  const [t2, p2] = ranked[1];
+  const confidence = p1;
+  const delta = p1 - p2;
+  const balanceIndex = 1 - delta; // 0→単相／1→二相
   return {
-    counts,
-    selection,
-    scores: factorScores,
-    clusterScores: baseScores,
-    cluster: primaryCluster,
-    heroSlug
+    prob,
+    ranked,
+    type_main: t1,
+    type_sub: delta <= 0.05 ? t2 : null,
+    confidence,
+    delta,
+    balanceIndex,
+    rawScore: raw,
   };
 }
 
-export function scoreAndMapToHero(
-  answers,
-  questionDataset = getQuestionDataset(QUESTION_VERSION)
-) {
-  const questionMap = new Map(questionDataset.map((question) => [question.id, question]));
+/** フルパイプライン：回答 → 判定 */
+export function diagnose(answers, opts = {}) {
+  const sub = toSubfactorScores(answers);
+  const norm = normalizeSubfactors(sub);
+  const vec = toVector25(norm);
+  const dec = decide(vec, opts.weights || ARCHETYPE_WEIGHTS);
+  return { sub, norm, vec, ...dec };
+}
 
-  const normalized = answers.map((answer) => {
-    const questionId = answer?.questionId ?? answer?.question_id;
-    const choiceKey = answer?.choiceKey ?? answer?.choice_key;
-    const weightRaw = answer?.w ?? answer?.weight;
-    const weight = typeof weightRaw === 'number' && Number.isFinite(weightRaw)
-      ? weightRaw
-      : undefined;
-
-    if (!questionId || !choiceKey) {
-      throw new Error('Invalid answer payload');
-    }
-
-    const question = questionMap.get(questionId);
-    if (!question) {
-      throw new Error(`Unknown question id: ${questionId}`);
-    }
-
-    const hasChoice = question.choices.some((choice) => choice.key === choiceKey);
-    if (!hasChoice) {
-      throw new Error(`Unknown choice ${choiceKey} for ${questionId}`);
-    }
-
-    return weight === undefined ? { questionId, choiceKey } : { questionId, choiceKey, w: weight };
-  });
-
-  const diagnosis = runDiagnosis(normalized);
-
+/** 簡易バリデーション（平均同意傾向など） */
+export function quickQC(answers) {
+  const vals = answers.map(a => clamp(Number(a.value) || 0, 1, 6));
   return {
-    factorScores: diagnosis.scores,
-    total: diagnosis.scores.total,
-    cluster: diagnosis.cluster,
-    heroSlug: diagnosis.heroSlug
+    n: vals.length,
+    mean: mean(vals),
+    std: std(vals),
+    skew: (() => { const m = mean(vals); const s = std(vals); return mean(vals.map(v => ((v - m) / s) ** 3)); })(),
   };
 }
 
-export {
-  QUESTION_VERSION,
-  QUESTION_IDS,
-  CLUSTERS,
-  HERO_RULES,
-  pickStable,
-  clusterBaseScores,
-  selectCluster,
-  computeMbtiScore,
-  computeSafetyScore,
-  computeWorkstyleScore,
-  computeMotivationScore,
-  computeNgScore,
-  computeSyncScore,
-  // 追加でエクスポート（必要に応じて）
-  ARCHETYPES as ARCHETYPE_KEYS
+export default {
+  SUBFACTORS,
+  ARCHETYPE_WEIGHTS,
+  toSubfactorScores,
+  normalizeSubfactors,
+  toVector25,
+  scoreArchetypes,
+  softmax,
+  decide,
+  diagnose,
+  quickQC,
 };
