@@ -1,16 +1,9 @@
 // lib/scoring.js
-// Cロジック診断・判定ユーティリティ v1（外部重み参照版）
-// 依存: /data/questions.v1.js, /lib/archetype-weights.v1.json
+// Cロジック診断・判定ユーティリティ v1（外部重み注入版）
+// 依存: /data/questions.v1.js
+// NOTE: weights（12タイプ×25因子）はブラウザ互換のため app.js 側で fetch して opts.weights で渡す。
 
 import QUESTIONS from "../data/questions.v1.js";
-+ import WEIGHTS from "./archetype-weights.v1.json";
-
-/**
- * 回答フォーマット
- * @typedef {Object} Answer
- * @property {string} id - 質問ID（QUESTIONS[].id と一致）
- * @property {number} value - 1..6 の整数（6法同意）
- */
 
 /** 下位因子キー一覧（25D） */
 export const SUBFACTORS = {
@@ -22,7 +15,7 @@ export const SUBFACTORS = {
   Fit: ["PsychSafety", "Flexibility", "Trust", "Collaboration"],
 };
 
-/** ユーティリティ */
+// ---- utils ----
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const mean = (arr) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
 const std = (arr) => {
@@ -33,8 +26,7 @@ const std = (arr) => {
 
 /**
  * 回答配列 → 下位因子スコア（平均値 1..6）
- * @param {Answer[]} answers
- * @returns {Record<string, number>} map: subfactorKey => meanScore(1..6)
+ * answers: [{ id, value(1..6) }]
  */
 export function toSubfactorScores(answers) {
   const meta = new Map(QUESTIONS.map((q) => [q.id, q]));
@@ -51,9 +43,7 @@ export function toSubfactorScores(answers) {
   }
 
   const out = {};
-  for (const [key, arr] of buckets.entries()) {
-    out[key] = mean(arr); // 1..6
-  }
+  for (const [key, arr] of buckets.entries()) out[key] = mean(arr); // 1..6
   return out;
 }
 
@@ -65,8 +55,7 @@ export function normalizeSubfactors(subScores) {
   const s = std(vals);
   const z = Object.fromEntries(keys.map((k) => [k, (subScores[k] - m) / s]));
   // 0..1 に射影（Z in [-3, +3] を想定）
-  const norm = Object.fromEntries(keys.map((k) => [k, clamp((z[k] + 3) / 6, 0, 1)]));
-  return norm;
+  return Object.fromEntries(keys.map((k) => [k, clamp((z[k] + 3) / 6, 0, 1)]));
 }
 
 /** ベクトル化（25Dが欠損しても0.5で埋める） */
@@ -75,14 +64,15 @@ export function toVector25(normScores) {
   for (const [axis, subs] of Object.entries(SUBFACTORS)) {
     for (const sf of subs) {
       const key = `${axis}.${sf}`;
-      vec[key] = key in normScores ? normScores[key] : 0.5; // 中央で補完
+      vec[key] = key in normScores ? normScores[key] : 0.5; // 中央補完
     }
   }
   return vec; // values in 0..1
 }
 
 /** アーキタイプごとのスコア（線形合成） */
-export function scoreArchetypes(vec25, weights = WEIGHTS) {
+export function scoreArchetypes(vec25, weights) {
+  if (!weights) throw new Error("[scoring] weights not provided");
   const scores = {};
   for (const [type, w] of Object.entries(weights)) {
     let s = 0;
@@ -95,7 +85,7 @@ export function scoreArchetypes(vec25, weights = WEIGHTS) {
     }
     scores[type] = s;
   }
-  return scores; // 実数（未正規化）
+  return scores;
 }
 
 /** ソフトマックス（温度tauで調整） */
@@ -105,12 +95,11 @@ export function softmax(scores, tau = 1.0) {
   const maxv = Math.max(...vals);
   const exps = vals.map((v) => Math.exp(v - maxv));
   const Z = exps.reduce((a, b) => a + b, 0) || 1e-6;
-  const probs = Object.fromEntries(types.map((t, i) => [t, exps[i] / Z]));
-  return probs;
+  return Object.fromEntries(types.map((t, i) => [t, exps[i] / Z]));
 }
 
 /** 最終判定 */
-export function decide(vec25, weights = WEIGHTS) {
+export function decide(vec25, weights) {
   const raw = scoreArchetypes(vec25, weights);
   const prob = softmax(raw, 0.9); // 少し鋭く
   const ranked = Object.entries(prob).sort((a, b) => b[1] - a[1]);
@@ -136,7 +125,8 @@ export function diagnose(answers, opts = {}) {
   const sub = toSubfactorScores(answers);
   const norm = normalizeSubfactors(sub);
   const vec = toVector25(norm);
-  const weights = opts.weights || WEIGHTS;
+  const weights = opts.weights;
+  if (!weights) throw new Error("[scoring] weights not provided");
   const dec = decide(vec, weights);
   return { sub, norm, vec, ...dec };
 }
