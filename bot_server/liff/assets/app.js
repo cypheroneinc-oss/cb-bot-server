@@ -31,7 +31,7 @@ async function loadWeights() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json && typeof json === 'object' && Object.keys(json).length >= 12) {
-        WEIGHTS = json; 
+        WEIGHTS = json;
         return WEIGHTS;
       }
     } catch (e) { lastErr = e; }
@@ -43,14 +43,14 @@ async function loadWeights() {
 /* ----------------------------- */
 const QUESTION_VERSION = 'v1';
 
-/* 6件法（左：思わない → 右：思う） */
-const LIKERT = [
-  { value: 1, label: 'まったくそう思わない' },
-  { value: 2, label: 'かなりそう思わない' },
-  { value: 3, label: '少しそう思わない' },
-  { value: 4, label: '少しそう思う' },
-  { value: 5, label: 'かなりそう思う' },
+/* 6件法（左：とてもそう思う → 右：まったくそう思わない） */
+const LIKERT_REVERSED = [
   { value: 6, label: 'とてもそう思う' },
+  { value: 5, label: 'かなりそう思う' },
+  { value: 4, label: '少しそう思う' },
+  { value: 3, label: '少しそう思わない' },
+  { value: 2, label: 'かなりそう思わない' },
+  { value: 1, label: 'まったくそう思わない' },
 ];
 
 /* ----------------------------- */
@@ -97,19 +97,17 @@ function renderSurvey(qs) {
   `;
 }
 
-/* 1問のカード（question-card + likert-scale 構造） */
+/* 1問のカード（ひし形下の可視ラベルは削除／sr-onlyのみ） */
 function renderItem(q) {
   const name = q.id;
-  const opts = LIKERT.map((o, idx) => {
+  const opts = LIKERT_REVERSED.map((o) => {
     const id = `${name}-${o.value}`;
-    // size-small のままでOK（CSSに応じて medium/large に変更可）
     return `
       <div class="likert-choice">
         <input class="likert-input" type="radio" id="${id}" name="${name}" value="${o.value}" required>
         <label class="likert-option size-small" for="${id}">
           <span class="likert-diamond" aria-hidden="true"></span>
-          <span class="sr-only">${o.label}（${o.value}）</span>
-          <span>${o.label}</span>
+          <span class="sr-only">${o.label}</span>
         </label>
       </div>
     `;
@@ -122,9 +120,9 @@ function renderItem(q) {
         ${opts}
       </div>
       <div class="likert-legend" aria-hidden="true">
-        <span>そう思わない</span>
+        <span>とてもそう思う</span>
         <span class="legend-bar"></span>
-        <span>そう思う</span>
+        <span>まったくそう思わない</span>
       </div>
     </article>
   `;
@@ -143,9 +141,19 @@ function bindSurveyHandlers() {
     if (!btn) return;
     e.preventDefault();
 
-    if (btn.classList.contains('next')) { if (validatePage()) { pageIndex++; updatePage(); } }
-    if (btn.classList.contains('prev')) { pageIndex = Math.max(0, pageIndex - 1); updatePage(); }
-    if (btn.classList.contains('submit')) { if (validateAll()) onSubmit(); }
+    if (btn.classList.contains('next')) {
+      if (validatePage()) {
+        pageIndex = Math.min(pages.length - 1, pageIndex + 1);
+        updatePage();
+      }
+    }
+    if (btn.classList.contains('prev')) {
+      pageIndex = Math.max(0, pageIndex - 1);
+      updatePage();
+    }
+    if (btn.classList.contains('submit')) {
+      if (validateAll()) onSubmit();
+    }
   });
 
   form.addEventListener('change', updateCounters);
