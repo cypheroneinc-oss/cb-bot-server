@@ -2,8 +2,27 @@
 // 依存: ../../data/questions.v1.js, ../../lib/scoring.js, ../../lib/archetype-weights.v1.json
 // 目的: 36問の回答収集 → Cロジック診断 → 12タイプ出力（主/サブ＋根拠ダイヤル）
 
-import QUESTIONS from '../../data/questions.v1.js';
+// 動的ロード（ビルド環境差異に強くする）
 import { diagnose, quickQC } from '../../lib/scoring.js';
+let QUESTIONS = null;
+async function loadQuestions() {
+  if (QUESTIONS) return QUESTIONS;
+  // 相対パス候補を順に試す
+  const candidates = [
+    '../../data/questions.v1.js',
+    '/data/questions.v1.js',
+  ];
+  let lastErr;
+  for (const p of candidates) {
+    try {
+      const m = await import(/* @vite-ignore */ p);
+      QUESTIONS = m.default || m.QUESTIONS || null;
+      if (Array.isArray(QUESTIONS) && QUESTIONS.length) return QUESTIONS;
+    } catch (e) { lastErr = e; }
+  }
+  console.error('[questions] failed to load', lastErr);
+  return null;
+}
 
 // ====== LIFF設定（既存実装を尊重。必要に応じて置換可） ======
 const LIFF_ID = resolveLiffId();
@@ -21,24 +40,28 @@ const LIKERT_OPTIONS = [
 ];
 
 // ====== エントリポイント ======
-window.addEventListener('DOMContentLoaded', () => {
-  mountApp();
-});
+window.addEventListener('DOMContentLoaded', () => { mountApp(); });
 
-function mountApp() {
+async function mountApp() {
   const app = document.querySelector('#app');
-  if (!app) return console.error('[app] #app not found');
+  if (!app) { console.error('[app] #app not found'); return; }
+
+  const qs = await loadQuestions();
+  if (!qs) {
+    app.innerHTML = `<div class="fatal">設問データの読み込みに失敗しました。/data/questions.v1.js の配置とパスを確認してください。</div>`;
+    return;
+  }
 
   // レンダリング
-  app.innerHTML = renderSurvey();
+  app.innerHTML = renderSurvey(qs);
 
   // イベント配線
   bindSurveyHandlers();
 }
 
 // ====== Survey UI ======
-function renderSurvey() {
-  const groups = chunk(QUESTIONS, 10); // 10問ごとに区切る（UX安定）
+function renderSurvey(qs) {
+  const groups = chunk(qs, 10); // 10問ごとに区切る（UX安定）
 
   const pagesHtml = groups.map((qs, i) => `
     <section class="page" data-page="${i}">
