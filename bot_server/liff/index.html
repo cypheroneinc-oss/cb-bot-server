@@ -25,13 +25,7 @@
     <div class="app">
       <header>
         <h1 class="title">25問で、あなたの働き方を可視化</h1>
-        <p class="subtitle">あと<span id="remainingCount">25</span>問</p>
       </header>
-
-      <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="25" aria-valuenow="0">
-        <div class="progress-fill" id="progressFill"></div>
-      </div>
-      <p class="status"><strong id="answeredCount">0</strong>/25 件回答済み</p>
 
       <div class="load-error hidden" id="loadError" role="alert" aria-live="polite"></div>
 
@@ -103,11 +97,22 @@
           <p class="share-note">Instagram / Threads では画像を保存して投稿してください。</p>
         </section>
 
-        <!-- 🌟 個性 -->
+        <!-- ❤️ 心のエンジン -->
         <section class="narrative-section">
-          <h3>🌟 個性</h3>
-          <h4 id="resultPersonalityTitle" class="result-subtitle"></h4>
-          <div id="resultPersonalityBody" class="result-paragraphs"></div>
+          <h3>❤️ 心のエンジン</h3>
+          <div id="resultEngineBody" class="result-paragraphs"></div>
+        </section>
+
+        <!-- 😨 いちばん怖いこと -->
+        <section class="narrative-section">
+          <h3>😨 いちばん怖いこと</h3>
+          <div id="resultFearBody" class="result-paragraphs"></div>
+        </section>
+
+        <!-- 👀 こう見られがち -->
+        <section class="narrative-section">
+          <h3>👀 こう見られがち</h3>
+          <div id="resultPerceptionBody" class="result-paragraphs"></div>
         </section>
 
         <!-- ⚡ 活躍シーン -->
@@ -116,16 +121,10 @@
           <ul id="resultScenes"></ul>
         </section>
 
-        <!-- 🐣 成長のヒント -->
+        <!-- 🌱 伸ばし方 -->
         <section class="narrative-section">
-          <h3>🐣 成長のヒント</h3>
-          <ul id="resultTips"></ul>
-        </section>
-
-        <!-- 🔥 個性が発揮される職業 -->
-        <section class="narrative-section">
-          <h3>🔥 個性が発揮される職業</h3>
-          <ul id="resultJobs" class="jobs-list"></ul>
+          <h3>🌱 伸ばし方</h3>
+          <ul id="resultGrowth"></ul>
         </section>
 
         <!-- 🧪 化学反応 -->
