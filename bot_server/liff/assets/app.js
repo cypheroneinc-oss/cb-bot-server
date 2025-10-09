@@ -173,8 +173,18 @@ async function onSubmit() {
   const weights = await loadWeights();
   if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
 
+  // ローカル推定（従来どおり）
   const diag = diagnose(answers, { weights });
-  renderResult({ diag, qc });
+
+  // ★ 追加：サーバAPIへ送信して“マッパ確定タイプ”を取得（失敗時はローカルのみで続行）
+  let api = null;
+  try {
+    api = await submitToApi(answers);
+  } catch (e) {
+    console.warn('[app] submitToApi failed:', e?.message || e);
+  }
+
+  renderResult({ diag, qc, api });
 }
 
 function collectAnswers() {
@@ -182,9 +192,58 @@ function collectAnswers() {
   return [...inputs].map(el => ({ id: el.name, value: Number(el.value) }));
 }
 
-function renderResult({ diag /*, qc*/ }) {
+/**
+ * ★ 新規：API連携（サーバ側 archetype-mapper.js とリンク）
+ * - 既存UI/コードは変更しない。タイプだけサーバ確定値を優先使用。
+ */
+async function submitToApi(localAnswers) {
+  const base = resolveBaseUrl();
+  const url = `${base}/api/diagnosis/submit`;
+  const userId = getOrCreateUserId();
+
+  // demographics（任意）
+  const selGender = document.getElementById('demographicsGender');
+  const selAge    = document.getElementById('demographicsAge');
+  const selMbti   = document.getElementById('demographicsMbti');
+
+  const payload = {
+    userId,
+    version: QUESTION_VERSION,
+    client: 'liff',
+    answers: localAnswers.map(a => ({
+      code: a.id,
+      scale: a.value,
+      scaleMax: 6, // 本UIは常に6件法
+    })),
+    meta: {
+      demographics: {
+        gender: selGender?.value || '',
+        age: selAge?.value || '',
+        mbti: selMbti?.value || '',
+      }
+    }
+  };
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
+}
+
+function renderResult({ diag /*, qc*/, api }) {
   const root = document.querySelector('#result');
   const { type_main, type_sub, confidence, balanceIndex, prob, vec } = diag;
+
+  // ★ サーバ優先：タイプ名・アバター（なければ従来ローカル）
+  const apiHeroName = api?.hero?.name || null;
+  const apiHeroSlug = api?.hero?.slug || null;
+  const apiHeroImg  = api?.hero?.avatarUrl || null;
+
+  const displayTypeMain = apiHeroName || type_main;
+  const displayTypeSub  = type_sub;
 
   const probList = Object.entries(prob)
     .sort((a,b) => b[1]-a[1])
@@ -204,7 +263,7 @@ function renderResult({ diag /*, qc*/ }) {
       <div class="hero-avatar"><img id="resultHeroImage" alt=""></div>
       <div class="hero-details">
         <span class="cluster-tag">上位タイプ</span>
-        <h2 id="resultHeroName">${type_main}${type_sub ? `（サブ: ${type_sub}）` : ''}</h2>
+        <h2 id="resultHeroName">${escapeHtml(displayTypeMain)}${displayTypeSub ? `（サブ: ${escapeHtml(displayTypeSub)}）` : ''}</h2>
       </div>
     </div>
 
@@ -239,8 +298,12 @@ function renderResult({ diag /*, qc*/ }) {
   }
   nextBtn?.classList.add('hidden');
 
+  // 画像（サーバ優先、なければ何もしない）
+  const img = document.getElementById('resultHeroImage');
+  if (img && apiHeroImg) img.src = apiHeroImg;
+
   document.getElementById('shareWebButton')?.addEventListener('click', () => {
-    const text = `私のアーキタイプは「${type_main}」${type_sub ? `（サブ: ${type_sub}）` : ''}。信頼度${(confidence*100).toFixed(0)}%`;
+    const text = `私のアーキタイプは「${displayTypeMain}」${displayTypeSub ? `（サブ: ${displayTypeSub}）` : ''}。信頼度${(confidence*100).toFixed(0)}%`;
     if (navigator.share) navigator.share({ text }).catch(() => copyToClipboard(text));
     else copyToClipboard(text);
     toast('結果テキストを共有しました');
@@ -319,6 +382,23 @@ function toast(msg) {
   if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
   t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+// APIベースURL解決（submit.js と同様の優先順位）
+function resolveBaseUrl(){
+  const meta = document.querySelector('meta[name="app-base-url"]')?.content?.trim();
+  if (meta) return meta.replace(/\/$/,'');
+  const env = window?.__APP_BASE_URL__ || '';
+  if (env) return String(env).replace(/\/$/,'');
+  return ''; // same-origin
+}
+
+// 匿名userIdをローカルに保持
+function getOrCreateUserId(){
+  const key = 'cb_user_id';
+  let v = localStorage.getItem(key);
+  if (!v) { v = crypto?.randomUUID?.() || `anon-${Date.now()}`; localStorage.setItem(key, v); }
+  return v;
 }
 
 /* ================================
