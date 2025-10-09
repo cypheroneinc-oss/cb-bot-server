@@ -1,10 +1,18 @@
+// bot_server/api/diagnosis/submit.js
 // Minimal-diff: 現行の安全対策/ログ設計を維持。
-// mapLikertToChoice をそのまま利用できるよう、answers の正規化は現行踏襲。
-// （左=YES の 6段Likert を使う場合、フロントが scaleMax=6 を渡せばOK）
+// 新ロジックとの“接着点”として archetype-mapper を使用（互換フォールバック付き）。
+// mapLikertToChoice は従来どおり活用可能（左=YES の 6段Likert）。
 
 import crypto from 'node:crypto';
-import { score, QUESTION_VERSION, mapLikertToChoice, runDiagnosis } from '../../lib/scoring/index.js';
+import {
+  score,
+  QUESTION_VERSION,
+  mapLikertToChoice,
+  runDiagnosis,            // 互換用（従来スコア）
+} from '../../lib/scoring/index.js';
+
 import { getQuestionDataset } from '../../lib/questions/index.js';
+
 import {
   saveAnswers,
   saveResult,
@@ -12,11 +20,15 @@ import {
   createOrReuseSession,
   logSubmission, // ★ 既存ログ連携
 } from '../../lib/persistence.js';
+
 import {
   getClusterLabel,
   getClusterNarrative,
   getHeroProfile,
 } from '../../lib/result-content.js';
+
+// ★ 新規：タイプ確定のマッピング層（新ロジック→12タイプ）
+import { mapToArchetype, TYPE_KEYS } from '../../lib/archetype-mapper.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -31,7 +43,11 @@ const MOTIVATION_KEYS = ['achieve','autonomy','connection','security','curiosity
 function toNumeric(v){ const n = Number(v ?? 0); return Number.isFinite(n) ? Math.round(n*100)/100 : 0; }
 function mapCounts(keys, group = {}){ return keys.reduce((a,k)=>{ a[k]=toNumeric(group?.[k]); return a; },{}); }
 function buildScoresBreakdown(counts = {}) {
-  return { MBTI: mapCounts(MBTI_KEYS, counts.MBTI), WorkStyle: mapCounts(WORKSTYLE_KEYS, counts.WorkStyle), Motivation: mapCounts(MOTIVATION_KEYS, counts.Motivation) };
+  return {
+    MBTI: mapCounts(MBTI_KEYS, counts.MBTI),
+    WorkStyle: mapCounts(WORKSTYLE_KEYS, counts.WorkStyle),
+    Motivation: mapCounts(MOTIVATION_KEYS, counts.Motivation)
+  };
 }
 function resolveBaseUrl(){
   const explicit = process.env.APP_BASE_URL?.trim(); if (explicit) return explicit.replace(/\/$/,'');
@@ -115,6 +131,35 @@ function sanitizeDemographics(meta){
   return clean;
 }
 
+// 新ロジック → 12タイプ へ接続するための安全な中間オブジェクトを構築
+function buildMapperInput({ scoring, diagnosis }) {
+  // 優先: 新ロジック相当の factorScores があるならそれをそのまま使う
+  const base = typeof scoring?.factorScores === 'object' && scoring.factorScores
+    ? scoring.factorScores
+    : {};
+
+  // サブ：diagnosis.counts をフラット化して補完（存在すれば）
+  const counts = diagnosis?.counts || {};
+  const flatCounts = {
+    ...(counts.MBTI || {}),
+    ...(counts.WorkStyle || {}),
+    ...(counts.Motivation || {}),
+  };
+
+  // base優先で結合（同名キーはbaseが勝つ）
+  return { ...flatCounts, ...base };
+}
+
+// 12タイプ→クラスタのフォールバック（必要なら利用）
+const TYPE_TO_CLUSTER_FALLBACK = {
+  hero: 'challenge', outlaw: 'challenge',
+  explorer: 'freedom', creator: 'creation',
+  sage: 'intellect', magician: 'transformation',
+  caregiver: 'support', ruler: 'governance',
+  everyman: 'harmony', jester: 'play',
+  lover: 'affection', innocent: 'hope',
+};
+
 export function createSubmitHandler({
   scoreFn = score,
   createOrReuseSessionFn = createOrReuseSession,
@@ -170,11 +215,31 @@ export function createSubmitHandler({
       const prepared = normalized.map((it)=>({ questionId: it.code, choiceKey: it.key, ...(typeof it.w==='number'?{w:it.w}:{}) }));
       const diagnosis = runDiagnosisFn(prepared);
 
-      const clusterKey = scoring.cluster ?? diagnosis?.cluster;
-      const heroSlug = scoring.heroSlug ?? diagnosis?.heroSlug;
+      // ★ 新ロジック：archetype-mapper で最終タイプを一意に確定
+      let heroSlug;
+      try {
+        const mapperInput = buildMapperInput({ scoring, diagnosis });
+        heroSlug = mapToArchetype(mapperInput);               // 'hero' | 'outlaw' | ... | 'innocent'
+        if (!TYPE_KEYS.includes(heroSlug)) throw new Error('mapper returned unknown type');
+      } catch (e) {
+        console.warn('[submit:mapToArchetype]', requestId, e?.message || e);
+        // フォールバック（従来出力を尊重）
+        heroSlug = (scoring?.heroSlug || diagnosis?.heroSlug || 'hero').toLowerCase();
+      }
+
+      // クラスタは従来の出力を優先し、無ければタイプから推定
+      const clusterKey =
+        scoring?.cluster ||
+        diagnosis?.cluster ||
+        TYPE_TO_CLUSTER_FALLBACK[heroSlug] ||
+        'challenge';
+
+      // 表示リソース（名前/アバター）はリポジトリ側の辞書から取得
       const heroProfile = getHeroProfile(heroSlug);
       const clusterLabel = getClusterLabel(clusterKey);
-      const narrative = getClusterNarrative(clusterKey);
+      const narrative = getClusterNarrative(clusterKey); // 互換用（UIが使っているなら継続）
+
+      // breakdown は従来の counts を正規化して保持
       const counts = diagnosis?.counts ?? {};
       const scoresBreakdown = buildScoresBreakdown(counts);
 
@@ -193,7 +258,7 @@ export function createSubmitHandler({
           cluster: clusterKey,
           heroSlug,
           heroName: heroProfile?.name,
-          scores: { factors: scoring.factorScores, breakdown: scoresBreakdown },
+          scores: { factors: scoring?.factorScores, breakdown: scoresBreakdown },
           shareCardUrl: cardImageUrl,
         });
       } catch (e){
@@ -208,8 +273,7 @@ export function createSubmitHandler({
           sessionId,
           client: String(body?.client || 'liff'),
           version: String(QUESTION_VERSION),
-          // answers は最小限の形にサニタイズ
-          answers: normalized.map(({ code, scale, scaleMax }) => ({ code, scale, scaleMax })),
+          answers: normalized.map(({ code, scale, scaleMax }) => ({ code, scale, scaleMax })), // 最小限
           demographics,
           resultSummary: {
             hero: { slug: heroSlug, name: heroProfile?.name },
@@ -230,14 +294,15 @@ export function createSubmitHandler({
         share: {
           url: shareUrl,
           cardImageUrl,
-          copy: { headline: `あなたは${heroProfile?.name}！`, summary: narrative.summary1line },
+          copy: { headline: `あなたは${heroProfile?.name}！`, summary: narrative?.summary1line || '' },
         },
+        // 互換：フロントが cluster narrative を参照している場合のため残置（新UIが result-content.js を使うなら未使用）
         narrative: {
-          summary1line: narrative.summary1line,
-          strengths: narrative.strengths,
-          misfit_env: narrative.misfit_env,
-          how_to_use: narrative.how_to_use,
-          next_action: narrative.next_action,
+          summary1line: narrative?.summary1line || '',
+          strengths: narrative?.strengths || [],
+          misfit_env: narrative?.misfit_env || [],
+          how_to_use: narrative?.how_to_use || [],
+          next_action: narrative?.next_action || [],
         },
       });
     } catch (error){
