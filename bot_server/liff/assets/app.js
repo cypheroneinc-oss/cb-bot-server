@@ -338,10 +338,24 @@ function initDemographics() {
   if (selAge && selAge.options.length <= 1) {
     for (let a = 12; a <= 50; a++) { const op = document.createElement('option'); op.value = String(a); op.textContent = `${a}`; selAge.appendChild(op); }
   }
+  // ★ MBTIだけ表示を「コード（日本語ニックネーム）」にする（値はコードのまま）
   if (selMbti && selMbti.options.length <= 1) {
-    ['INTJ','INTP','ENTJ','ENTP','INFJ','INFP','ENFJ','ENFP','ISTJ','ISFJ','ESTJ','ESFJ','ISTP','ISFP','ESTP','ESFP']
-      .forEach(t => { const op = document.createElement('option'); op.value = t; op.textContent = t; selMbti.appendChild(op); });
+    const MBTI_JA = [
+      ['INTJ','建築家'],      ['INTP','論理学者'],
+      ['ENTJ','指揮官'],      ['ENTP','討論者'],
+      ['INFJ','提唱者'],      ['INFP','仲介者'],
+      ['ENFJ','主人公'],      ['ENFP','広報運動家'],
+      ['ISTJ','管理者'],      ['ISFJ','擁護者'],
+      ['ESTJ','幹部'],        ['ESFJ','領事'],
+      ['ISTP','巨匠'],        ['ISFP','冒険家'],
+      ['ESTP','起業家'],      ['ESFP','エンターテイナー'],
+    ];
+    MBTI_JA.forEach(([code, ja]) => {
+      const op = document.createElement('option');
+      op.value = code;
+      op.textContent = `${code}（${ja}）`;
+      selMbti.appendChild(op);
+    });
   }
 }
-
 /* ================================ */
