@@ -1,5 +1,6 @@
 // filename: bot_server/liff/assets/app.js
 import { diagnose, quickQC } from '../../lib/scoring.js';
+import { getHeroNarrative } from '../../lib/result-content.js'; // ← 追加
 
 /* -----------------------------
  * 動的ロード
@@ -249,61 +250,47 @@ async function submitToApi(localAnswers) {
 }
 
 /* -----------------------------
- * 結果描画（既存UI）
+ * 結果描画（6ブロック本文のみ表示）
  * --------------------------- */
 function renderResult({ diag /*, qc*/, api }) {
-  const root = document.querySelector('#result');
-  const { type_main, type_sub, confidence, balanceIndex, prob, vec } = diag;
+  // index.html の結果カードを使う
+  const root = document.getElementById('resultCard') || document.querySelector('#result');
+  if (!root) { console.error('[result] container not found'); return; }
 
-  const apiHeroName = api?.hero?.name || null;
-  const apiHeroImg  = api?.hero?.avatarUrl || null;
+  const { type_main, type_sub } = diag;
 
-  const displayTypeMain = apiHeroName || type_main;
-  const displayTypeSub  = type_sub;
+  // サーバが返す正式名があれば優先
+  const mainName = api?.hero?.name || type_main || '';
+  const subName  = type_sub ? `（サブ: ${type_sub}）` : '';
 
-  const probList = Object.entries(prob)
-    .sort((a,b) => b[1]-a[1])
-    .slice(0, 5)
-    .map(([k,v]) => `<li><span class="t">${k}</span><span class="v">${(v*100).toFixed(1)}%</span></li>`)
-    .join('');
+  // 診断テキストを取得（未取得でもエラーにしない）
+  const data = getHeroNarrative(mainName) || {};
 
-  const dials = pickFactorDials(vec);
+  // タイトル等
+  const heroNameEl = root.querySelector('#resultHeroName');
+  const clusterTag = root.querySelector('#resultClusterTag');
+  const resultSub  = root.querySelector('#resultSub');
+  if (heroNameEl) heroNameEl.textContent = `${mainName}${subName}`;
+  if (clusterTag) clusterTag.textContent = '上位タイプ';
+  if (resultSub)  resultSub.textContent  = ''; // 数値は出さない
 
-  root.innerHTML = `
-    <header class="result-header">
-      <h1>診断が完了したよ</h1>
-      <p id="resultSub">信頼度 ${(confidence*100).toFixed(0)}%／二相指数 ${(balanceIndex*100).toFixed(0)}%</p>
-    </header>
+  // 6ブロックを埋める
+  setHTML('#resultEngineBody',      asParas(data.engine));
+  setHTML('#resultFearBody',        asParas(data.fear));
+  setHTML('#resultPerceptionBody',  asParas(data.perception));
+  setList('#resultScenes',   data.scenes);            // <ul>
+  setList('#resultGrowth',   data.growth);            // <ul>
+  setList('#resultReactions',data.reaction, { ordered: true }); // <ol>
 
-    <div class="hero-card">
-      <div class="hero-avatar"><img id="resultHeroImage" alt=""></div>
-      <div class="hero-details">
-        <span class="cluster-tag">上位タイプ</span>
-        <h2 id="resultHeroName">${escapeHtml(displayTypeMain)}${displayTypeSub ? `（サブ: ${escapeHtml(displayTypeSub)}）` : ''}</h2>
-      </div>
-    </div>
+  // ヒーロー画像（サーバ返却のみ）
+  const img = root.querySelector('#resultHeroImage');
+  if (img && api?.hero?.avatarUrl) img.src = api.hero.avatarUrl;
 
-    <section class="dials">
-      ${dials.map(renderDial).join('')}
-    </section>
-
-    <section class="prob">
-      <h3>近接タイプ（上位5）</h3>
-      <ul class="prob-list">${probList}</ul>
-    </section>
-
-    <div class="share-actions">
-      <h3>シェアする</h3>
-      <div class="share-buttons">
-        <button type="button" class="share-btn" id="shareWebButton">端末でシェア</button>
-        <button type="button" class="share-btn" id="shareCopyButton">リンクをコピー</button>
-      </div>
-    </div>
-  `;
-
+  // 表示切替
   root.classList.remove('hidden');
   root.scrollIntoView({ behavior: 'smooth' });
 
+  // フッター：戻る表示、送信隠す
   const backBtn = document.getElementById('retryButton');
   const nextBtn = document.getElementById('submitButton');
   if (backBtn) {
@@ -312,25 +299,10 @@ function renderResult({ diag /*, qc*/, api }) {
     backBtn.onclick = () => location.reload();
   }
   nextBtn?.classList.add('hidden');
-
-  const img = document.getElementById('resultHeroImage');
-  if (img && apiHeroImg) img.src = apiHeroImg;
-
-  document.getElementById('shareWebButton')?.addEventListener('click', () => {
-    const text = `私のアーキタイプは「${displayTypeMain}」${displayTypeSub ? `（サブ: ${displayTypeSub}）` : ''}。信頼度${(confidence*100).toFixed(0)}%`;
-    if (navigator.share) navigator.share({ text }).catch(() => copyToClipboard(text));
-    else copyToClipboard(text);
-    toast('結果テキストを共有しました');
-  });
-  document.getElementById('shareCopyButton')?.addEventListener('click', () => {
-    const url = location.href;
-    copyToClipboard(url);
-    toast('リンクをコピーしました');
-  });
 }
 
 /* -----------------------------
- * 進捗/ダイヤル
+ * 進捗/ダイヤル（UI表示はしないが既存関数は温存）
  * --------------------------- */
 function updateCounters() {
   const form = document.getElementById('survey-form');
@@ -468,4 +440,36 @@ function validateAll() {
   const answered = form.querySelectorAll('input[type="radio"]:checked').length;
   const questionsOk = totalQuestions > 0 && answered >= totalQuestions;
   return questionsOk && validateDemographics();
+}
+
+/* ================================
+ * ▼ 補助：本文注入ユーティリティ（新規）
+ * ================================ */
+function setHTML(sel, htmlOrText) {
+  const el = document.querySelector(sel);
+  if (!el) return;
+  if (typeof htmlOrText === 'string') {
+    el.innerHTML = htmlOrText; // 既に<p>などHTML化済みならそのまま
+  } else {
+    el.textContent = String(htmlOrText ?? '');
+  }
+}
+function asParas(text) {
+  if (!text) return '';
+  const trimmed = String(text).trim();
+  if (trimmed.startsWith('<')) return trimmed; // HTML想定
+  return trimmed
+    .split(/\n{2,}/) // 空行で段落
+    .map(t => `<p>${escapeHtml(t.trim())}</p>`)
+    .join('');
+}
+function setList(sel, value, { ordered = false } = {}) {
+  const el = document.querySelector(sel);
+  if (!el) return;
+  if (typeof value === 'string' && value.trim().startsWith('<')) {
+    el.innerHTML = value; return;
+  }
+  const arr = Array.isArray(value) ? value : (value ? [value] : []);
+  const items = arr.map(x => `<li>${escapeHtml(String(x))}</li>`).join('');
+  el.innerHTML = items;
 }
