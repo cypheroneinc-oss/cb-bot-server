@@ -253,6 +253,11 @@ async function submitToApi(localAnswers) {
  * 結果描画（6ブロック本文のみ表示）
  * --------------------------- */
 function renderResult({ diag /*, qc*/, api }) {
+  // --- debug begin ---
+window.__DBG = { api, diag };
+console.log('[DEBUG api]', api && JSON.stringify(api).slice(0, 1000));
+console.log('[DEBUG diag]', diag);
+// --- debug end ---
   // index.html の結果カードを使う
   const root = document.getElementById('resultCard') || document.querySelector('#result');
   if (!root) { console.error('[result] container not found'); return; }
