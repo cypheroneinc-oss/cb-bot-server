@@ -266,11 +266,11 @@ function renderResult({ diag /*, qc*/, api }) {
   // ---- ここを強化：マッチしやすいキーで順に試す（必ず本文を拾う）
   const cleanName = String(mainName).replace(/（.*?）/g, '').trim(); // 全角カッコ内を除去
   const slug = api?.hero?.slug ? String(api.hero.slug).trim() : '';
-  const candidates = [type_main, cleanName, mainName, slug].filter(Boolean);
+  const candidates = [slug, type_main, cleanName, mainName].filter(Boolean);
   let data = null;
   for (const key of candidates) {
     data = getHeroNarrative(key);
-    if (data) break;
+    if (data && (data.engine || data.growth || (data.scenes && data.scenes.length))) break;
   }
   if (!data) data = {};
   // ---- 強化ここまで
@@ -283,13 +283,13 @@ function renderResult({ diag /*, qc*/, api }) {
   if (clusterTag) clusterTag.textContent = '上位タイプ';
   if (resultSub)  resultSub.textContent  = ''; // 数値は出さない
 
-  // 6ブロックを root 内で確実に埋める
-  setHTML(root.querySelector('#resultEngineBody'),      asParas(data.engine));
-  setHTML(root.querySelector('#resultFearBody'),        asParas(data.fear));
-  setHTML(root.querySelector('#resultPerceptionBody'),  asParas(data.perception));
-  setList(root.querySelector('#resultScenes'),   data.scenes);            // <ul>
-  setList(root.querySelector('#resultGrowth'),   data.growth);            // <ul>
-  setList(root.querySelector('#resultReactions'),data.reaction, { ordered: true }); // <ol>
+  // 6ブロック本文を、旧ID/新IDのどちらにもフォールバックして注入
+  setHTMLMulti(root, ['#resultEngineBody', '#resultPersonalityBody'], asParas(data.engine));
+  setHTMLMulti(root, ['#resultWorstBody'], asParas(data.worst));
+  setHTMLMulti(root, ['#resultPerceivedBody'], asParas(data.perceived));
+  setListMulti(root, ['#resultScenes'], data.scenes); // <ul>
+  setHTMLMulti(root, ['#resultGrowth', '#resultTips'], asParas(Array.isArray(data.growth) ? data.growth.join('\n\n') : data.growth));
+  setListMulti(root, ['#resultReactions', '#resultSynergy'], data.synergy, { ordered: true }); // <ol> 互換
 
   // ヒーロー画像（サーバ返却のみ）
   const img = root.querySelector('#resultHeroImage');
@@ -481,4 +481,20 @@ function setList(elOrSel, value, { ordered = false } = {}) {
   const arr = Array.isArray(value) ? value : (value ? [value] : []);
   const items = arr.map(x => `<li>${escapeHtml(String(x))}</li>`).join('');
   el.innerHTML = items;
+}
+
+/* ================================
+ * ▼ 互換注入ヘルパ（新規・最小追加）
+ * ================================ */
+function setHTMLMulti(root, selectors, htmlOrText) {
+  for (const sel of selectors) {
+    const el = root.querySelector(sel);
+    if (el) { setHTML(el, htmlOrText); return; }
+  }
+}
+function setListMulti(root, selectors, value, opts) {
+  for (const sel of selectors) {
+    const el = root.querySelector(sel);
+    if (el) { setList(el, value, opts); return; }
+  }
 }
