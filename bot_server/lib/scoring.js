@@ -1,9 +1,12 @@
-// lib/scoring.js
+// filename: bot_server/lib/scoring.js
 // Cロジック診断・判定ユーティリティ v1（外部重み注入版）
 // 依存: /data/questions.v1.js
 // NOTE: weights（12タイプ×25因子）はブラウザ互換のため app.js 側で fetch して opts.weights で渡す。
 
 import QUESTIONS from "../data/questions.v1.js";
+
+// ← 追加：サーバで参照する質問バージョン
+export const QUESTION_VERSION = 'v1';
 
 /** 下位因子キー一覧（25D） */
 export const SUBFACTORS = {
@@ -156,4 +159,6 @@ export default {
   decide,
   diagnose,
   quickQC,
+  // 追加しても互換性は壊れない（named exportを既に定義しているため）
+  QUESTION_VERSION,
 };
