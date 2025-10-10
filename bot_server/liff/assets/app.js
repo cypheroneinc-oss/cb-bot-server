@@ -224,10 +224,11 @@ async function submitToApi(localAnswers) {
 
   const payload = {
     userId,
-    version: QUESTION_VERSION,
+    // ← ここだけ修正：API が期待する形に合わせる
+    version: 2, // 'v1' ではなく数値 2 を送る
     client: 'liff',
     answers: localAnswers.map(a => ({
-      code: a.id,
+      questionId: a.id,   // code → questionId
       scale: a.value,
       scaleMax: 6,
     })),
