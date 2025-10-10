@@ -274,13 +274,13 @@ function renderResult({ diag /*, qc*/, api }) {
   if (clusterTag) clusterTag.textContent = '上位タイプ';
   if (resultSub)  resultSub.textContent  = ''; // 数値は出さない
 
-  // 6ブロックを埋める
-  setHTML('#resultEngineBody',      asParas(data.engine));
-  setHTML('#resultFearBody',        asParas(data.fear));
-  setHTML('#resultPerceptionBody',  asParas(data.perception));
-  setList('#resultScenes',   data.scenes);            // <ul>
-  setList('#resultGrowth',   data.growth);            // <ul>
-  setList('#resultReactions',data.reaction, { ordered: true }); // <ol>
+  // 6ブロックを root 内で確実に埋める（←ここを修正）
+  setHTML(root.querySelector('#resultEngineBody'),      asParas(data.engine));
+  setHTML(root.querySelector('#resultFearBody'),        asParas(data.fear));
+  setHTML(root.querySelector('#resultPerceptionBody'),  asParas(data.perception));
+  setList(root.querySelector('#resultScenes'),   data.scenes);            // <ul>
+  setList(root.querySelector('#resultGrowth'),   data.growth);            // <ul>
+  setList(root.querySelector('#resultReactions'),data.reaction, { ordered: true }); // <ol>
 
   // ヒーロー画像（サーバ返却のみ）
   const img = root.querySelector('#resultHeroImage');
@@ -443,10 +443,10 @@ function validateAll() {
 }
 
 /* ================================
- * ▼ 補助：本文注入ユーティリティ（新規）
+ * ▼ 補助：本文注入ユーティリティ（要素 or セレクタ両対応）
  * ================================ */
-function setHTML(sel, htmlOrText) {
-  const el = document.querySelector(sel);
+function setHTML(elOrSel, htmlOrText) {
+  const el = typeof elOrSel === 'string' ? document.querySelector(elOrSel) : elOrSel;
   if (!el) return;
   if (typeof htmlOrText === 'string') {
     el.innerHTML = htmlOrText; // 既に<p>などHTML化済みならそのまま
@@ -463,8 +463,8 @@ function asParas(text) {
     .map(t => `<p>${escapeHtml(t.trim())}</p>`)
     .join('');
 }
-function setList(sel, value, { ordered = false } = {}) {
-  const el = document.querySelector(sel);
+function setList(elOrSel, value, { ordered = false } = {}) {
+  const el = typeof elOrSel === 'string' ? document.querySelector(elOrSel) : elOrSel;
   if (!el) return;
   if (typeof value === 'string' && value.trim().startsWith('<')) {
     el.innerHTML = value; return;
