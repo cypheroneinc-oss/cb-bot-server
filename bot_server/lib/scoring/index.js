@@ -1,12 +1,16 @@
 // filename: bot_server/lib/scoring/index.js
-// ロジックは触らず、QUESTION_VERSION の取得だけ安全化
+// 最小修正版: named import をやめて安全に取り出す。
+// ロジック・マッピングは一切変更しない。
 
-import { scoreAndMapToHero, runDiagnosis } from '../scoring.js';
-import * as scoringModule from '../scoring.js';   // ← 安全に取り出す
+import * as scoringModule from '../scoring.js';          // ← ここを一本化
 import { getQuestionDataset } from '../questions/index.js';
 
+// QUESTION_VERSION を安全に取得（無ければ 'v1'）
 export const QUESTION_VERSION = scoringModule.QUESTION_VERSION || 'v1';
-export { scoreAndMapToHero, runDiagnosis };
+
+// 必要なシンボルだけ “存在すれば” エクスポート
+export const scoreAndMapToHero = scoringModule.scoreAndMapToHero;
+export const runDiagnosis      = scoringModule.runDiagnosis; // 無ければ undefined のままでOK
 
 const SIX_POINT_MAPPING = new Map([
   [1, { choiceKey: 'POS', w: 0.75 }],
@@ -47,7 +51,9 @@ export function mapLikertToChoice({ questionId, scale, scaleMax, maxScale }) {
 }
 
 export function score(answers, version = QUESTION_VERSION) {
-  if (version !== QUESTION_VERSION) throw new Error('Unsupported question set version');
+  if (version !== QUESTION_VERSION) {
+    throw new Error('Unsupported question set version');
+  }
 
   const normalized = Array.isArray(answers)
     ? answers
@@ -69,7 +75,10 @@ export function score(answers, version = QUESTION_VERSION) {
             w = mapped.w;
           }
           if (!questionId || !key) return null;
-          return typeof w === 'number' ? { questionId, choiceKey: key, w } : { questionId, choiceKey: key };
+
+          return typeof w === 'number'
+            ? { questionId, choiceKey: key, w }
+            : { questionId, choiceKey: key };
         })
         .filter(Boolean)
     : [];
