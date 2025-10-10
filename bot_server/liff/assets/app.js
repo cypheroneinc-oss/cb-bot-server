@@ -2,9 +2,7 @@
 import { diagnose, quickQC } from '../../lib/scoring.js';
 import { getHeroNarrative } from '../../lib/result-content.js'; // ← 追加
 
-/* -----------------------------
- * 動的ロード
- * --------------------------- */
+/* ----------------------------- */
 let QUESTIONS = null;
 async function loadQuestions() {
   if (QUESTIONS) return QUESTIONS;
@@ -42,7 +40,8 @@ async function loadWeights() {
 }
 
 /* ----------------------------- */
-const QUESTION_VERSION = 'v1';
+// ★ 修正: サーバ仕様に合わせて数値 2 を送る
+const QUESTION_VERSION = 2;
 
 /* 6件法（左：とてもそう思う → 右：まったくそう思わない）*/
 const LIKERT_REVERSED = [
@@ -224,11 +223,12 @@ async function submitToApi(localAnswers) {
 
   const payload = {
     userId,
-    // ← ここだけ修正：API が期待する形に合わせる
-    version: 2, // 'v1' ではなく数値 2 を送る
+    version: QUESTION_VERSION, // ★ 2 を送る
     client: 'liff',
     answers: localAnswers.map(a => ({
-      questionId: a.id,   // code → questionId
+      // ★ サーバ側の必須キーに合わせて両方送る
+      questionId: a.id,
+      code: a.id,
       scale: a.value,
       scaleMax: 6,
     })),
@@ -255,24 +255,21 @@ async function submitToApi(localAnswers) {
  * --------------------------- */
 function renderResult({ diag /*, qc*/, api }) {
   // --- debug begin ---
-window.__DBG = { api, diag };
-console.log('[DEBUG api]', api && JSON.stringify(api).slice(0, 1000));
-console.log('[DEBUG diag]', diag);
-// --- debug end ---
-  // index.html の結果カードを使う
+  window.__DBG = { api, diag };
+  console.log('[DEBUG api]', api && JSON.stringify(api).slice(0, 1000));
+  console.log('[DEBUG diag]', diag);
+  // --- debug end ---
+
   const root = document.getElementById('resultCard') || document.querySelector('#result');
   if (!root) { console.error('[result] container not found'); return; }
 
   const { type_main, type_sub } = diag;
 
-  // サーバが返す正式名があれば優先
   const mainName = api?.hero?.name || type_main || '';
   const subName  = type_sub ? `（サブ: ${type_sub}）` : '';
 
-  // ---- 深いネスト/配列を再帰的に走査して本文を抽出（ここが本質修正）
   const apiData = deepExtractNarrativeFromApi(api);
 
-  // ---- ダメならローカル定義にフォールバック（サブ表記/slug吸収）
   let data = apiData;
   if (!hasAnyContent(data)) {
     const cleanName = String(mainName).replace(/（.*?）/g, '').trim();
@@ -282,15 +279,13 @@ console.log('[DEBUG diag]', diag);
     if (!hasAnyContent(data)) data = {};
   }
 
-  // タイトル等
   const heroNameEl = root.querySelector('#resultHeroName');
   const clusterTag = root.querySelector('#resultClusterTag');
   const resultSub  = root.querySelector('#resultSub');
   if (heroNameEl) heroNameEl.textContent = `${mainName}${subName}`;
   if (clusterTag) clusterTag.textContent = '上位タイプ';
-  if (resultSub)  resultSub.textContent  = ''; // 数値は出さない
+  if (resultSub)  resultSub.textContent  = '';
 
-  // 6ブロックを root 内で確実に埋める
   setHTML(findOrCreateSection(root, ['#resultEngineBody', '#resultPersonalityBody'], '❤️ 心のエンジン', 'div', 'result-paragraphs'), asParas(data?.engine));
   setHTML(findOrCreateSection(root, ['#resultFearBody'], '😨 いちばん怖いこと', 'div', 'result-paragraphs'), asParas(data?.fear));
   setHTML(findOrCreateSection(root, ['#resultPerceptionBody'], '👀 こう見られがち', 'div', 'result-paragraphs'), asParas(data?.perception));
@@ -298,15 +293,12 @@ console.log('[DEBUG diag]', diag);
   setList(findOrCreateSection(root, ['#resultGrowth', '#resultTips'], '🌱 伸ばし方', 'ul'), data?.growth);
   setList(findOrCreateSection(root, ['#resultReactions'], '🧪 化学反応', 'ol'), data?.reaction, { ordered: true });
 
-  // ヒーロー画像（サーバ返却のみ）
   const img = root.querySelector('#resultHeroImage');
   if (img && api?.hero?.avatarUrl) img.src = api.hero.avatarUrl;
 
-  // 表示切替
   root.classList.remove('hidden');
   root.scrollIntoView({ behavior: 'smooth' });
 
-  // フッター：戻る表示、送信隠す
   const backBtn = document.getElementById('retryButton');
   const nextBtn = document.getElementById('submitButton');
   if (backBtn) {
@@ -317,9 +309,7 @@ console.log('[DEBUG diag]', diag);
   nextBtn?.classList.add('hidden');
 }
 
-/* -----------------------------
- * 進捗/ダイヤル（UI表示はしないが既存関数は温存）
- * --------------------------- */
+/* ----------------------------- */
 function updateCounters() {
   const form = document.getElementById('survey-form');
   if (!form) return;
@@ -368,9 +358,7 @@ function prettyLabel(key) {
   return map[key] || key;
 }
 
-/* -----------------------------
- * helpers
- * --------------------------- */
+/* ----------------------------- */
 function escapeHtml(s = "") {
   return String(s).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -399,9 +387,7 @@ function getOrCreateUserId(){
   return v;
 }
 
-/* ================================
- * ▼ プルダウンへの選択肢注入
- * ================================ */
+/* ================================ */
 function initDemographics() {
   const selGender = document.getElementById('demographicsGender');
   const selAge    = document.getElementById('demographicsAge');
@@ -435,14 +421,11 @@ function initDemographics() {
   }
 }
 
-/* ================================
- * ▼ 追加：入力の完全性チェック
- * ================================ */
+/* ================================ */
 function validateDemographics() {
   const g = document.getElementById('demographicsGender');
   const a = document.getElementById('demographicsAge');
   const m = document.getElementById('demographicsMbti');
-  // 必須：性別・年齢・MBTI いずれも選択されていること
   const okG = !g || !!g.value;
   const okA = !a || !!a.value;
   const okM = !m || !!m.value;
@@ -458,14 +441,12 @@ function validateAll() {
   return questionsOk && validateDemographics();
 }
 
-/* ================================
- * ▼ 補助：本文注入ユーティリティ（要素 or セレクタ両対応）
- * ================================ */
+/* ================================ */
 function setHTML(elOrSel, htmlOrText) {
   const el = typeof elOrSel === 'string' ? document.querySelector(elOrSel) : elOrSel;
   if (!el) return;
   if (typeof htmlOrText === 'string') {
-    el.innerHTML = htmlOrText; // 既に<p>などHTML化済みならそのまま
+    el.innerHTML = htmlOrText;
   } else {
     el.textContent = String(htmlOrText ?? '');
   }
@@ -473,9 +454,9 @@ function setHTML(elOrSel, htmlOrText) {
 function asParas(text) {
   if (!text) return '';
   const trimmed = String(text).trim();
-  if (trimmed.startsWith('<')) return trimmed; // HTML想定
+  if (trimmed.startsWith('<')) return trimmed;
   return trimmed
-    .split(/\n{2,}/) // 空行で段落
+    .split(/\n{2,}/)
     .map(t => `<p>${escapeHtml(t.trim())}</p>`)
     .join('');
 }
@@ -490,9 +471,7 @@ function setList(elOrSel, value, { ordered = false } = {}) {
   el.innerHTML = items;
 }
 
-/* ================================
- * ▼ 生成ヘルパー（不足DOMを見出し直後に作る）
- * ================================ */
+/* ================================ */
 function findOrCreateSection(root, selectors, headingText, tag = 'div', className = '') {
   for (const sel of selectors) {
     const el = root.querySelector(sel);
@@ -510,9 +489,7 @@ function findOrCreateSection(root, selectors, headingText, tag = 'div', classNam
   return container;
 }
 
-/* ================================
- * ▼ API本文抽出（配列/ネスト対応：深掘り）
- * ================================ */
+/* ================================ */
 function deepExtractNarrativeFromApi(api) {
   if (!api || typeof api !== 'object') return null;
 
@@ -537,20 +514,15 @@ function deepExtractNarrativeFromApi(api) {
       const arr = Array.isArray(v) ? v : [String(v)];
       out[k] = (out[k] || []).concat(arr.filter(Boolean));
     } else {
-      out[k] = [out[k], String(v)].filter(Boolean).join('\n\n'); // 段落でつなぐ
+      out[k] = [out[k], String(v)].filter(Boolean).join('\n\n');
     }
   };
 
   const scan = (node) => {
     if (node == null) return;
-
-    if (Array.isArray(node)) {
-      node.forEach(scan);
-      return;
-    }
+    if (Array.isArray(node)) { node.forEach(scan); return; }
     if (typeof node !== 'object') return;
 
-    // セクション型 { title, body/items/... }
     const title = node.title || node.heading || node.label || node.name || node.key;
     const keyByTitle = titleToKey(title);
 
@@ -561,7 +533,6 @@ function deepExtractNarrativeFromApi(api) {
       if (body)  pushText(keyByTitle, body);
     }
 
-    // フラットキーも拾う
     const flatMap = {
       engine: ['engine','core','mindEngine','heart','personality','core_text','engineBody'],
       fear: ['fear','biggestFear','worst_fear','scare','risk'],
@@ -576,7 +547,6 @@ function deepExtractNarrativeFromApi(api) {
       }
     }
 
-    // 再帰
     Object.values(node).forEach(scan);
   };
 
