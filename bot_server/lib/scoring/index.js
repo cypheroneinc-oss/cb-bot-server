@@ -1,11 +1,10 @@
 // filename: bot_server/lib/scoring/index.js
-// 既存ロジックは変更せず、QUESTION_VERSION の取得だけを安全化
+// ロジックは触らず、QUESTION_VERSION の取得だけ安全化
 
 import { scoreAndMapToHero, runDiagnosis } from '../scoring.js';
-import * as scoringModule from '../scoring.js'; // QUESTION_VERSION が無い環境も考慮
+import * as scoringModule from '../scoring.js';   // ← 安全に取り出す
 import { getQuestionDataset } from '../questions/index.js';
 
-// QUESTION_VERSION を named export しつつ、未定義なら 'v1' にフォールバック
 export const QUESTION_VERSION = scoringModule.QUESTION_VERSION || 'v1';
 export { scoreAndMapToHero, runDiagnosis };
 
@@ -29,59 +28,48 @@ const SEVEN_POINT_MAPPING = new Map([
 
 export function mapLikertToChoice({ questionId, scale, scaleMax, maxScale }) {
   const resolvedQuestionId = questionId ?? undefined;
-  const rawScale = scale ?? undefined;
-  const numericScale = Number(rawScale);
-
+  const numericScale = Number(scale ?? undefined);
   if (!resolvedQuestionId || !Number.isFinite(numericScale)) return null;
 
   const intScale = Math.trunc(numericScale);
-  const resolvedMax = maxScale ?? scaleMax;
-  const numericMax = Number(resolvedMax);
+  const numericMax = Number(maxScale ?? scaleMax);
   const usesSevenPoint = Number.isFinite(numericMax) && numericMax === 7;
 
   if (!usesSevenPoint && SIX_POINT_MAPPING.has(intScale)) {
-    const mapped = SIX_POINT_MAPPING.get(intScale);
-    return { questionId: resolvedQuestionId, choiceKey: mapped.choiceKey, w: mapped.w };
+    const m = SIX_POINT_MAPPING.get(intScale);
+    return { questionId: resolvedQuestionId, choiceKey: m.choiceKey, w: m.w };
   }
-
   if (!Number.isInteger(intScale) || intScale < 1 || intScale > 7) return null;
 
-  const mapped = SEVEN_POINT_MAPPING.get(intScale);
-  if (!mapped) return { questionId: resolvedQuestionId, choiceKey: 'POS', w: 0 };
-
-  return { questionId: resolvedQuestionId, choiceKey: mapped.choiceKey, w: mapped.w };
+  const m = SEVEN_POINT_MAPPING.get(intScale);
+  if (!m) return { questionId: resolvedQuestionId, choiceKey: 'POS', w: 0 };
+  return { questionId: resolvedQuestionId, choiceKey: m.choiceKey, w: m.w };
 }
 
 export function score(answers, version = QUESTION_VERSION) {
-  if (version !== QUESTION_VERSION) {
-    throw new Error('Unsupported question set version');
-  }
+  if (version !== QUESTION_VERSION) throw new Error('Unsupported question set version');
 
   const normalized = Array.isArray(answers)
     ? answers
-        .map((answer) => ({
-          questionId: answer?.questionId ?? answer?.question_id ?? answer?.code ?? answer?.id,
-          choiceKey: answer?.choiceKey ?? answer?.choice_key ?? answer?.key,
-          scale: answer?.scale ?? answer?.value,
-          scaleMax: answer?.scaleMax ?? answer?.maxScale ?? answer?.scale_range ?? answer?.scaleRange,
-          weight: answer?.w ?? answer?.weight,
+        .map((a) => ({
+          questionId: a?.questionId ?? a?.question_id ?? a?.code ?? a?.id,
+          choiceKey: a?.choiceKey ?? a?.choice_key ?? a?.key,
+          scale: a?.scale ?? a?.value,
+          scaleMax: a?.scaleMax ?? a?.maxScale ?? a?.scale_range ?? a?.scaleRange,
+          weight: a?.w ?? a?.weight,
         }))
         .map(({ questionId, choiceKey, scale, scaleMax, weight }) => {
-          let resolvedChoiceKey = choiceKey;
-          let resolvedWeight = typeof weight === 'number' ? weight : undefined;
+          let key = choiceKey;
+          let w = typeof weight === 'number' ? weight : undefined;
 
-          if (!resolvedChoiceKey && scale !== undefined && scale !== null) {
+          if (!key && scale != null) {
             const mapped = mapLikertToChoice({ questionId, scale, scaleMax });
             if (!mapped) return null;
-            resolvedChoiceKey = mapped.choiceKey;
-            resolvedWeight = mapped.w;
+            key = mapped.choiceKey;
+            w = mapped.w;
           }
-
-          if (!questionId || !resolvedChoiceKey) return null;
-
-          return typeof resolvedWeight === 'number'
-            ? { questionId, choiceKey: resolvedChoiceKey, w: resolvedWeight }
-            : { questionId, choiceKey: resolvedChoiceKey };
+          if (!questionId || !key) return null;
+          return typeof w === 'number' ? { questionId, choiceKey: key, w } : { questionId, choiceKey: key };
         })
         .filter(Boolean)
     : [];
