@@ -40,7 +40,7 @@ async function loadWeights() {
 }
 
 /* ----------------------------- */
-// ★ 修正: サーバ仕様に合わせて数値 2 を送る
+// ★ サーバ仕様に合わせて数値 2 を送る
 const QUESTION_VERSION = 2;
 
 /* 6件法（左：とてもそう思う → 右：まったくそう思わない）*/
@@ -215,20 +215,17 @@ function collectAnswers() {
 async function submitToApi(localAnswers) {
   const base = resolveBaseUrl();
   const url = `${base}/api/diagnosis/submit`;
-  const userId = getOrCreateUserId();
+  const userId = getOrCreateUserId(); // ※ 未使用だが他を触らないため残置
 
   const selGender = document.getElementById('demographicsGender');
   const selAge    = document.getElementById('demographicsAge');
   const selMbti   = document.getElementById('demographicsMbti');
 
+  // ★ 余計なキー（code, userId, client）を送らない厳格版
   const payload = {
-    userId,
-    version: QUESTION_VERSION, // ★ 2 を送る
-    client: 'liff',
+    version: QUESTION_VERSION, // 2
     answers: localAnswers.map(a => ({
-      // ★ サーバ側の必須キーに合わせて両方送る
       questionId: a.id,
-      code: a.id,
       scale: a.value,
       scaleMax: 6,
     })),
@@ -246,7 +243,15 @@ async function submitToApi(localAnswers) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try {
+      const t = await res.text();
+      if (t) msg += `: ${t.slice(0, 300)}`;
+    } catch(_) {}
+    console.error('[submitToApi] failed:', msg);
+    throw new Error(msg);
+  }
   return await res.json();
 }
 
