@@ -91,7 +91,7 @@ async function mountApp() {
     });
   }
 
-  /* 残り問題数バー等は別要件に従い削除 */
+  /* 残り問題数バー等は別要件に従い削除して良い場合のみここでremove()する */
   const progressBar = document.querySelector('.progress-bar');
   const statusText = document.querySelector('.status');
   const subtitle = document.querySelector('.subtitle');
@@ -115,7 +115,7 @@ function renderSurvey(qs) {
   `;
 }
 
-/* 1問カード */
+/* 1問カード（ひし形下の可視ラベルは無し） */
 function renderItem(q) {
   const name = q.id;
   const opts = LIKERT_REVERSED.map((o) => {
@@ -147,7 +147,7 @@ function renderItem(q) {
 }
 
 /* -----------------------------
- * 単一ページ用：入力監視
+ * 単一ページ用：入力監視 → 進捗と送信活性
  * --------------------------- */
 function bindSinglePageHandlers() {
   const form = document.querySelector('#survey-form');
@@ -155,18 +155,23 @@ function bindSinglePageHandlers() {
   const submitLabel = document.getElementById('submitContent');
   const backBtn = document.getElementById('retryButton');
 
+  // 「戻る」は使わない → 非表示固定
   backBtn?.classList.add('hidden');
+
+  // ボタンラベルは常に「結果を見る」
   if (submitLabel) submitLabel.textContent = '結果を見る';
 
+  // 入力が変わるたびに進捗・活性を更新
   form.addEventListener('change', () => {
     updateCounters();
     submitBtn.disabled = !validateAll();
   });
 
+  // 初期活性
   submitBtn.disabled = !validateAll();
 }
 
-/* フッター送信 */
+/* フッターの送信ボタン（UIは既存のまま） */
 function wireFooterSubmit() {
   const btn = document.getElementById('submitButton');
   if (!btn) return;
@@ -188,8 +193,10 @@ async function onSubmit() {
   const weights = await loadWeights();
   if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
 
+  // ローカル推定
   const diag = diagnose(answers, { weights });
 
+  // API送信（失敗しても続行）
   let api = null;
   try {
     api = await submitToApi(answers);
@@ -246,26 +253,26 @@ async function submitToApi(localAnswers) {
  * 結果描画（6ブロック本文のみ表示）
  * --------------------------- */
 function renderResult({ diag /*, qc*/, api }) {
+  // index.html の結果カードを使う
   const root = document.getElementById('resultCard') || document.querySelector('#result');
   if (!root) { console.error('[result] container not found'); return; }
 
   const { type_main, type_sub } = diag;
+
+  // サーバが返す正式名があれば優先
   const mainName = api?.hero?.name || type_main || '';
   const subName  = type_sub ? `（サブ: ${type_sub}）` : '';
 
-  // 1) APIから本文をできるだけ抽出（キー名の表記ゆれ対応）
-  const apiData = extractNarrativeFromApi(api);
+  // ---- 深いネスト/配列を再帰的に走査して本文を抽出（ここが本質修正）
+  const apiData = deepExtractNarrativeFromApi(api);
 
-  // 2) ダメならローカル定義（サブ括弧・slug吸収）
+  // ---- ダメならローカル定義にフォールバック（サブ表記/slug吸収）
   let data = apiData;
   if (!hasAnyContent(data)) {
     const cleanName = String(mainName).replace(/（.*?）/g, '').trim();
     const slug = api?.hero?.slug ? String(api.hero.slug).trim() : '';
     const candidates = [type_main, cleanName, mainName, slug].filter(Boolean);
-    for (const key of candidates) {
-      data = getHeroNarrative(key);
-      if (hasAnyContent(data)) break;
-    }
+    for (const key of candidates) { data = getHeroNarrative(key); if (hasAnyContent(data)) break; }
     if (!hasAnyContent(data)) data = {};
   }
 
@@ -275,30 +282,25 @@ function renderResult({ diag /*, qc*/, api }) {
   const resultSub  = root.querySelector('#resultSub');
   if (heroNameEl) heroNameEl.textContent = `${mainName}${subName}`;
   if (clusterTag) clusterTag.textContent = '上位タイプ';
-  if (resultSub)  resultSub.textContent  = '';
+  if (resultSub)  resultSub.textContent  = ''; // 数値は出さない
 
-  // 6ブロック（既存IDが無ければ見出し直後に生成）
-  const engineEl      = findOrCreateSection(root, ['#resultEngineBody', '#resultPersonalityBody'], '❤️ 心のエンジン', 'div', 'result-paragraphs');
-  const fearEl        = findOrCreateSection(root, ['#resultFearBody'],       '😨 いちばん怖いこと', 'div', 'result-paragraphs');
-  const perceptionEl  = findOrCreateSection(root, ['#resultPerceptionBody'], '👀 こう見られがち',   'div', 'result-paragraphs');
-  const scenesEl      = findOrCreateSection(root, ['#resultScenes'],         '⚡ 活躍シーン',       'ul');
-  const growthEl      = findOrCreateSection(root, ['#resultGrowth', '#resultTips'], '🌱 伸ばし方', 'ul');
-  const reactionsEl   = findOrCreateSection(root, ['#resultReactions'],      '🧪 化学反応',        'ol');
+  // 6ブロックを root 内で確実に埋める
+  setHTML(findOrCreateSection(root, ['#resultEngineBody', '#resultPersonalityBody'], '❤️ 心のエンジン', 'div', 'result-paragraphs'), asParas(data?.engine));
+  setHTML(findOrCreateSection(root, ['#resultFearBody'], '😨 いちばん怖いこと', 'div', 'result-paragraphs'), asParas(data?.fear));
+  setHTML(findOrCreateSection(root, ['#resultPerceptionBody'], '👀 こう見られがち', 'div', 'result-paragraphs'), asParas(data?.perception));
+  setList(findOrCreateSection(root, ['#resultScenes'], '⚡ 活躍シーン', 'ul'), data?.scenes);
+  setList(findOrCreateSection(root, ['#resultGrowth', '#resultTips'], '🌱 伸ばし方', 'ul'), data?.growth);
+  setList(findOrCreateSection(root, ['#resultReactions'], '🧪 化学反応', 'ol'), data?.reaction, { ordered: true });
 
-  setHTML(engineEl,     asParas(data?.engine));
-  setHTML(fearEl,       asParas(data?.fear));
-  setHTML(perceptionEl, asParas(data?.perception));
-  setList(scenesEl,     data?.scenes);
-  setList(growthEl,     data?.growth);
-  setList(reactionsEl,  data?.reaction, { ordered: true });
-
-  // ヒーロー画像
+  // ヒーロー画像（サーバ返却のみ）
   const img = root.querySelector('#resultHeroImage');
   if (img && api?.hero?.avatarUrl) img.src = api.hero.avatarUrl;
 
+  // 表示切替
   root.classList.remove('hidden');
   root.scrollIntoView({ behavior: 'smooth' });
 
+  // フッター：戻る表示、送信隠す
   const backBtn = document.getElementById('retryButton');
   const nextBtn = document.getElementById('submitButton');
   if (backBtn) {
@@ -310,13 +312,13 @@ function renderResult({ diag /*, qc*/, api }) {
 }
 
 /* -----------------------------
- * 進捗/ダイヤル（温存）
+ * 進捗/ダイヤル（UI表示はしないが既存関数は温存）
  * --------------------------- */
 function updateCounters() {
   const form = document.getElementById('survey-form');
   if (!form) return;
   const answered = form.querySelectorAll('input[type="radio"]:checked').length;
-  const total = form.querySelectorAll('.question-card .likert-input').length / 6;
+  const total = form.querySelectorAll('.question-card .likert-input').length / 6; // 1問=6択
   const rem = Math.max(0, total - answered);
 
   document.getElementById('answeredCount')?.replaceChildren(document.createTextNode(String(answered)));
@@ -434,6 +436,7 @@ function validateDemographics() {
   const g = document.getElementById('demographicsGender');
   const a = document.getElementById('demographicsAge');
   const m = document.getElementById('demographicsMbti');
+  // 必須：性別・年齢・MBTI いずれも選択されていること
   const okG = !g || !!g.value;
   const okA = !a || !!a.value;
   const okM = !m || !!m.value;
@@ -450,24 +453,32 @@ function validateAll() {
 }
 
 /* ================================
- * ▼ 補助：本文注入ユーティリティ
+ * ▼ 補助：本文注入ユーティリティ（要素 or セレクタ両対応）
  * ================================ */
 function setHTML(elOrSel, htmlOrText) {
   const el = typeof elOrSel === 'string' ? document.querySelector(elOrSel) : elOrSel;
   if (!el) return;
-  if (typeof htmlOrText === 'string') el.innerHTML = htmlOrText;
-  else el.textContent = String(htmlOrText ?? '');
+  if (typeof htmlOrText === 'string') {
+    el.innerHTML = htmlOrText; // 既に<p>などHTML化済みならそのまま
+  } else {
+    el.textContent = String(htmlOrText ?? '');
+  }
 }
 function asParas(text) {
   if (!text) return '';
   const trimmed = String(text).trim();
-  if (trimmed.startsWith('<')) return trimmed;
-  return trimmed.split(/\n{2,}/).map(t => `<p>${escapeHtml(t.trim())}</p>`).join('');
+  if (trimmed.startsWith('<')) return trimmed; // HTML想定
+  return trimmed
+    .split(/\n{2,}/) // 空行で段落
+    .map(t => `<p>${escapeHtml(t.trim())}</p>`)
+    .join('');
 }
 function setList(elOrSel, value, { ordered = false } = {}) {
   const el = typeof elOrSel === 'string' ? document.querySelector(elOrSel) : elOrSel;
   if (!el) return;
-  if (typeof value === 'string' && value.trim().startsWith('<')) { el.innerHTML = value; return; }
+  if (typeof value === 'string' && value.trim().startsWith('<')) {
+    el.innerHTML = value; return;
+  }
   const arr = Array.isArray(value) ? value : (value ? [value] : []);
   const items = arr.map(x => `<li>${escapeHtml(String(x))}</li>`).join('');
   el.innerHTML = items;
@@ -485,45 +496,85 @@ function findOrCreateSection(root, selectors, headingText, tag = 'div', classNam
   const h = hs.find(x => x.textContent.trim().replace(/\s+/g,'') === headingText.replace(/\s+/g,''));
   const container = document.createElement(tag);
   if (className) container.className = className;
-  if (h && h.parentNode) h.parentNode.insertBefore(container, h.nextSibling);
-  else root.appendChild(container);
+  if (h && h.parentNode) {
+    h.parentNode.insertBefore(container, h.nextSibling);
+  } else {
+    root.appendChild(container);
+  }
   return container;
 }
 
 /* ================================
- * ▼ API本文抽出（キー表記ゆれ対応）
+ * ▼ API本文抽出（配列/ネスト対応：深掘り）
  * ================================ */
-function extractNarrativeFromApi(api) {
+function deepExtractNarrativeFromApi(api) {
   if (!api || typeof api !== 'object') return null;
 
-  // 候補ルートをゆるく統合
-  const roots = [
-    api, api.data, api.result, api.payload, api.content, api.sections, api.narrative, api.narratives,
-    api.hero, api.hero?.content, api.hero?.sections, api.hero?.narrative, api.hero?.narratives,
-  ].filter(x => x && typeof x === 'object');
+  const out = { engine: null, fear: null, perception: null, scenes: null, growth: null, reaction: null };
 
-  const merged = Object.assign({}, ...roots);
-
-  const pick = (...cands) => {
-    // 完全一致
-    for (const k of cands) if (merged[k] != null) return merged[k];
-    // 大文字小文字/日本語含む部分一致
-    const keys = Object.keys(merged);
-    for (const want of cands) {
-      const idx = keys.find(k => k.toLowerCase().includes(String(want).toLowerCase()));
-      if (idx) return merged[idx];
-    }
+  const titleToKey = (titleRaw = '') => {
+    const t = String(titleRaw).replace(/\s+/g,'').toLowerCase();
+    if (t.includes('心のエンジン') || t.includes('個性') || t.includes('personality') || t.includes('core')) return 'engine';
+    if (t.includes('怖') || t.includes('いちばん怖いこと') || t.includes('fear') || t.includes('risk')) return 'fear';
+    if (t.includes('見られがち') || t.includes('見え方') || t.includes('perception') || t.includes('image')) return 'perception';
+    if (t.includes('活躍シーン') || t.includes('シーン') || t.includes('scenes') || t.includes('situations')) return 'scenes';
+    if (t.includes('伸ばし方') || t.includes('成長') || t.includes('tips') || t.includes('advice') || t.includes('growth')) return 'growth';
+    if (t.includes('化学反応') || t.includes('相性') || t.includes('chemistry') || t.includes('synergy') || t.includes('reaction')) return 'reaction';
     return null;
   };
 
-  const out = {
-    engine:     pick('engine','core','drive','mindEngine','heart','personality','心のエンジン','個性','core_text','engineBody'),
-    fear:       pick('fear','biggestFear','worst_fear','scare','risk','いちばん怖いこと','恐れ','アンチパターン'),
-    perception: pick('perception','howSeen','image','こう見られがち','見られがち','他者からの見え方'),
-    scenes:     pick('scenes','scene','best_situations','活躍シーン','fits','situations'),
-    growth:     pick('growth','tips','advice','coach','伸ばし方','成長のヒント'),
-    reaction:   pick('reaction','chemistry','synergy','相性','化学反応'),
+  const pushText = (k, v) => {
+    if (!k || v == null) return;
+    const s = Array.isArray(v) ? v.map(x => String(x).trim()).filter(Boolean) : String(v).trim();
+    if (!s || (Array.isArray(s) && !s.length)) return;
+    if (k === 'scenes' || k === 'growth' || k === 'reaction') {
+      const arr = Array.isArray(v) ? v : [String(v)];
+      out[k] = (out[k] || []).concat(arr.filter(Boolean));
+    } else {
+      out[k] = [out[k], String(v)].filter(Boolean).join('\n\n'); // 段落でつなぐ
+    }
   };
+
+  const scan = (node) => {
+    if (node == null) return;
+
+    if (Array.isArray(node)) {
+      node.forEach(scan);
+      return;
+    }
+    if (typeof node !== 'object') return;
+
+    // セクション型 { title, body/items/... }
+    const title = node.title || node.heading || node.label || node.name || node.key;
+    const keyByTitle = titleToKey(title);
+
+    if (keyByTitle) {
+      const body = node.body || node.text || node.copy || node.description || node.content;
+      const items = node.items || node.list || node.points || node.bullets || node.entries;
+      if (items) pushText(keyByTitle, items);
+      if (body)  pushText(keyByTitle, body);
+    }
+
+    // フラットキーも拾う
+    const flatMap = {
+      engine: ['engine','core','mindEngine','heart','personality','core_text','engineBody'],
+      fear: ['fear','biggestFear','worst_fear','scare','risk'],
+      perception: ['perception','howSeen','image','impression'],
+      scenes: ['scenes','scene','best_situations','fits','situations'],
+      growth: ['growth','tips','advice','coach','hints'],
+      reaction: ['reaction','chemistry','synergy','compatibility'],
+    };
+    for (const [k, keys] of Object.entries(flatMap)) {
+      for (const kk of keys) {
+        if (node[kk] != null) pushText(k, node[kk]);
+      }
+    }
+
+    // 再帰
+    Object.values(node).forEach(scan);
+  };
+
+  scan(api);
 
   return hasAnyContent(out) ? out : null;
 }
@@ -531,5 +582,5 @@ function extractNarrativeFromApi(api) {
 function hasAnyContent(obj){
   if (!obj) return false;
   return ['engine','fear','perception','scenes','growth','reaction']
-    .some(k => !!(obj[k] && String(obj[k]).trim().length));
+    .some(k => !!(obj[k] && String(obj[k]).trim().length || (Array.isArray(obj[k]) && obj[k].length)));
 }
