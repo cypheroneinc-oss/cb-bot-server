@@ -263,8 +263,17 @@ function renderResult({ diag /*, qc*/, api }) {
   const mainName = api?.hero?.name || type_main || '';
   const subName  = type_sub ? `（サブ: ${type_sub}）` : '';
 
-  // 診断テキストを取得（未取得でもエラーにしない）
-  const data = getHeroNarrative(mainName) || {};
+  // ---- ここを強化：マッチしやすいキーで順に試す（必ず本文を拾う）
+  const cleanName = String(mainName).replace(/（.*?）/g, '').trim(); // 全角カッコ内を除去
+  const slug = api?.hero?.slug ? String(api.hero.slug).trim() : '';
+  const candidates = [type_main, cleanName, mainName, slug].filter(Boolean);
+  let data = null;
+  for (const key of candidates) {
+    data = getHeroNarrative(key);
+    if (data) break;
+  }
+  if (!data) data = {};
+  // ---- 強化ここまで
 
   // タイトル等
   const heroNameEl = root.querySelector('#resultHeroName');
@@ -274,7 +283,7 @@ function renderResult({ diag /*, qc*/, api }) {
   if (clusterTag) clusterTag.textContent = '上位タイプ';
   if (resultSub)  resultSub.textContent  = ''; // 数値は出さない
 
-  // 6ブロックを root 内で確実に埋める（←ここを修正）
+  // 6ブロックを root 内で確実に埋める
   setHTML(root.querySelector('#resultEngineBody'),      asParas(data.engine));
   setHTML(root.querySelector('#resultFearBody'),        asParas(data.fear));
   setHTML(root.querySelector('#resultPerceptionBody'),  asParas(data.perception));
