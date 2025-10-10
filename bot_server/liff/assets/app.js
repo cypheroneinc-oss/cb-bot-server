@@ -91,7 +91,7 @@ async function mountApp() {
     });
   }
 
-  /* 残り問題数バー等は別要件に従い削除して良い場合のみここでremove()する */
+  /* 残り問題数バー等は別要件に従い削除 */
   const progressBar = document.querySelector('.progress-bar');
   const statusText = document.querySelector('.status');
   const subtitle = document.querySelector('.subtitle');
@@ -115,7 +115,7 @@ function renderSurvey(qs) {
   `;
 }
 
-/* 1問カード（ひし形下の可視ラベルは無し） */
+/* 1問カード */
 function renderItem(q) {
   const name = q.id;
   const opts = LIKERT_REVERSED.map((o) => {
@@ -147,7 +147,7 @@ function renderItem(q) {
 }
 
 /* -----------------------------
- * 単一ページ用：入力監視 → 進捗と送信活性
+ * 単一ページ用：入力監視
  * --------------------------- */
 function bindSinglePageHandlers() {
   const form = document.querySelector('#survey-form');
@@ -155,23 +155,18 @@ function bindSinglePageHandlers() {
   const submitLabel = document.getElementById('submitContent');
   const backBtn = document.getElementById('retryButton');
 
-  // 「戻る」は使わない → 非表示固定
   backBtn?.classList.add('hidden');
-
-  // ボタンラベルは常に「結果を見る」
   if (submitLabel) submitLabel.textContent = '結果を見る';
 
-  // 入力が変わるたびに進捗・活性を更新
   form.addEventListener('change', () => {
     updateCounters();
     submitBtn.disabled = !validateAll();
   });
 
-  // 初期活性
   submitBtn.disabled = !validateAll();
 }
 
-/* フッターの送信ボタン（UIは既存のまま） */
+/* フッター送信 */
 function wireFooterSubmit() {
   const btn = document.getElementById('submitButton');
   if (!btn) return;
@@ -193,10 +188,8 @@ async function onSubmit() {
   const weights = await loadWeights();
   if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
 
-  // ローカル推定
   const diag = diagnose(answers, { weights });
 
-  // API送信（失敗しても続行）
   let api = null;
   try {
     api = await submitToApi(answers);
@@ -253,27 +246,28 @@ async function submitToApi(localAnswers) {
  * 結果描画（6ブロック本文のみ表示）
  * --------------------------- */
 function renderResult({ diag /*, qc*/, api }) {
-  // index.html の結果カードを使う
   const root = document.getElementById('resultCard') || document.querySelector('#result');
   if (!root) { console.error('[result] container not found'); return; }
 
   const { type_main, type_sub } = diag;
-
-  // サーバが返す正式名があれば優先
   const mainName = api?.hero?.name || type_main || '';
   const subName  = type_sub ? `（サブ: ${type_sub}）` : '';
 
-  // ---- ここを強化：マッチしやすいキーで順に試す（必ず本文を拾う）
-  const cleanName = String(mainName).replace(/（.*?）/g, '').trim(); // 全角カッコ内を除去
-  const slug = api?.hero?.slug ? String(api.hero.slug).trim() : '';
-  const candidates = [slug, type_main, cleanName, mainName].filter(Boolean);
-  let data = null;
-  for (const key of candidates) {
-    data = getHeroNarrative(key);
-    if (data && (data.engine || data.growth || (data.scenes && data.scenes.length))) break;
+  // 1) APIから本文をできるだけ抽出（キー名の表記ゆれ対応）
+  const apiData = extractNarrativeFromApi(api);
+
+  // 2) ダメならローカル定義（サブ括弧・slug吸収）
+  let data = apiData;
+  if (!hasAnyContent(data)) {
+    const cleanName = String(mainName).replace(/（.*?）/g, '').trim();
+    const slug = api?.hero?.slug ? String(api.hero.slug).trim() : '';
+    const candidates = [type_main, cleanName, mainName, slug].filter(Boolean);
+    for (const key of candidates) {
+      data = getHeroNarrative(key);
+      if (hasAnyContent(data)) break;
+    }
+    if (!hasAnyContent(data)) data = {};
   }
-  if (!data) data = {};
-  // ---- 強化ここまで
 
   // タイトル等
   const heroNameEl = root.querySelector('#resultHeroName');
@@ -281,25 +275,30 @@ function renderResult({ diag /*, qc*/, api }) {
   const resultSub  = root.querySelector('#resultSub');
   if (heroNameEl) heroNameEl.textContent = `${mainName}${subName}`;
   if (clusterTag) clusterTag.textContent = '上位タイプ';
-  if (resultSub)  resultSub.textContent  = ''; // 数値は出さない
+  if (resultSub)  resultSub.textContent  = '';
 
-  // 6ブロック本文を、旧ID/新IDのどちらにもフォールバックして注入
-  setHTMLMulti(root, ['#resultEngineBody', '#resultPersonalityBody'], asParas(data.engine));
-  setHTMLMulti(root, ['#resultWorstBody'], asParas(data.worst));
-  setHTMLMulti(root, ['#resultPerceivedBody'], asParas(data.perceived));
-  setListMulti(root, ['#resultScenes'], data.scenes); // <ul>
-  setHTMLMulti(root, ['#resultGrowth', '#resultTips'], asParas(Array.isArray(data.growth) ? data.growth.join('\n\n') : data.growth));
-  setListMulti(root, ['#resultReactions', '#resultSynergy'], data.synergy, { ordered: true }); // <ol> 互換
+  // 6ブロック（既存IDが無ければ見出し直後に生成）
+  const engineEl      = findOrCreateSection(root, ['#resultEngineBody', '#resultPersonalityBody'], '❤️ 心のエンジン', 'div', 'result-paragraphs');
+  const fearEl        = findOrCreateSection(root, ['#resultFearBody'],       '😨 いちばん怖いこと', 'div', 'result-paragraphs');
+  const perceptionEl  = findOrCreateSection(root, ['#resultPerceptionBody'], '👀 こう見られがち',   'div', 'result-paragraphs');
+  const scenesEl      = findOrCreateSection(root, ['#resultScenes'],         '⚡ 活躍シーン',       'ul');
+  const growthEl      = findOrCreateSection(root, ['#resultGrowth', '#resultTips'], '🌱 伸ばし方', 'ul');
+  const reactionsEl   = findOrCreateSection(root, ['#resultReactions'],      '🧪 化学反応',        'ol');
 
-  // ヒーロー画像（サーバ返却のみ）
+  setHTML(engineEl,     asParas(data?.engine));
+  setHTML(fearEl,       asParas(data?.fear));
+  setHTML(perceptionEl, asParas(data?.perception));
+  setList(scenesEl,     data?.scenes);
+  setList(growthEl,     data?.growth);
+  setList(reactionsEl,  data?.reaction, { ordered: true });
+
+  // ヒーロー画像
   const img = root.querySelector('#resultHeroImage');
   if (img && api?.hero?.avatarUrl) img.src = api.hero.avatarUrl;
 
-  // 表示切替
   root.classList.remove('hidden');
   root.scrollIntoView({ behavior: 'smooth' });
 
-  // フッター：戻る表示、送信隠す
   const backBtn = document.getElementById('retryButton');
   const nextBtn = document.getElementById('submitButton');
   if (backBtn) {
@@ -311,13 +310,13 @@ function renderResult({ diag /*, qc*/, api }) {
 }
 
 /* -----------------------------
- * 進捗/ダイヤル（UI表示はしないが既存関数は温存）
+ * 進捗/ダイヤル（温存）
  * --------------------------- */
 function updateCounters() {
   const form = document.getElementById('survey-form');
   if (!form) return;
   const answered = form.querySelectorAll('input[type="radio"]:checked').length;
-  const total = form.querySelectorAll('.question-card .likert-input').length / 6; // 1問=6択
+  const total = form.querySelectorAll('.question-card .likert-input').length / 6;
   const rem = Math.max(0, total - answered);
 
   document.getElementById('answeredCount')?.replaceChildren(document.createTextNode(String(answered)));
@@ -435,7 +434,6 @@ function validateDemographics() {
   const g = document.getElementById('demographicsGender');
   const a = document.getElementById('demographicsAge');
   const m = document.getElementById('demographicsMbti');
-  // 必須：性別・年齢・MBTI いずれも選択されていること
   const okG = !g || !!g.value;
   const okA = !a || !!a.value;
   const okM = !m || !!m.value;
@@ -452,49 +450,86 @@ function validateAll() {
 }
 
 /* ================================
- * ▼ 補助：本文注入ユーティリティ（要素 or セレクタ両対応）
+ * ▼ 補助：本文注入ユーティリティ
  * ================================ */
 function setHTML(elOrSel, htmlOrText) {
   const el = typeof elOrSel === 'string' ? document.querySelector(elOrSel) : elOrSel;
   if (!el) return;
-  if (typeof htmlOrText === 'string') {
-    el.innerHTML = htmlOrText; // 既に<p>などHTML化済みならそのまま
-  } else {
-    el.textContent = String(htmlOrText ?? '');
-  }
+  if (typeof htmlOrText === 'string') el.innerHTML = htmlOrText;
+  else el.textContent = String(htmlOrText ?? '');
 }
 function asParas(text) {
   if (!text) return '';
   const trimmed = String(text).trim();
-  if (trimmed.startsWith('<')) return trimmed; // HTML想定
-  return trimmed
-    .split(/\n{2,}/) // 空行で段落
-    .map(t => `<p>${escapeHtml(t.trim())}</p>`)
-    .join('');
+  if (trimmed.startsWith('<')) return trimmed;
+  return trimmed.split(/\n{2,}/).map(t => `<p>${escapeHtml(t.trim())}</p>`).join('');
 }
 function setList(elOrSel, value, { ordered = false } = {}) {
   const el = typeof elOrSel === 'string' ? document.querySelector(elOrSel) : elOrSel;
   if (!el) return;
-  if (typeof value === 'string' && value.trim().startsWith('<')) {
-    el.innerHTML = value; return;
-  }
+  if (typeof value === 'string' && value.trim().startsWith('<')) { el.innerHTML = value; return; }
   const arr = Array.isArray(value) ? value : (value ? [value] : []);
   const items = arr.map(x => `<li>${escapeHtml(String(x))}</li>`).join('');
   el.innerHTML = items;
 }
 
 /* ================================
- * ▼ 互換注入ヘルパ（新規・最小追加）
+ * ▼ 生成ヘルパー（不足DOMを見出し直後に作る）
  * ================================ */
-function setHTMLMulti(root, selectors, htmlOrText) {
+function findOrCreateSection(root, selectors, headingText, tag = 'div', className = '') {
   for (const sel of selectors) {
     const el = root.querySelector(sel);
-    if (el) { setHTML(el, htmlOrText); return; }
+    if (el) return el;
   }
+  const hs = [...root.querySelectorAll('h3')];
+  const h = hs.find(x => x.textContent.trim().replace(/\s+/g,'') === headingText.replace(/\s+/g,''));
+  const container = document.createElement(tag);
+  if (className) container.className = className;
+  if (h && h.parentNode) h.parentNode.insertBefore(container, h.nextSibling);
+  else root.appendChild(container);
+  return container;
 }
-function setListMulti(root, selectors, value, opts) {
-  for (const sel of selectors) {
-    const el = root.querySelector(sel);
-    if (el) { setList(el, value, opts); return; }
-  }
+
+/* ================================
+ * ▼ API本文抽出（キー表記ゆれ対応）
+ * ================================ */
+function extractNarrativeFromApi(api) {
+  if (!api || typeof api !== 'object') return null;
+
+  // 候補ルートをゆるく統合
+  const roots = [
+    api, api.data, api.result, api.payload, api.content, api.sections, api.narrative, api.narratives,
+    api.hero, api.hero?.content, api.hero?.sections, api.hero?.narrative, api.hero?.narratives,
+  ].filter(x => x && typeof x === 'object');
+
+  const merged = Object.assign({}, ...roots);
+
+  const pick = (...cands) => {
+    // 完全一致
+    for (const k of cands) if (merged[k] != null) return merged[k];
+    // 大文字小文字/日本語含む部分一致
+    const keys = Object.keys(merged);
+    for (const want of cands) {
+      const idx = keys.find(k => k.toLowerCase().includes(String(want).toLowerCase()));
+      if (idx) return merged[idx];
+    }
+    return null;
+  };
+
+  const out = {
+    engine:     pick('engine','core','drive','mindEngine','heart','personality','心のエンジン','個性','core_text','engineBody'),
+    fear:       pick('fear','biggestFear','worst_fear','scare','risk','いちばん怖いこと','恐れ','アンチパターン'),
+    perception: pick('perception','howSeen','image','こう見られがち','見られがち','他者からの見え方'),
+    scenes:     pick('scenes','scene','best_situations','活躍シーン','fits','situations'),
+    growth:     pick('growth','tips','advice','coach','伸ばし方','成長のヒント'),
+    reaction:   pick('reaction','chemistry','synergy','相性','化学反応'),
+  };
+
+  return hasAnyContent(out) ? out : null;
+}
+
+function hasAnyContent(obj){
+  if (!obj) return false;
+  return ['engine','fear','perception','scenes','growth','reaction']
+    .some(k => !!(obj[k] && String(obj[k]).trim().length));
 }
