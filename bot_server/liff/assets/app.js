@@ -78,6 +78,25 @@ async function mountApp() {
   // 進捗／活性制御
   bindSinglePageHandlers();
   updateCounters();
+
+  /* 結果を見るボタンの動作保証（多重バインド防止） */
+  const submitBtn = document.getElementById('submitButton');
+  if (submitBtn && !submitBtn.dataset.bound) {
+    submitBtn.dataset.bound = '1';
+    submitBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!validateAll()) { toast('未回答の項目があります'); return; }
+      onSubmit();
+    });
+  }
+
+  /* 残り問題数バー等は別要件に従い削除して良い場合のみここでremove()する */
+  const progressBar = document.querySelector('.progress-bar');
+  const statusText = document.querySelector('.status');
+  const subtitle = document.querySelector('.subtitle');
+  if (progressBar) progressBar.remove();
+  if (statusText) statusText.remove();
+  if (subtitle) subtitle.remove();
 }
 
 /* -----------------------------
@@ -173,10 +192,10 @@ async function onSubmit() {
   const weights = await loadWeights();
   if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
 
-  // ローカル推定（従来どおり）
+  // ローカル推定
   const diag = diagnose(answers, { weights });
 
-  // ★ 追加：サーバAPIへ送信して“マッパ確定タイプ”を取得（失敗時はローカルのみで続行）
+  // API送信（失敗しても続行）
   let api = null;
   try {
     api = await submitToApi(answers);
@@ -192,16 +211,12 @@ function collectAnswers() {
   return [...inputs].map(el => ({ id: el.name, value: Number(el.value) }));
 }
 
-/**
- * ★ 新規：API連携（サーバ側 archetype-mapper.js とリンク）
- * - 既存UI/コードは変更しない。タイプだけサーバ確定値を優先使用。
- */
+/* API連携 */
 async function submitToApi(localAnswers) {
   const base = resolveBaseUrl();
   const url = `${base}/api/diagnosis/submit`;
   const userId = getOrCreateUserId();
 
-  // demographics（任意）
   const selGender = document.getElementById('demographicsGender');
   const selAge    = document.getElementById('demographicsAge');
   const selMbti   = document.getElementById('demographicsMbti');
@@ -213,7 +228,7 @@ async function submitToApi(localAnswers) {
     answers: localAnswers.map(a => ({
       code: a.id,
       scale: a.value,
-      scaleMax: 6, // 本UIは常に6件法
+      scaleMax: 6,
     })),
     meta: {
       demographics: {
@@ -233,13 +248,14 @@ async function submitToApi(localAnswers) {
   return await res.json();
 }
 
+/* -----------------------------
+ * 結果描画（既存UI）
+ * --------------------------- */
 function renderResult({ diag /*, qc*/, api }) {
   const root = document.querySelector('#result');
   const { type_main, type_sub, confidence, balanceIndex, prob, vec } = diag;
 
-  // ★ サーバ優先：タイプ名・アバター（なければ従来ローカル）
   const apiHeroName = api?.hero?.name || null;
-  const apiHeroSlug = api?.hero?.slug || null;
   const apiHeroImg  = api?.hero?.avatarUrl || null;
 
   const displayTypeMain = apiHeroName || type_main;
@@ -288,7 +304,6 @@ function renderResult({ diag /*, qc*/, api }) {
   root.classList.remove('hidden');
   root.scrollIntoView({ behavior: 'smooth' });
 
-  // 結果後は「戻る」= リトライに変える
   const backBtn = document.getElementById('retryButton');
   const nextBtn = document.getElementById('submitButton');
   if (backBtn) {
@@ -298,7 +313,6 @@ function renderResult({ diag /*, qc*/, api }) {
   }
   nextBtn?.classList.add('hidden');
 
-  // 画像（サーバ優先、なければ何もしない）
   const img = document.getElementById('resultHeroImage');
   if (img && apiHeroImg) img.src = apiHeroImg;
 
@@ -369,8 +383,6 @@ function prettyLabel(key) {
 /* -----------------------------
  * helpers
  * --------------------------- */
-function chunk(arr, n) { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; }
-function groupBy(arr, keyFn) { return arr.reduce((m, x) => { const k = keyFn(x); (m[k] ||= []).push(x); return m; }, {}); }
 function escapeHtml(s = "") {
   return String(s).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -384,16 +396,14 @@ function toast(msg) {
   setTimeout(() => t.classList.remove('show'), 1600);
 }
 
-// APIベースURL解決（submit.js と同様の優先順位）
 function resolveBaseUrl(){
   const meta = document.querySelector('meta[name="app-base-url"]')?.content?.trim();
   if (meta) return meta.replace(/\/$/,'');
   const env = window?.__APP_BASE_URL__ || '';
   if (env) return String(env).replace(/\/$/,'');
-  return ''; // same-origin
+  return '';
 }
 
-// 匿名userIdをローカルに保持
 function getOrCreateUserId(){
   const key = 'cb_user_id';
   let v = localStorage.getItem(key);
@@ -402,14 +412,13 @@ function getOrCreateUserId(){
 }
 
 /* ================================
- * ▼ プルダウンへの選択肢注入（ここが肝）
+ * ▼ プルダウンへの選択肢注入
  * ================================ */
 function initDemographics() {
   const selGender = document.getElementById('demographicsGender');
   const selAge    = document.getElementById('demographicsAge');
   const selMbti   = document.getElementById('demographicsMbti');
 
-  // 既に選択肢が入っていれば触らない（重複防止）
   if (selGender && selGender.options.length <= 1) {
     ['男性','女性','その他・回答しない'].forEach(v => {
       const op = document.createElement('option'); op.value = v; op.textContent = v; selGender.appendChild(op);
@@ -418,17 +427,16 @@ function initDemographics() {
   if (selAge && selAge.options.length <= 1) {
     for (let a = 12; a <= 50; a++) { const op = document.createElement('option'); op.value = String(a); op.textContent = `${a}`; selAge.appendChild(op); }
   }
-  // ★ MBTIだけ表示を「コード（日本語ニックネーム）」にする（値はコードのまま）
   if (selMbti && selMbti.options.length <= 1) {
     const MBTI_JA = [
-      ['INTJ','建築家'],      ['INTP','論理学者'],
-      ['ENTJ','指揮官'],      ['ENTP','討論者'],
-      ['INFJ','提唱者'],      ['INFP','仲介者'],
-      ['ENFJ','主人公'],      ['ENFP','広報運動家'],
-      ['ISTJ','管理者'],      ['ISFJ','擁護者'],
-      ['ESTJ','幹部'],        ['ESFJ','領事'],
-      ['ISTP','巨匠'],        ['ISFP','冒険家'],
-      ['ESTP','起業家'],      ['ESFP','エンターテイナー'],
+      ['INTJ','建築家'], ['INTP','論理学者'],
+      ['ENTJ','指揮官'], ['ENTP','討論者'],
+      ['INFJ','提唱者'], ['INFP','仲介者'],
+      ['ENFJ','主人公'], ['ENFP','広報運動家'],
+      ['ISTJ','管理者'], ['ISFJ','擁護者'],
+      ['ESTJ','幹部'], ['ESFJ','領事'],
+      ['ISTP','巨匠'], ['ISFP','冒険家'],
+      ['ESTP','起業家'], ['ESFP','エンターテイナー'],
     ];
     MBTI_JA.forEach(([code, ja]) => {
       const op = document.createElement('option');
@@ -438,4 +446,26 @@ function initDemographics() {
     });
   }
 }
-/* ================================ */
+
+/* ================================
+ * ▼ 追加：入力の完全性チェック
+ * ================================ */
+function validateDemographics() {
+  const g = document.getElementById('demographicsGender');
+  const a = document.getElementById('demographicsAge');
+  const m = document.getElementById('demographicsMbti');
+  // 必須：性別・年齢・MBTI いずれも選択されていること
+  const okG = !g || !!g.value;
+  const okA = !a || !!a.value;
+  const okM = !m || !!m.value;
+  return okG && okA && okM;
+}
+
+function validateAll() {
+  const form = document.getElementById('survey-form');
+  if (!form) return false;
+  const totalQuestions = form.querySelectorAll('.question-card').length;
+  const answered = form.querySelectorAll('input[type="radio"]:checked').length;
+  const questionsOk = totalQuestions > 0 && answered >= totalQuestions;
+  return questionsOk && validateDemographics();
+}
