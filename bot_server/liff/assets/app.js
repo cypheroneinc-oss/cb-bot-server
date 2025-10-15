@@ -3,10 +3,6 @@ import { diagnose, quickQC } from '../../lib/scoring.js';
 import { getHeroNarrative } from '../../lib/result-content.js'; // ← 追加
 
 /* ----------------------------- */
-// サーバ契約に合わせて常に 'v1' を送る（サーバが v2 解禁まで固定）
-const SERVER_QUESTION_SET_VERSION = 'v1';
-const QUESTION_VERSION = SERVER_QUESTION_SET_VERSION; // UI側の識別も同一にしておく
-
 let QUESTIONS = null;
 async function loadQuestions() {
   if (QUESTIONS) return QUESTIONS;
@@ -43,6 +39,10 @@ async function loadWeights() {
   return null;
 }
 
+/* ----------------------------- */
+// ★ サーバ仕様に合わせて v1（文字列）を送る ← 最小差分修正
+const QUESTION_VERSION = 'v1';
+
 /* 6件法（左：とてもそう思う → 右：まったくそう思わない）*/
 const LIKERT_REVERSED = [
   { value: 6, label: 'とてもそう思う' },
@@ -58,14 +58,11 @@ window.addEventListener('DOMContentLoaded', () => { mountApp(); });
 
 async function mountApp() {
   const mount = document.querySelector('#questions');
-  if (!mount) {
-    console.error('[app] #questions not found');
-    return;
-  }
+  if (!mount) { console.error('[app] #questions not found'); return; }
 
   const qs = await loadQuestions();
   if (!qs) {
-    mount.innerHTML = `\n      <div class="error">設問データの読み込みに失敗しました。/data/questions.v1.js を確認してください。</div>\n    `;
+    mount.innerHTML = `<div class="load-error">設問データの読み込みに失敗しました。/data/questions.v1.js を確認してください。</div>`;
     return;
   }
 
@@ -102,15 +99,18 @@ async function mountApp() {
   if (subtitle) subtitle.remove();
 }
 
-/* ----------------------------- *
+/* -----------------------------
  * 設問UI（1ページ）
  * --------------------------- */
 function renderSurvey(qs) {
   const itemsHtml = qs.map(renderItem).join('');
   return `
-    <form id="survey-form" class="survey">
-      ${itemsHtml}
+    <form id="survey-form" aria-live="polite">
+      <section class="page" data-page="0">
+        ${itemsHtml}
+      </section>
     </form>
+    <section class="result-card hidden" id="result"></section>
   `;
 }
 
@@ -120,26 +120,32 @@ function renderItem(q) {
   const opts = LIKERT_REVERSED.map((o) => {
     const id = `${name}-${o.value}`;
     return `
-      <label class="likert-option">
-        <input class="likert-input" type="radio" name="${name}" id="${id}" value="${o.value}" />
-        <span class="visually-hidden">${o.label}</span>
-      </label>
+      <div class="likert-choice">
+        <input class="likert-input" type="radio" id="${id}" name="${name}" value="${o.value}" required>
+        <label class="likert-option size-small" for="${id}">
+          <span class="likert-diamond" aria-hidden="true"></span>
+          <span class="sr-only">${o.label}</span>
+        </label>
+      </div>
     `;
   }).join('');
 
   return `
-    <div class="question-card">
-      <h3 class="question-text">${escapeHtml(q.text)}</h3>
-      <div class="likert-row">${opts}</div>
-      <div class="likert-captions">
+    <article class="question-card">
+      <h2 class="q-text">${escapeHtml(q.text)}</h2>
+      <div class="choices likert-scale">
+        ${opts}
+      </div>
+      <div class="likert-legend" aria-hidden="true">
         <span>とてもそう思う</span>
+        <span class="legend-bar"></span>
         <span>まったくそう思わない</span>
       </div>
-    </div>
+    </article>
   `;
 }
 
-/* ----------------------------- *
+/* -----------------------------
  * 単一ページ用：入力監視 → 進捗と送信活性
  * --------------------------- */
 function bindSinglePageHandlers() {
@@ -177,17 +183,14 @@ function wireFooterSubmit() {
   };
 }
 
-/* ----------------------------- *
+/* -----------------------------
  * 診断と結果
  * --------------------------- */
 async function onSubmit() {
   const answers = collectAnswers();
   const qc = quickQC(answers);
   const weights = await loadWeights();
-  if (!weights) {
-    toast('重みデータの読み込みに失敗しました');
-    return;
-  }
+  if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
 
   // ローカル推定
   const diag = diagnose(answers, { weights });
@@ -212,21 +215,17 @@ function collectAnswers() {
 async function submitToApi(localAnswers) {
   const base = resolveBaseUrl();
   const url = `${base}/api/diagnosis/submit`;
+
   const userId = getOrCreateUserId(); // ✅ 必須。payload に含める
 
   const selGender = document.getElementById('demographicsGender');
-  const selAge = document.getElementById('demographicsAge');
-  const selMbti = document.getElementById('demographicsMbti');
+  const selAge    = document.getElementById('demographicsAge');
+  const selMbti   = document.getElementById('demographicsMbti');
 
   // ✅ 厳格版：必要項目のみ送る + userId は必須
   const payload = {
     userId,
-    // サーバ契約（v1）を強制。将来の変更時は SERVER_QUESTION_SET_VERSION を差し替え。
-    version: SERVER_QUESTION_SET_VERSION,
-    // 念のため両方送る（サーバがどちらかを参照してもOK）
-    questionSetVersion: SERVER_QUESTION_SET_VERSION,
-    // クライアント側の識別用（デバッグ用に残す）。
-    clientQuestionVersion: String(QUESTION_VERSION),
+    version: QUESTION_VERSION, // 'v1' （最小差分修正済み）
     answers: localAnswers.map(a => ({
       questionId: a.id,
       scale: a.value,
@@ -241,21 +240,11 @@ async function submitToApi(localAnswers) {
     }
   };
 
-  // 将来の改修や別ブランチで version が変わっていても、送信直前で正規化して事故防止
-  if (String(payload.version) !== SERVER_QUESTION_SET_VERSION) {
-    console.warn('[diag] normalize version ->', SERVER_QUESTION_SET_VERSION, '(was:', payload.version, ')');
-    payload.version = SERVER_QUESTION_SET_VERSION;
-  }
-  if (String(payload.questionSetVersion) !== SERVER_QUESTION_SET_VERSION) {
-    payload.questionSetVersion = SERVER_QUESTION_SET_VERSION;
-  }
-
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   });
-
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try {
@@ -265,11 +254,10 @@ async function submitToApi(localAnswers) {
     console.error('[submitToApi] failed:', msg);
     throw new Error(msg);
   }
-
   return await res.json();
 }
 
-/* ----------------------------- *
+/* -----------------------------
  * 結果描画（6ブロック本文のみ表示）
  * --------------------------- */
 function renderResult({ diag /*, qc*/, api }) {
@@ -280,41 +268,37 @@ function renderResult({ diag /*, qc*/, api }) {
   // --- debug end ---
 
   const root = document.getElementById('resultCard') || document.querySelector('#result');
-  if (!root) {
-    console.error('[result] container not found');
-    return;
-  }
+  if (!root) { console.error('[result] container not found'); return; }
 
   const { type_main, type_sub } = diag;
+
   const mainName = api?.hero?.name || type_main || '';
-  const subName = type_sub ? `（サブ: ${type_sub}）` : '';
+  const subName  = type_sub ? `（サブ: ${type_sub}）` : '';
 
   const apiData = deepExtractNarrativeFromApi(api);
+
   let data = apiData;
   if (!hasAnyContent(data)) {
     const cleanName = String(mainName).replace(/（.*?）/g, '').trim();
     const slug = api?.hero?.slug ? String(api.hero.slug).trim() : '';
     const candidates = [type_main, cleanName, mainName, slug].filter(Boolean);
-    for (const key of candidates) {
-      data = getHeroNarrative(key);
-      if (hasAnyContent(data)) break;
-    }
+    for (const key of candidates) { data = getHeroNarrative(key); if (hasAnyContent(data)) break; }
     if (!hasAnyContent(data)) data = {};
   }
 
   const heroNameEl = root.querySelector('#resultHeroName');
   const clusterTag = root.querySelector('#resultClusterTag');
-  const resultSub = root.querySelector('#resultSub');
+  const resultSub  = root.querySelector('#resultSub');
   if (heroNameEl) heroNameEl.textContent = `${mainName}${subName}`;
   if (clusterTag) clusterTag.textContent = '上位タイプ';
-  if (resultSub) resultSub.textContent = '';
+  if (resultSub)  resultSub.textContent  = '';
 
   setHTML(findOrCreateSection(root, ['#resultEngineBody', '#resultPersonalityBody'], '❤️ 心のエンジン', 'div', 'result-paragraphs'), asParas(data?.engine));
-  setHTML(findOrCreateSection(root, ['#resultFearBody'], ' いちばん怖いこと', 'div', 'result-paragraphs'), asParas(data?.fear));
-  setHTML(findOrCreateSection(root, ['#resultPerceptionBody'], ' こう見られがち', 'div', 'result-paragraphs'), asParas(data?.perception));
+  setHTML(findOrCreateSection(root, ['#resultFearBody'], '😨 いちばん怖いこと', 'div', 'result-paragraphs'), asParas(data?.fear));
+  setHTML(findOrCreateSection(root, ['#resultPerceptionBody'], '👀 こう見られがち', 'div', 'result-paragraphs'), asParas(data?.perception));
   setList(findOrCreateSection(root, ['#resultScenes'], '⚡ 活躍シーン', 'ul'), data?.scenes);
-  setList(findOrCreateSection(root, ['#resultGrowth', '#resultTips'], ' 伸ばし方', 'ul'), data?.growth);
-  setList(findOrCreateSection(root, ['#resultReactions'], ' 化学反応', 'ol'), data?.reaction, { ordered: true });
+  setList(findOrCreateSection(root, ['#resultGrowth', '#resultTips'], '🌱 伸ばし方', 'ul'), data?.growth);
+  setList(findOrCreateSection(root, ['#resultReactions'], '🧪 化学反応', 'ol'), data?.reaction, { ordered: true });
 
   const img = root.querySelector('#resultHeroImage');
   if (img && api?.hero?.avatarUrl) img.src = api.hero.avatarUrl;
@@ -339,8 +323,10 @@ function updateCounters() {
   const answered = form.querySelectorAll('input[type="radio"]:checked').length;
   const total = form.querySelectorAll('.question-card .likert-input').length / 6; // 1問=6択
   const rem = Math.max(0, total - answered);
+
   document.getElementById('answeredCount')?.replaceChildren(document.createTextNode(String(answered)));
   document.getElementById('remainingCount')?.replaceChildren(document.createTextNode(String(rem)));
+
   const bar = document.getElementById('progressFill');
   if (bar) bar.style.width = `${Math.round((answered / Math.max(total, 1)) * 100)}%`;
 }
@@ -357,8 +343,8 @@ function pickFactorDials(vec25) {
 function renderDial({ label, value }) {
   return `
     <div class="dial">
-      <div class="dial-label">${escapeHtml(label)}</div>
-      <div class="dial-value">${Number(value)}</div>
+      <div class="dial-head"><span class="label">${label}</span><span class="num">${value}</span></div>
+      <div class="bar"><span style="width:${value}%"></span></div>
     </div>
   `;
 }
@@ -382,25 +368,14 @@ function prettyLabel(key) {
 /* ----------------------------- */
 function escapeHtml(s = "") {
   return String(s).replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[c]));
 }
-
 function copyToClipboard(text) { navigator.clipboard?.writeText(text).catch(()=>{}); }
-
 function toast(msg) {
   let t = document.querySelector('.toast');
-  if (!t) {
-    t = document.createElement('div');
-    t.className = 'toast';
-    document.body.appendChild(t);
-  }
-  t.textContent = msg;
-  t.classList.add('show');
+  if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 1600);
 }
 
@@ -415,41 +390,40 @@ function resolveBaseUrl(){
 function getOrCreateUserId(){
   const key = 'cb_user_id';
   let v = localStorage.getItem(key);
-  if (!v) {
-    v = crypto?.randomUUID?.() || `anon-${Date.now()}`;
-    localStorage.setItem(key, v);
-  }
+  if (!v) { v = crypto?.randomUUID?.() || `anon-${Date.now()}`; localStorage.setItem(key, v); }
   return v;
 }
 
 /* ================================ */
 function initDemographics() {
   const selGender = document.getElementById('demographicsGender');
-  const selAge = document.getElementById('demographicsAge');
-  const selMbti = document.getElementById('demographicsMbti');
+  const selAge    = document.getElementById('demographicsAge');
+  const selMbti   = document.getElementById('demographicsMbti');
 
   if (selGender && selGender.options.length <= 1) {
     ['男性','女性','その他・回答しない'].forEach(v => {
-      const op = document.createElement('option');
-      op.value = v; op.textContent = v; selGender.appendChild(op);
+      const op = document.createElement('option'); op.value = v; op.textContent = v; selGender.appendChild(op);
     });
   }
   if (selAge && selAge.options.length <= 1) {
-    for (let a = 12; a <= 50; a++) {
-      const op = document.createElement('option');
-      op.value = String(a); op.textContent = `${a}`; selAge.appendChild(op);
-    }
+    for (let a = 12; a <= 50; a++) { const op = document.createElement('option'); op.value = String(a); op.textContent = `${a}`; selAge.appendChild(op); }
   }
   if (selMbti && selMbti.options.length <= 1) {
     const MBTI_JA = [
-      ['INTJ','建築家'], ['INTP','論理学者'], ['ENTJ','指揮官'], ['ENTP','討論者'],
-      ['INFJ','提唱者'], ['INFP','仲介者'], ['ENFJ','主人公'], ['ENFP','広報運動家'],
-      ['ISTJ','管理者'], ['ISFJ','擁護者'], ['ESTJ','幹部'], ['ESFJ','領事'],
-      ['ISTP','巨匠'], ['ISFP','冒険家'], ['ESTP','起業家'], ['ESFP','エンターテイナー'],
+      ['INTJ','建築家'], ['INTP','論理学者'],
+      ['ENTJ','指揮官'], ['ENTP','討論者'],
+      ['INFJ','提唱者'], ['INFP','仲介者'],
+      ['ENFJ','主人公'], ['ENFP','広報運動家'],
+      ['ISTJ','管理者'], ['ISFJ','擁護者'],
+      ['ESTJ','幹部'], ['ESFJ','領事'],
+      ['ISTP','巨匠'], ['ISFP','冒険家'],
+      ['ESTP','起業家'], ['ESFP','エンターテイナー'],
     ];
     MBTI_JA.forEach(([code, ja]) => {
       const op = document.createElement('option');
-      op.value = code; op.textContent = `${code}（${ja}）`; selMbti.appendChild(op);
+      op.value = code;
+      op.textContent = `${code}（${ja}）`;
+      selMbti.appendChild(op);
     });
   }
 }
@@ -459,7 +433,9 @@ function validateDemographics() {
   const g = document.getElementById('demographicsGender');
   const a = document.getElementById('demographicsAge');
   const m = document.getElementById('demographicsMbti');
-  const okG = !g || !!g.value; const okA = !a || !!a.value; const okM = !m || !!m.value;
+  const okG = !g || !!g.value;
+  const okA = !a || !!a.value;
+  const okM = !m || !!m.value;
   return okG && okA && okM;
 }
 
@@ -482,7 +458,6 @@ function setHTML(elOrSel, htmlOrText) {
     el.textContent = String(htmlOrText ?? '');
   }
 }
-
 function asParas(text) {
   if (!text) return '';
   const trimmed = String(text).trim();
@@ -492,7 +467,6 @@ function asParas(text) {
     .map(t => `<p>${escapeHtml(t.trim())}</p>`)
     .join('');
 }
-
 function setList(elOrSel, value, { ordered = false } = {}) {
   const el = typeof elOrSel === 'string' ? document.querySelector(elOrSel) : elOrSel;
   if (!el) return;
@@ -501,6 +475,7 @@ function setList(elOrSel, value, { ordered = false } = {}) {
   }
   const arr = Array.isArray(value) ? value : (value ? [value] : []);
   const items = arr.map(x => `<li>${escapeHtml(String(x))}</li>`).join('');
+  // ★ 最小差分修正：必ず <ul>/<ol> でラップ（CSSの表示条件に一致させる）
   el.innerHTML = ordered ? `<ol>${items}</ol>` : `<ul>${items}</ul>`;
 }
 
@@ -525,6 +500,7 @@ function findOrCreateSection(root, selectors, headingText, tag = 'div', classNam
 /* ================================ */
 function deepExtractNarrativeFromApi(api) {
   if (!api || typeof api !== 'object') return null;
+
   const out = { engine: null, fear: null, perception: null, scenes: null, growth: null, reaction: null };
 
   const titleToKey = (titleRaw = '') => {
@@ -557,11 +533,12 @@ function deepExtractNarrativeFromApi(api) {
 
     const title = node.title || node.heading || node.label || node.name || node.key;
     const keyByTitle = titleToKey(title);
+
     if (keyByTitle) {
       const body = node.body || node.text || node.copy || node.description || node.content;
       const items = node.items || node.list || node.points || node.bullets || node.entries;
       if (items) pushText(keyByTitle, items);
-      if (body) pushText(keyByTitle, body);
+      if (body)  pushText(keyByTitle, body);
     }
 
     const flatMap = {
@@ -582,6 +559,7 @@ function deepExtractNarrativeFromApi(api) {
   };
 
   scan(api);
+
   return hasAnyContent(out) ? out : null;
 }
 
