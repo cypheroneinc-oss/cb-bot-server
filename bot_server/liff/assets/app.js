@@ -40,7 +40,7 @@ async function loadWeights() {
 }
 
 /* ----------------------------- */
-// ★ サーバ仕様に合わせて v1（文字列）を送る ← 最小差分修正
+// ★ サーバ仕様: v1（文字列）を送る + choiceId（POS/NEG）を同梱（最小差分）
 const QUESTION_VERSION = 'v1';
 
 /* 6件法（左：とてもそう思う → 右：まったくそう思わない）*/
@@ -225,11 +225,13 @@ async function submitToApi(localAnswers) {
   // ✅ 厳格版：必要項目のみ送る + userId は必須
   const payload = {
     userId,
-    version: QUESTION_VERSION, // 'v1' （最小差分修正済み）
+    version: QUESTION_VERSION, // 'v1'
+    // サーバ側の互換: choiceId（POS/NEG）を同梱しつつ、scaleも残す
     answers: localAnswers.map(a => ({
       questionId: a.id,
       scale: a.value,
       scaleMax: 6,
+      choiceId: a.value >= 4 ? 'POS' : 'NEG', // ★ 追加（最小差分）
     })),
     meta: {
       demographics: {
