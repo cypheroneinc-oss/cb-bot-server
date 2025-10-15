@@ -215,14 +215,16 @@ function collectAnswers() {
 async function submitToApi(localAnswers) {
   const base = resolveBaseUrl();
   const url = `${base}/api/diagnosis/submit`;
-  const userId = getOrCreateUserId(); // ※ 未使用だが他を触らないため残置
+
+  const userId = getOrCreateUserId(); // ✅ 必須。payload に含める
 
   const selGender = document.getElementById('demographicsGender');
   const selAge    = document.getElementById('demographicsAge');
   const selMbti   = document.getElementById('demographicsMbti');
 
-  // ★ 余計なキー（code, userId, client）を送らない厳格版
+  // ✅ 厳格版：必要項目のみ送る + userId は必須
   const payload = {
+    userId,
     version: QUESTION_VERSION, // 2
     answers: localAnswers.map(a => ({
       questionId: a.id,
