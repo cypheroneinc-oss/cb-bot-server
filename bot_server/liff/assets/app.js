@@ -195,9 +195,14 @@ async function onSubmit() {
   // ローカル推定
   const diag = diagnose(answers, { weights });
 
-  // API送信は一旦停止（400の原因切り分けのため）
-  const api = null;
-  
+  // API送信（失敗しても続行）
+  let api = null;
+  try {
+    api = await submitToApi(answers);
+  } catch (e) {
+    console.warn('[app] submitToApi failed:', e?.message || e);
+  }
+
   renderResult({ diag, qc, api });
 }
 
@@ -226,6 +231,7 @@ async function submitToApi(localAnswers) {
       questionId: a.id,
       scale: a.value,
       scaleMax: 6,
+      choiceId: a.value >= 4 ? 'POS' : 'NEG', // ★ 追加（最小差分）
     })),
     meta: {
       demographics: {
@@ -277,8 +283,18 @@ function renderResult({ diag /*, qc*/, api }) {
   if (!hasAnyContent(data)) {
     const cleanName = String(mainName).replace(/（.*?）/g, '').trim();
     const slug = api?.hero?.slug ? String(api.hero.slug).trim() : '';
-    const candidates = [type_main, cleanName, mainName, slug].filter(Boolean);
-    for (const key of candidates) { data = getHeroNarrative(key); if (hasAnyContent(data)) break; }
+    const baseCandidates = [type_main, cleanName, mainName, slug].filter(Boolean);
+    const expandVariants = (k) => {
+      const s = String(k || '').trim();
+      if (!s) return [];
+      const base = s.replace(/[()（）]/g, '').trim();
+      const lower = base.toLowerCase();
+      const kebab = lower.split(' ').filter(Boolean).join('-');
+      const noSpace = lower.split(' ').join('');
+      return [base, lower, kebab, noSpace];
+    };
+    const allKeys = Array.from(new Set(baseCandidates.flatMap(expandVariants)));
+    for (const key of allKeys) { const hit = getHeroNarrative(key); if (hasAnyContent(hit)) { data = hit; break; } }
     if (!hasAnyContent(data)) data = {};
   }
 
