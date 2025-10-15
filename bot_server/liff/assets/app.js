@@ -231,7 +231,6 @@ async function submitToApi(localAnswers) {
       questionId: a.id,
       scale: a.value,
       scaleMax: 6,
-      choiceId: a.value >= 4 ? 'POS' : 'NEG', // ★ 追加（最小差分）
     })),
     meta: {
       demographics: {
