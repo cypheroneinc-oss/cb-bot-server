@@ -195,14 +195,9 @@ async function onSubmit() {
   // ローカル推定
   const diag = diagnose(answers, { weights });
 
-  // API送信（失敗しても続行）
-  let api = null;
-  try {
-    api = await submitToApi(answers);
-  } catch (e) {
-    console.warn('[app] submitToApi failed:', e?.message || e);
-  }
-
+  // API送信は一旦停止（400の原因切り分けのため）
+  const api = null;
+  
   renderResult({ diag, qc, api });
 }
 
