@@ -409,3 +409,87 @@ button { font-family: inherit; }
 .demographics-field select:focus { position: relative; z-index: 6; }
 .demographics-field select option { padding: 10px 12px; line-height: 1.9; font-size: 16px; }
 .demographics-note { margin: 10px 0 0; font-size: 0.85rem; color: var(--muted); }
+
+/* ===== v3 追加：HEXACO・バランス・理想・業界・ロードマップ ===== */
+
+/* — HEXACO（6行シンプル） — */
+.hexaco { margin: 28px 0 12px; }
+.hexaco h3 { margin: 0 0 12px; font-size: 1.1rem; }
+#hexacoRows { display: grid; gap: 10px; }
+.hexaco .axis-row {
+  display: grid; grid-template-columns: 120px 1fr 40px; align-items: center; gap: 10px;
+}
+.hexaco .axis-label { color: var(--fg); opacity: .95; font-size: .95rem; }
+.hexaco .axis-bar {
+  height: 10px; border-radius: 999px; background: rgba(255,255,255,0.16); position: relative; overflow: hidden;
+}
+.hexaco .axis-bar > span {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 22px rgba(102,230,255,0.42) inset;
+  transition: width .3s ease;
+}
+.hexaco .axis-val { text-align: right; color: var(--muted); font-size: .9rem; }
+
+/* — バランスバー（言動/感情/行動） — */
+.balance { margin: 28px 0 12px; }
+.balance h3 { margin: 0 0 12px; font-size: 1.1rem; }
+.balance-bars { display: grid; gap: 10px; }
+.balance .bar-row { display: grid; grid-template-columns: 120px 1fr 40px; gap: 10px; align-items: center; }
+.balance .bar-label { color: var(--fg); opacity: .95; font-size: .95rem; }
+.balance .bar {
+  height: 12px; border-radius: 999px; background: rgba(255,255,255,0.16); position: relative; overflow: hidden;
+}
+.balance .bar > span {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 22px rgba(102,230,255,0.42) inset;
+  transition: width .3s ease;
+}
+.balance .bar-val { text-align: right; color: var(--muted); font-size: .9rem; }
+
+/* — 理想/業界 共通カード — */
+.metric-list {
+  list-style: none; padding: 0; margin: 0;
+  display: grid; gap: 10px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 460px) {
+  .metric-list { grid-template-columns: 1fr 1fr; }
+}
+.metric-list .metric-item {
+  padding: 12px; border-radius: 14px;
+  border: 1px solid rgba(220, 245, 255, 0.70);
+  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(200,235,255,0.10));
+  box-shadow: 0 10px 22px rgba(0,0,0,0.30);
+}
+.metric-item .metric-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px;
+}
+.metric-item .metric-name { font-weight: 700; }
+.metric-item .metric-score { color: var(--muted); font-size: .92rem; }
+.metric-item .metric-bar {
+  height: 8px; border-radius: 999px; background: rgba(255,255,255,0.16); overflow: hidden; position: relative;
+}
+.metric-item .metric-bar > span {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width .3s ease;
+}
+.metric-item .metric-blurb {
+  margin-top: 8px; color: var(--muted); font-size: .9rem;
+}
+
+/* — セクション余白 — */
+.ideal { margin: 28px 0 12px; }
+.ideal h3 { margin: 0 0 12px; font-size: 1.1rem; }
+
+.industry { margin: 28px 0 12px; }
+.industry h3 { margin: 0 0 12px; font-size: 1.1rem; }
+
+/* — ロードマップ — */
+.roadmap { margin: 28px 0 0; }
+.roadmap h3 { margin: 0 0 12px; font-size: 1.1rem; }
+.roadmap p, .roadmap ul { margin: 0 0 10px; }
+.roadmap ul { padding-left: 18px; }
+.roadmap li { margin: 4px 0; }
