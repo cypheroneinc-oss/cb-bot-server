@@ -1,11 +1,15 @@
 // filename: bot_server/liff/assets/app.js
+// v3(30問)対応版：?v=3 で API 経由フローに切替（設問取得→回答収集→submit→v3結果描画）
+// 既存(v1)フローは従来通り（ローカル diagnose/quickQC ）。
+// ------------------------------------------------------
+
 import { diagnose, quickQC } from '../../lib/scoring.js';
 
 /* -----------------------------
- * 動的ロード
+ * 動的ロード（既存）
  * --------------------------- */
 let QUESTIONS = null;
-async function loadQuestions() {
+async function loadQuestionsLocalV1() {
   if (QUESTIONS) return QUESTIONS;
   const candidates = ['../../data/questions.v1.js', '/data/questions.v1.js'];
   let lastErr;
@@ -21,7 +25,7 @@ async function loadQuestions() {
 }
 
 let WEIGHTS = null;
-async function loadWeights() {
+async function loadWeightsV1() {
   if (WEIGHTS) return WEIGHTS;
   const candidates = ['../../lib/archetype-weights.v1.json', '/lib/archetype-weights.v1.json'];
   let lastErr;
@@ -41,9 +45,9 @@ async function loadWeights() {
 }
 
 /* ----------------------------- */
-const QUESTION_VERSION = 'v1';
+const QUESTION_VERSION_DEFAULT = 'v1';
 
-/* 6件法（左：とてもそう思う → 右：まったくそう思わない）*/
+// 6件法（左：とてもそう思う → 右：まったくそう思わない）
 const LIKERT_REVERSED = [
   { value: 6, label: 'とてもそう思う' },
   { value: 5, label: 'かなりそう思う' },
@@ -53,6 +57,19 @@ const LIKERT_REVERSED = [
   { value: 1, label: 'まったくそう思わない' },
 ];
 
+/* -----------------------------
+ * v3 切替ヘルパ
+ * --------------------------- */
+function getQueryParam(name) {
+  const u = new URL(location.href);
+  return u.searchParams.get(name);
+}
+function isV3Mode() {
+  const v = (getQueryParam('v') || getQueryParam('version') || '').toLowerCase();
+  return v === '3' || v === 'v3';
+}
+let CURRENT_VERSION = isV3Mode() ? '3' : QUESTION_VERSION_DEFAULT;
+
 /* ----------------------------- */
 window.addEventListener('DOMContentLoaded', () => { mountApp(); });
 
@@ -60,9 +77,23 @@ async function mountApp() {
   const mount = document.querySelector('#questions');
   if (!mount) { console.error('[app] #questions not found'); return; }
 
-  const qs = await loadQuestions();
+  // v3: APIから設問取得 / v1: 既存ローカル読み込み
+  let qs = null;
+  if (CURRENT_VERSION === '3') {
+    const res = await fetch(`/api/diagnosis?v=3`, { cache: 'no-store' });
+    if (!res.ok) {
+      mount.innerHTML = `<div class="load-error">設問の取得に失敗しました（v3）。</div>`;
+      return;
+    }
+    const data = await res.json();
+    CURRENT_VERSION = String(data?.version || '3');
+    qs = Array.isArray(data?.questions) ? data.questions : null;
+  } else {
+    qs = await loadQuestionsLocalV1();
+  }
+
   if (!qs) {
-    mount.innerHTML = `<div class="load-error">設問データの読み込みに失敗しました。/data/questions.v1.js を確認してください。</div>`;
+    mount.innerHTML = `<div class="load-error">設問データの読み込みに失敗しました。</div>`;
     return;
   }
 
@@ -70,15 +101,17 @@ async function mountApp() {
   bindSurveyHandlers();     // ← フッターに結線
   updateCounters();
 
-  // ▼ ここだけ追加：プルダウンの選択肢を注入
+  // プルダウン注入（性別/年齢/MBTI）
   initDemographics();
 }
 
 /* -----------------------------
- * 設問UI（ページ内ナビは生成しない）
+ * 設問UI
  * --------------------------- */
 function renderSurvey(qs) {
-  const groups = chunk(qs, 10); // 36問なら 10/10/10/6 の4ページ
+  // v3: 30問 → 10/10/10 | v1: 36問 → 10/10/10/6
+  const pageSize = 10;
+  const groups = chunk(qs, pageSize);
   const pagesHtml = groups.map((g, pageIdx) => `
     <section class="page" data-page="${pageIdx}">
       ${g.map(renderItem).join('')}
@@ -93,14 +126,13 @@ function renderSurvey(qs) {
   `;
 }
 
-/* 1問カード（ひし形下の可視ラベルは無し） */
 function renderItem(q) {
-  const name = q.id;
+  const name = q.id || q.code;
   const opts = LIKERT_REVERSED.map((o) => {
     const id = `${name}-${o.value}`;
     return `
       <div class="likert-choice">
-        <input class="likert-input" type="radio" id="${id}" name="${name}" value="${o.value}" required>
+        <input class="likert-input" type="radio" id="${id}" name="${name}" value="${o.value}" required data-code="${name}">
         <label class="likert-option size-small" for="${id}">
           <span class="likert-diamond" aria-hidden="true"></span>
           <span class="sr-only">${o.label}</span>
@@ -125,27 +157,22 @@ function renderItem(q) {
 }
 
 /* -----------------------------
- * ページング（フッターの既存ボタンで制御）
+ * ページング（既存）
  * --------------------------- */
 function bindSurveyHandlers() {
   const form = document.querySelector('#survey-form');
   const pages = [...form.querySelectorAll('.page')];
   let pageIndex = 0;
 
-  // 既存フッター要素
-  const backBtn = document.getElementById('retryButton');   // secondary
-  const nextBtn = document.getElementById('submitButton');  // primary
-  const nextLabel = document.getElementById('submitContent');
+  const backBtn  = document.getElementById('retryButton');   // secondary
+  const nextBtn  = document.getElementById('submitButton');  // primary
+  const nextLabel= document.getElementById('submitContent');
 
-  // クリックハンドラ
   backBtn?.addEventListener('click', (e) => {
     e.preventDefault();
-    if (pageIndex > 0) {
-      pageIndex -= 1;
-      updatePage();
-    }
+    if (pageIndex > 0) { pageIndex -= 1; updatePage(); }
   });
-  nextBtn?.addEventListener('click', (e) => {
+  nextBtn?.addEventListener('click', async (e) => {
     e.preventDefault();
     const isLast = pageIndex === pages.length - 1;
     if (!isLast) {
@@ -154,17 +181,26 @@ function bindSurveyHandlers() {
       updatePage();
     } else {
       if (!validateAll()) { toast('未回答の項目があります'); return; }
-      onSubmit();
+      // v3 / v1 分岐
+      if (CURRENT_VERSION === '3') {
+        nextBtn.disabled = true;
+        nextLabel.textContent = '送信中…';
+        try { await onSubmitV3(); }
+        finally {
+          nextBtn.disabled = false;
+          nextLabel.textContent = '結果を見る';
+        }
+      } else {
+        await onSubmitV1();
+      }
     }
   });
 
-  // 入力のたびに進捗/活性を更新
   form.addEventListener('change', () => {
     updateCounters();
     refreshFooter();
   });
 
-  // 初期表示
   updatePage();
 
   function updatePage() {
@@ -191,44 +227,38 @@ function bindSurveyHandlers() {
     const isFirst = pageIndex === 0;
     const isLast  = pageIndex === pages.length - 1;
 
-    // 戻る：1ページ目は隠す
     if (backBtn) {
       backBtn.classList.toggle('hidden', isFirst);
-      backBtn.textContent = '戻る';
+      backBtn.textContent = isFirst ? '戻る' : '戻る';
       backBtn.disabled = isFirst;
     }
-
-    // 次へ／結果を見る
     if (nextBtn && nextLabel) {
       nextLabel.textContent = isLast ? '結果を見る' : '次へ';
       nextBtn.disabled = isLast ? !validateAll() : !validateCurrentPage();
       nextBtn.classList.remove('hidden');
     }
-
-    // 診断前は結果用アクションを隠す
     document.getElementById('resultActions')?.classList.add('hidden');
   }
 }
 
 /* -----------------------------
- * 診断と結果
+ * v1 既存フロー
  * --------------------------- */
-async function onSubmit() {
-  const answers = collectAnswers();
+async function onSubmitV1() {
+  const answers = collectAnswersAsArray(); // [{id, value}]
   const qc = quickQC(answers);
-  const weights = await loadWeights();
+  const weights = await loadWeightsV1();
   if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
-
   const diag = diagnose(answers, { weights });
-  renderResult({ diag, qc });
+  renderResultV1({ diag, qc });
 }
 
-function collectAnswers() {
+function collectAnswersAsArray() {
   const inputs = document.querySelectorAll('#survey-form input[type="radio"]:checked');
   return [...inputs].map(el => ({ id: el.name, value: Number(el.value) }));
 }
 
-function renderResult({ diag /*, qc*/ }) {
+function renderResultV1({ diag /*, qc*/ }) {
   const root = document.querySelector('#result');
   const { type_main, type_sub, confidence, balanceIndex, prob, vec } = diag;
 
@@ -275,7 +305,6 @@ function renderResult({ diag /*, qc*/ }) {
   root.classList.remove('hidden');
   root.scrollIntoView({ behavior: 'smooth' });
 
-  // 結果表示後のフッター
   const backBtn = document.getElementById('retryButton');
   const nextBtn = document.getElementById('submitButton');
   const nextLabel = document.getElementById('submitContent');
@@ -286,7 +315,7 @@ function renderResult({ diag /*, qc*/ }) {
     backBtn.onclick = () => location.reload();
   }
   if (nextBtn && nextLabel) {
-    nextBtn.classList.add('hidden'); // 診断直後はナビ不要
+    nextBtn.classList.add('hidden');
   }
 
   document.getElementById('shareWebButton')?.addEventListener('click', () => {
@@ -303,7 +332,240 @@ function renderResult({ diag /*, qc*/ }) {
 }
 
 /* -----------------------------
- * 進捗/ダイヤル
+ * v3 新フロー（API採点）
+ * --------------------------- */
+async function onSubmitV3() {
+  const answersDict = collectAnswersAsDict(); // {Q01: 1..6, ...}
+  const allCodes = Object.keys(answersDict);
+  if (allCodes.length < document.querySelectorAll('.question-card').length) {
+    toast('未回答の項目があります'); return;
+  }
+
+  const userId = await resolveUserId();
+  const payload = {
+    version: 3,
+    userId,
+    // sessionId は空で送れば submit API 側が発行
+    answers: answersDict,
+    // 参考：メタ（省略可）
+    meta: {
+      demographics: collectDemographics(),
+      client: 'liff',
+    }
+  };
+
+  let res;
+  try {
+    res = await fetch('/api/diagnosis/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    console.error('[submit:v3] network', e);
+    toast('送信に失敗しました'); return;
+  }
+  if (!res.ok) {
+    const err = await safeJson(res);
+    console.error('[submit:v3] bad', err);
+    toast('採点に失敗しました'); return;
+  }
+  const result = await res.json();
+  renderV3Blocks(result);
+}
+
+function collectAnswersAsDict() {
+  const inputs = document.querySelectorAll('#survey-form input[type="radio"]:checked');
+  const dict = {};
+  for (const el of inputs) {
+    const code = el.getAttribute('name') || el.getAttribute('data-code');
+    const val = Number(el.value);
+    if (code && Number.isFinite(val)) dict[code] = val;
+  }
+  return dict;
+}
+
+async function resolveUserId() {
+  try {
+    if (window.liff?.getProfile) {
+      const prof = await window.liff.getProfile();
+      if (prof?.userId) return prof.userId;
+    }
+  } catch (_) {}
+  // フォールバック
+  const key = 'cbm_uid';
+  let v = localStorage.getItem(key);
+  if (!v) {
+    v = `web-${Math.random().toString(36).slice(2)}${Date.now()}`;
+    localStorage.setItem(key, v);
+  }
+  return v;
+}
+
+function collectDemographics() {
+  const g = document.getElementById('demographicsGender')?.value || '';
+  const a = document.getElementById('demographicsAge')?.value || '';
+  const m = (document.getElementById('demographicsMbti')?.value || '').toUpperCase();
+  return { gender: g, age: a, mbti: m };
+}
+
+async function safeJson(res) {
+  try { return await res.json(); } catch { return {}; }
+}
+
+/* --- v3: 結果描画（テキスト先行、後で図を差し込み可能） --- */
+function renderV3Blocks(result) {
+  const root = document.querySelector('#result');
+  const arch = result?.archetype || {};
+  const ideal = Array.isArray(result?.idealTop3) ? result.idealTop3 : [];
+  const indus = Array.isArray(result?.industryTop5) ? result.industryTop5 : [];
+  const hexaco = result?.hexaco || {};
+  const balance = result?.balance || {};
+
+  const archLabel = arch.label || (window.ARCHETYPE_LABELS_V3?.[arch.key] || arch.key || '-');
+
+  const idealList = ideal.map(x => {
+    const label = x.label || window.IDEAL_LABELS_V3?.[x.id] || x.id;
+    const sc = Math.round(Number(x.score || 0));
+    return `<li><span class="t">${escapeHtml(label)}</span><span class="v">${sc}</span></li>`;
+  }).join('');
+
+  const indList = indus.map(x => {
+    const label = x.label || window.INDUSTRY_LABELS_V3?.[x.id] || x.id;
+    const star = '★'.repeat(Number(x.star || 1));
+    const blurb = x.blurb || (window.INDUSTRY_BLURBS?.[x.id] || '');
+    return `<li><span class="t">${escapeHtml(label)}</span><span class="star">${star}</span><span class="blurb">${escapeHtml(blurb)}</span></li>`;
+  }).join('');
+
+  const hexList = Object.entries(hexaco).map(([k,v]) => {
+    return `<li><span class="t">${escapeHtml(prettyHexLabel(k))}</span><span class="v">${Math.round(Number(v||0))}</span></li>`;
+  }).join('');
+
+  root.innerHTML = `
+    <header class="result-header">
+      <h1>診断が完了したよ</h1>
+      <p id="resultSub">バージョン v${escapeHtml(String(result?.version || '3'))}</p>
+    </header>
+
+    <div class="hero-card">
+      <div class="hero-avatar"><img id="resultHeroImage" alt=""></div>
+      <div class="hero-details">
+        <span class="cluster-tag">タイプ</span>
+        <h2 id="resultHeroName">${escapeHtml(archLabel)}</h2>
+      </div>
+    </div>
+
+    <section class="balance">
+      <h3>バランス</h3>
+      ${renderBalanceBars(balance)}
+    </section>
+
+    <section class="ideal">
+      <h3>理想Top3</h3>
+      <ul class="prob-list">${idealList}</ul>
+    </section>
+
+    <section class="industry">
+      <h3>業界Top5</h3>
+      <ul class="prob-list">${indList}</ul>
+    </section>
+
+    <section class="hexaco">
+      <h3>HEXACO（6因子）</h3>
+      <ul class="prob-list">${hexList}</ul>
+    </section>
+
+    ${renderRoadmapBlock(arch?.key, ideal?.[0]?.id)}
+    
+    <div class="share-actions">
+      <h3>シェアする</h3>
+      <div class="share-buttons">
+        <button type="button" class="share-btn" id="shareWebButton">端末でシェア</button>
+        <button type="button" class="share-btn" id="shareCopyButton">リンクをコピー</button>
+      </div>
+    </div>
+  `;
+
+  root.classList.remove('hidden');
+  root.scrollIntoView({ behavior: 'smooth' });
+
+  // フッター
+  const backBtn = document.getElementById('retryButton');
+  const nextBtn = document.getElementById('submitButton');
+  const nextLabel = document.getElementById('submitContent');
+
+  if (backBtn) {
+    backBtn.classList.remove('hidden');
+    backBtn.textContent = 'もう一度診断する';
+    backBtn.onclick = () => location.search = '?v=3'; // v3を維持して再診断
+  }
+  if (nextBtn && nextLabel) {
+    nextBtn.classList.add('hidden');
+  }
+
+  // シェア
+  const shareUrl = result?.share?.url || location.href;
+  document.getElementById('shareWebButton')?.addEventListener('click', () => {
+    const text = `タイプは「${archLabel}」でした。`;
+    if (navigator.share) navigator.share({ text, url: shareUrl }).catch(() => copyToClipboard(`${text} ${shareUrl}`));
+    else copyToClipboard(`${text} ${shareUrl}`);
+    toast('結果を共有しました');
+  });
+  document.getElementById('shareCopyButton')?.addEventListener('click', () => {
+    copyToClipboard(shareUrl);
+    toast('リンクをコピーしました');
+  });
+
+  // 直近結果をローカル保存（比較用）
+  try { localStorage.setItem('cbm_v3_last', JSON.stringify(result)); } catch {}
+}
+
+function renderBalanceBars(balance) {
+  const keys = [
+    ['speech','言動'],
+    ['emotion','感情'],
+    ['action','行動']
+  ];
+  return `
+    <div class="balance-bars">
+      ${keys.map(([k, label]) => {
+        const v = Math.round(Number(balance?.[k] || 0));
+        return `
+          <div class="dial">
+            <div class="dial-head"><span class="label">${label}</span><span class="num">${v}</span></div>
+            <div class="bar"><span style="width:${v}%"></span></div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function prettyHexLabel(k) {
+  const map = {
+    HonestyHumility: '誠実-謙虚',
+    Emotionality: '情動性',
+    eXtraversion: '外向性',
+    Agreeableness: '協調性',
+    Conscientiousness: '勤勉性',
+    Openness: '開放性',
+  };
+  return map[k] || k;
+}
+
+function renderRoadmapBlock(archKey, idealId) {
+  const text = (window.ROADMAP?.[archKey]?.[idealId]) || '';
+  if (!text) return '';
+  return `
+    <section class="roadmap">
+      <h3>理想へのロードマップ</h3>
+      <p>${escapeHtml(text)}</p>
+    </section>
+  `;
+}
+
+/* -----------------------------
+ * 進捗/ダイヤル（既存）
  * --------------------------- */
 function updateCounters() {
   const form = document.getElementById('survey-form');
@@ -354,7 +616,7 @@ function prettyLabel(key) {
 }
 
 /* -----------------------------
- * helpers
+ * helpers（既存）
  * --------------------------- */
 function chunk(arr, n) { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; }
 function groupBy(arr, keyFn) { return arr.reduce((m, x) => { const k = keyFn(x); (m[k] ||= []).push(x); return m; }, {}); }
@@ -389,7 +651,6 @@ function initDemographics() {
   }
 
   if (selAge && selAge.options.length <= 1) {
-    // 12〜50歳を生成（index.htmlのコメントに合わせる）
     for (let a = 12; a <= 50; a++) {
       const op = document.createElement('option');
       op.value = String(a);
