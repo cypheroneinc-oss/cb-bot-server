@@ -24,7 +24,7 @@
   <body>
     <div class="app">
       <header>
-        <h1 class="title">25問で、あなたの働き方を可視化</h1>
+        <h1 class="title">30問で、あなたの働き方を可視化</h1>
       </header>
 
       <div class="load-error hidden" id="loadError" role="alert" aria-live="polite"></div>
@@ -133,7 +133,34 @@
           <ol id="resultReactions"></ol>
         </section>
 
-        <!-- スコアは非表示化 -->
+        <!-- ▼▼ v3 追加セクション（器のみ） ▼▼ -->
+        <section class="hexaco" id="hexacoBlock">
+          <h3>📊 HEXACO（6因子）</h3>
+          <div id="hexacoRows"></div>
+        </section>
+
+        <section class="balance" id="balanceBlock">
+          <h3>🧭 バランス</h3>
+          <div class="balance-bars" id="balanceBars"></div>
+        </section>
+
+        <section class="ideal" id="idealBlock">
+          <h3>🌈 理想Top3</h3>
+          <ul class="metric-list" id="idealList"></ul>
+        </section>
+
+        <section class="industry" id="industryBlock">
+          <h3>💼 業界レコメンドTop5</h3>
+          <ul class="metric-list" id="industryList"></ul>
+        </section>
+
+        <section class="roadmap" id="roadmapBlock">
+          <h3>🗺️ ロードマップ</h3>
+          <div id="roadmapBody"></div>
+        </section>
+        <!-- ▲▲ v3 追加セクション ▲▲ -->
+
+        <!-- スコアは非表示化（互換） -->
         <section class="result-scores hidden">
           <h3>スコアサマリー</h3>
           <div id="resultScores"></div>
@@ -159,6 +186,13 @@
       </footer>
     </div>
 
+    <!-- ▼ v3辞書の先読み（順序厳守：app.jsより前） -->
+    <script src="../lib/result-content.v3.js"></script>
+    <script src="../lib/ideal.v3.js"></script>
+    <script src="../lib/industry.v3.js"></script>
+    <script src="../lib/roadmap.v3.js"></script>
+
+    <!-- アプリ本体 -->
     <script type="module" src="./assets/app.js"></script>
   </body>
 </html>
