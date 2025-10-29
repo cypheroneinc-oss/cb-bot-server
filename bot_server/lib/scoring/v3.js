@@ -3,8 +3,8 @@
 
 import { getQuestionDataset } from '../questions/index.js';
 import archetypeWeights from '../archetype-weights.v3.json' assert { type: 'json' };
-import idealWeights from '../ideal-weights.v3.json' assert { type: 'json' };
-import industryWeights from '../industry-weights.v3.json' assert { type: 'json' };
+import { IDEAL_12 } from '../ideal.v3.js';
+import { INDUSTRY_24 } from '../industry.v3.js'
 
 // 表示ラベル
 const ARCHETYPE_LABELS = {
