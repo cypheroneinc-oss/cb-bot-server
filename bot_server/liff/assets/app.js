@@ -6,11 +6,11 @@ import { getHeroNarrative } from '../../lib/result-content.js'; // ← 追加
 let QUESTIONS = null;
 async function loadQuestions() {
   if (QUESTIONS) return QUESTIONS;
-    const candidates = [
+  const candidates = [
     '../../data/questions.v3.js', '/data/questions.v3.js',
     '../../data/questions.v1.js', '/data/questions.v1.js' // フォールバック
   ];
- 
+
   let lastErr;
   for (const p of candidates) {
     try {
@@ -20,17 +20,22 @@ async function loadQuestions() {
     } catch (e) { lastErr = e; }
   }
   console.error('[questions] failed to load', lastErr);
+  // ↓ v3ベースの案内に微修正
+  const mount = document.querySelector('#questions');
+  if (mount) {
+    mount.innerHTML = `<div class="load-error">設問データの読み込みに失敗しました。/data/questions.v3.js を確認してください。</div>`;
+  }
   return null;
 }
 
 let WEIGHTS = null;
 async function loadWeights() {
   if (WEIGHTS) return WEIGHTS;
-      const candidates = [
+  const candidates = [
     '../../lib/archetype-weights.v3.json', '/lib/archetype-weights.v3.json',
     '../../lib/archetype-weights.v1.json', '/lib/archetype-weights.v1.json'
   ];
- 
+
   let lastErr;
   for (const p of candidates) {
     try {
@@ -48,7 +53,6 @@ async function loadWeights() {
 }
 
 /* ----------------------------- */
-// ★ サーバ仕様: v1（文字列）を送る + choiceId（POS/NEG）を同梱（最小差分）
 const QUESTION_VERSION = 'v3';
 
 /* 6件法（左：とてもそう思う → 右：まったくそう思わない）*/
@@ -69,10 +73,7 @@ async function mountApp() {
   if (!mount) { console.error('[app] #questions not found'); return; }
 
   const qs = await loadQuestions();
-  if (!qs) {
-    mount.innerHTML = `<div class="load-error">設問データの読み込みに失敗しました。/data/questions.v1.js を確認してください。</div>`;
-    return;
-  }
+  if (!qs) return;
 
   // 単一ページで全問表示
   mount.innerHTML = renderSurvey(qs);
@@ -351,23 +352,8 @@ function updateCounters() {
   if (bar) bar.style.width = `${Math.round((answered / Math.max(total, 1)) * 100)}%`;
 }
 
-function pickFactorDials(vec25) {
-  const keys = [
-    'Trait.Extraversion','Trait.Conscientiousness','Trait.Openness','Trait.Agreeableness','Trait.Neuroticism',
-    'Orientation.Promotion','Orientation.Prevention',
-    'Value.Achievement','Value.Autonomy','Value.Security'
-  ];
-  return keys.map(k => ({ key: k, label: prettyLabel(k), value: Math.round((vec25[k] ?? 0.5)*100) }));
-}
-
-function renderDial({ label, value }) {
-  return `
-    <div class="dial">
-      <div class="dial-head"><span class="label">${label}</span><span class="num">${value}</span></div>
-      <div class="bar"><span style="width:${value}%"></span></div>
-    </div>
-  `;
-}
+function pickFactorDials(vec25) {/* 省略（未使用セクション） */}
+function renderDial(){/* 省略 */}
 
 function prettyLabel(key) {
   const map = {
@@ -495,7 +481,6 @@ function setList(elOrSel, value, { ordered = false } = {}) {
   }
   const arr = Array.isArray(value) ? value : (value ? [value] : []);
   const items = arr.map(x => `<li>${escapeHtml(String(x))}</li>`).join('');
-  // ★ 最小差分修正：必ず <ul>/<ol> でラップ（CSSの表示条件に一致させる）
   el.innerHTML = ordered ? `<ol>${items}</ol>` : `<ul>${items}</ul>`;
 }
 
