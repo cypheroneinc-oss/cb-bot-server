@@ -8,7 +8,7 @@ import { getQuestionDataset } from '../questions/index.js';
 import scoreDiagnosisV3 from './v3.js'; // ← 追加（v3専用スコアラー）
 
 // 既存の公開定数を温存（互換維持）
-export const QUESTION_VERSION = scoringModule.QUESTION_VERSION || 'v3';
+export const QUESTION_VERSION = 'v3'; // 既定を v3 に
 
 // 既存シンボルをそのまま再エクスポート（無ければ undefined のまま）
 export const scoreAndMapToHero = scoringModule.scoreAndMapToHero;
