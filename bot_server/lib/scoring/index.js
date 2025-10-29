@@ -8,7 +8,7 @@ import { getQuestionDataset } from '../questions/index.js';
 import scoreDiagnosisV3 from './v3.js'; // ← 追加（v3専用スコアラー）
 
 // 既存の公開定数を温存（互換維持）
-export const QUESTION_VERSION = scoringModule.QUESTION_VERSION || 'v1';
+export const QUESTION_VERSION = scoringModule.QUESTION_VERSION || 'v3';
 
 // 既存シンボルをそのまま再エクスポート（無ければ undefined のまま）
 export const scoreAndMapToHero = scoringModule.scoreAndMapToHero;
@@ -16,13 +16,13 @@ export const runDiagnosis      = scoringModule.runDiagnosis;
 
 // 6点/7点Likert → 旧スコアラー用のPOS/NEGマップ（既存踏襲）
 const SIX_POINT_MAPPING = new Map([
-  [1, { choiceKey: 'POS', w: 0.75 }],
-  [2, { choiceKey: 'POS', w: 0.5 }],
-  [3, { choiceKey: 'POS', w: 0.25 }],
-  [4, { choiceKey: 'NEG', w: 0.25 }],
-  [5, { choiceKey: 'NEG', w: 0.5 }],
-  [6, { choiceKey: 'NEG', w: 0.75 }],
-]);
+  [1, { choiceKey: 'NEG', w: 0.75 }],
+  [2, { choiceKey: 'NEG', w: 0.5 }],
+  [3, { choiceKey: 'NEG', w: 0.25 }],
+  [4, { choiceKey: 'POS', w: 0.25 }],
+  [5, { choiceKey: 'POS', w: 0.5 }],
+  [6, { choiceKey: 'POS', w: 0.75 }],
+ ]);
 
 const SEVEN_POINT_MAPPING = new Map([
   [1, { choiceKey: 'NEG', w: 0.75 }],
