@@ -8,7 +8,7 @@ import rawQuestionsV1 from '../../data/questions.v1.js';
 import rawQuestionsV3 from '../../data/questions.v3.js';
 
 // 既存を壊さないため残す（実質デフォルト値としてのみ使用）
-export const DATASET_VERSION = 2;
+export const DATASET_VERSION = 3;
 
 // ---------- Normalizers ----------
 function normalizeChoice(choice) {
