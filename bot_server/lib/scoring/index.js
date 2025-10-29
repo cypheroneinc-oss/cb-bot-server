@@ -14,7 +14,32 @@ export const QUESTION_VERSION = 'v3'; // 既定を v3 に
 export const scoreAndMapToHero = scoringModule.scoreAndMapToHero;
 export const runDiagnosis      = scoringModule.runDiagnosis;
 
+// ---- 互換：ユニットテスト向けの薄いラッパーを用意（元があればそれを優先） ----
+export const decideHero =
+  scoringModule.decideHero ||
+  function decideHeroFallback(prob = {}) {
+    // 最大全探索（同値はキーの辞書順で安定化）
+    let bestKey = null;
+    let bestVal = -Infinity;
+    for (const [k, v] of Object.entries(prob)) {
+      const n = Number(v) || 0;
+      if (n > bestVal || (n === bestVal && String(k) < String(bestKey))) {
+        bestKey = k; bestVal = n;
+      }
+    }
+    return bestKey || 'hero';
+  };
+
+export const pickStable =
+  scoringModule.pickStable ||
+  function pickStableFallback(prob = {}) {
+    const k = decideHero(prob);
+    const v = Number(prob?.[k] ?? 0);
+    return [k, v];
+  };
+
 // 6点/7点Likert → 旧スコアラー用のPOS/NEGマップ（既存踏襲）
+// ※ UIは 6=賛成（左）なので、旧系に渡すときは 1..6 を POS/NEGへ割り当て
 const SIX_POINT_MAPPING = new Map([
   [1, { choiceKey: 'NEG', w: 0.75 }],
   [2, { choiceKey: 'NEG', w: 0.5 }],
@@ -22,7 +47,7 @@ const SIX_POINT_MAPPING = new Map([
   [4, { choiceKey: 'POS', w: 0.25 }],
   [5, { choiceKey: 'POS', w: 0.5 }],
   [6, { choiceKey: 'POS', w: 0.75 }],
- ]);
+]);
 
 const SEVEN_POINT_MAPPING = new Map([
   [1, { choiceKey: 'NEG', w: 0.75 }],
