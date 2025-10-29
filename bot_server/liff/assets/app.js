@@ -6,7 +6,11 @@ import { getHeroNarrative } from '../../lib/result-content.js'; // ← 追加
 let QUESTIONS = null;
 async function loadQuestions() {
   if (QUESTIONS) return QUESTIONS;
-  const candidates = ['../../data/questions.v1.js', '/data/questions.v1.js'];
+    const candidates = [
+    '../../data/questions.v3.js', '/data/questions.v3.js',
+    '../../data/questions.v1.js', '/data/questions.v1.js' // フォールバック
+  ];
+ 
   let lastErr;
   for (const p of candidates) {
     try {
@@ -22,7 +26,11 @@ async function loadQuestions() {
 let WEIGHTS = null;
 async function loadWeights() {
   if (WEIGHTS) return WEIGHTS;
-  const candidates = ['../../lib/archetype-weights.v1.json', '/lib/archetype-weights.v1.json'];
+      const candidates = [
+    '../../lib/archetype-weights.v3.json', '/lib/archetype-weights.v3.json',
+    '../../lib/archetype-weights.v1.json', '/lib/archetype-weights.v1.json'
+  ];
+ 
   let lastErr;
   for (const p of candidates) {
     try {
@@ -41,7 +49,7 @@ async function loadWeights() {
 
 /* ----------------------------- */
 // ★ サーバ仕様: v1（文字列）を送る + choiceId（POS/NEG）を同梱（最小差分）
-const QUESTION_VERSION = 'v1';
+const QUESTION_VERSION = 'v3';
 
 /* 6件法（左：とてもそう思う → 右：まったくそう思わない）*/
 const LIKERT_REVERSED = [
@@ -225,7 +233,7 @@ async function submitToApi(localAnswers) {
   // ✅ 厳格版：必要項目のみ送る + userId は必須
   const payload = {
     userId,
-    version: QUESTION_VERSION, // 'v1'
+    version: QUESTION_VERSION, // 'v3'
     // サーバ側の互換: choiceId（POS/NEG）を同梱しつつ、scaleも残す
     answers: localAnswers.map(a => ({
       questionId: a.id,
