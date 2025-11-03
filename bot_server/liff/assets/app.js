@@ -1,8 +1,11 @@
 // filename: bot_server/liff/assets/app.js
-import { diagnose, quickQC } from '../../lib/scoring.js';
-import { getHeroNarrative } from '../../lib/result-content.js'; // ← 追加
+// ⬇️ 変更点：legacy diagnose() → v3のscore()に切替。結果の名前はdiag.archetype.labelを優先。
+//           重みの事前fetch依存は外し、API失敗時もローカルv3結果を表示できるように。
 
-/* ----------------------------- */
+import { quickQC } from '../../lib/scoring.js'; // quickQCはそのまま利用
+import { score } from '../../lib/scoring/index.js'; // ★ v3スコアラを含むscore()を使用
+import { getHeroNarrative } from '../../lib/result-content.js';
+
 let QUESTIONS = null;
 async function loadQuestions() {
   if (QUESTIONS) return QUESTIONS;
@@ -20,7 +23,6 @@ async function loadQuestions() {
     } catch (e) { lastErr = e; }
   }
   console.error('[questions] failed to load', lastErr);
-  // ↓ v3ベースの案内に微修正
   const mount = document.querySelector('#questions');
   if (mount) {
     mount.innerHTML = `<div class="load-error">設問データの読み込みに失敗しました。/data/questions.v3.js を確認してください。</div>`;
@@ -28,34 +30,10 @@ async function loadQuestions() {
   return null;
 }
 
-let WEIGHTS = null;
-async function loadWeights() {
-  if (WEIGHTS) return WEIGHTS;
-  const candidates = [
-    '../../lib/archetype-weights.v3.json', '/lib/archetype-weights.v3.json',
-    '../../lib/archetype-weights.v1.json', '/lib/archetype-weights.v1.json'
-  ];
+// 旧：WEIGHTS ローダは未使用化（v3スコアラが内部で重みモジュールをimportするため）
 
-  let lastErr;
-  for (const p of candidates) {
-    try {
-      const res = await fetch(p, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
-      if (json && typeof json === 'object' && Object.keys(json).length >= 12) {
-        WEIGHTS = json;
-        return WEIGHTS;
-      }
-    } catch (e) { lastErr = e; }
-  }
-  console.error('[weights] failed to load', lastErr);
-  return null;
-}
-
-/* ----------------------------- */
 const QUESTION_VERSION = 'v3';
 
-/* 6件法（左：とてもそう思う → 右：まったくそう思わない）*/
 const LIKERT_REVERSED = [
   { value: 6, label: 'とてもそう思う' },
   { value: 5, label: 'かなりそう思う' },
@@ -65,7 +43,6 @@ const LIKERT_REVERSED = [
   { value: 1, label: 'まったくそう思わない' },
 ];
 
-/* ----------------------------- */
 window.addEventListener('DOMContentLoaded', () => { mountApp(); });
 
 async function mountApp() {
@@ -75,20 +52,12 @@ async function mountApp() {
   const qs = await loadQuestions();
   if (!qs) return;
 
-  // 単一ページで全問表示
   mount.innerHTML = renderSurvey(qs);
-
-  // フッター配線（送信のみ）
   wireFooterSubmit();
-
-  // プルダウン初期化（安全：未挿入時のみ追加）
   initDemographics();
-
-  // 進捗／活性制御
   bindSinglePageHandlers();
   updateCounters();
 
-  /* 結果を見るボタンの動作保証（多重バインド防止） */
   const submitBtn = document.getElementById('submitButton');
   if (submitBtn && !submitBtn.dataset.bound) {
     submitBtn.dataset.bound = '1';
@@ -99,7 +68,6 @@ async function mountApp() {
     });
   }
 
-  /* 残り問題数バー等は別要件に従い削除して良い場合のみここでremove()する */
   const progressBar = document.querySelector('.progress-bar');
   const statusText = document.querySelector('.status');
   const subtitle = document.querySelector('.subtitle');
@@ -108,9 +76,6 @@ async function mountApp() {
   if (subtitle) subtitle.remove();
 }
 
-/* -----------------------------
- * 設問UI（1ページ）
- * --------------------------- */
 function renderSurvey(qs) {
   const itemsHtml = qs.map(renderItem).join('');
   return `
@@ -123,7 +88,6 @@ function renderSurvey(qs) {
   `;
 }
 
-/* 1問カード（ひし形下の可視ラベルは無し） */
 function renderItem(q) {
   const name = q.id;
   const opts = LIKERT_REVERSED.map((o) => {
@@ -154,32 +118,23 @@ function renderItem(q) {
   `;
 }
 
-/* -----------------------------
- * 単一ページ用：入力監視 → 進捗と送信活性
- * --------------------------- */
 function bindSinglePageHandlers() {
   const form = document.querySelector('#survey-form');
   const submitBtn = document.getElementById('submitButton');
   const submitLabel = document.getElementById('submitContent');
   const backBtn = document.getElementById('retryButton');
 
-  // 「戻る」は使わない → 非表示固定
   backBtn?.classList.add('hidden');
-
-  // ボタンラベルは常に「結果を見る」
   if (submitLabel) submitLabel.textContent = '結果を見る';
 
-  // 入力が変わるたびに進捗・活性を更新
   form.addEventListener('change', () => {
     updateCounters();
     submitBtn.disabled = !validateAll();
   });
 
-  // 初期活性
   submitBtn.disabled = !validateAll();
 }
 
-/* フッターの送信ボタン（UIは既存のまま） */
 function wireFooterSubmit() {
   const btn = document.getElementById('submitButton');
   if (!btn) return;
@@ -198,11 +153,14 @@ function wireFooterSubmit() {
 async function onSubmit() {
   const answers = collectAnswers();
   const qc = quickQC(answers);
-  const weights = await loadWeights();
-  if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
 
-  // ローカル推定
-  const diag = diagnose(answers, { weights });
+  // ★ ローカル推定は v3 スコアラで実施（API失敗時のフォールバック担保）
+  let diag = null;
+  try {
+    diag = score(answers, 'v3'); // v3直通（重みはv3スコアラが内部import）
+  } catch (e) {
+    console.warn('[local score] failed:', e?.message || e);
+  }
 
   // API送信（失敗しても続行）
   let api = null;
@@ -220,27 +178,24 @@ function collectAnswers() {
   return [...inputs].map(el => ({ id: el.name, value: Number(el.value) }));
 }
 
-/* API連携 */
 async function submitToApi(localAnswers) {
   const base = resolveBaseUrl();
   const url = `${base}/api/diagnosis/submit`;
 
-  const userId = getOrCreateUserId(); // ✅ 必須。payload に含める
+  const userId = getOrCreateUserId();
 
   const selGender = document.getElementById('demographicsGender');
   const selAge    = document.getElementById('demographicsAge');
   const selMbti   = document.getElementById('demographicsMbti');
 
-  // ✅ 厳格版：必要項目のみ送る + userId は必須
   const payload = {
     userId,
     version: QUESTION_VERSION, // 'v3'
-    // サーバ側の互換: choiceId（POS/NEG）を同梱しつつ、scaleも残す
     answers: localAnswers.map(a => ({
       questionId: a.id,
       scale: a.value,
       scaleMax: 6,
-      choiceId: a.value >= 4 ? 'POS' : 'NEG', // ★ 追加（最小差分）
+      choiceId: a.value >= 4 ? 'POS' : 'NEG',
     })),
     meta: {
       demographics: {
@@ -269,22 +224,22 @@ async function submitToApi(localAnswers) {
 }
 
 /* -----------------------------
- * 結果描画（6ブロック本文のみ表示）
+ * 結果描画（v3フォールバック強化）
  * --------------------------- */
 function renderResult({ diag /*, qc*/, api }) {
-  // --- debug begin ---
   window.__DBG = { api, diag };
   console.log('[DEBUG api]', api && JSON.stringify(api).slice(0, 1000));
   console.log('[DEBUG diag]', diag);
-  // --- debug end ---
 
   const root = document.getElementById('resultCard') || document.querySelector('#result');
   if (!root) { console.error('[result] container not found'); return; }
 
-  const { type_main, type_sub } = diag;
+  // ★ v3優先：APIがなければローカルdiagのarchetype.labelを使う
+  const mainName = api?.hero?.name
+    || diag?.archetype?.label
+    || '';
 
-  const mainName = api?.hero?.name || type_main || '';
-  const subName  = type_sub ? `（サブ: ${type_sub}）` : '';
+  const subName = ''; // v3はsub型の概念なし（必要ならidealTop3等で補助表示）
 
   const apiData = deepExtractNarrativeFromApi(api);
 
@@ -292,7 +247,7 @@ function renderResult({ diag /*, qc*/, api }) {
   if (!hasAnyContent(data)) {
     const cleanName = String(mainName).replace(/（.*?）/g, '').trim();
     const slug = api?.hero?.slug ? String(api.hero.slug).trim() : '';
-    const baseCandidates = [type_main, cleanName, mainName, slug].filter(Boolean);
+    const baseCandidates = [cleanName, mainName, slug].filter(Boolean);
     const expandVariants = (k) => {
       const s = String(k || '').trim();
       if (!s) return [];
@@ -337,7 +292,6 @@ function renderResult({ diag /*, qc*/, api }) {
   nextBtn?.classList.add('hidden');
 }
 
-/* ----------------------------- */
 function updateCounters() {
   const form = document.getElementById('survey-form');
   if (!form) return;
@@ -351,9 +305,6 @@ function updateCounters() {
   const bar = document.getElementById('progressFill');
   if (bar) bar.style.width = `${Math.round((answered / Math.max(total, 1)) * 100)}%`;
 }
-
-function pickFactorDials(vec25) {/* 省略（未使用セクション） */}
-function renderDial(){/* 省略 */}
 
 function prettyLabel(key) {
   const map = {
@@ -371,7 +322,6 @@ function prettyLabel(key) {
   return map[key] || key;
 }
 
-/* ----------------------------- */
 function escapeHtml(s = "") {
   return String(s).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -400,61 +350,6 @@ function getOrCreateUserId(){
   return v;
 }
 
-/* ================================ */
-function initDemographics() {
-  const selGender = document.getElementById('demographicsGender');
-  const selAge    = document.getElementById('demographicsAge');
-  const selMbti   = document.getElementById('demographicsMbti');
-
-  if (selGender && selGender.options.length <= 1) {
-    ['男性','女性','その他・回答しない'].forEach(v => {
-      const op = document.createElement('option'); op.value = v; op.textContent = v; selGender.appendChild(op);
-    });
-  }
-  if (selAge && selAge.options.length <= 1) {
-    for (let a = 12; a <= 50; a++) { const op = document.createElement('option'); op.value = String(a); op.textContent = `${a}`; selAge.appendChild(op); }
-  }
-  if (selMbti && selMbti.options.length <= 1) {
-    const MBTI_JA = [
-      ['INTJ','建築家'], ['INTP','論理学者'],
-      ['ENTJ','指揮官'], ['ENTP','討論者'],
-      ['INFJ','提唱者'], ['INFP','仲介者'],
-      ['ENFJ','主人公'], ['ENFP','広報運動家'],
-      ['ISTJ','管理者'], ['ISFJ','擁護者'],
-      ['ESTJ','幹部'], ['ESFJ','領事'],
-      ['ISTP','巨匠'], ['ISFP','冒険家'],
-      ['ESTP','起業家'], ['ESFP','エンターテイナー'],
-    ];
-    MBTI_JA.forEach(([code, ja]) => {
-      const op = document.createElement('option');
-      op.value = code;
-      op.textContent = `${code}（${ja}）`;
-      selMbti.appendChild(op);
-    });
-  }
-}
-
-/* ================================ */
-function validateDemographics() {
-  const g = document.getElementById('demographicsGender');
-  const a = document.getElementById('demographicsAge');
-  const m = document.getElementById('demographicsMbti');
-  const okG = !g || !!g.value;
-  const okA = !a || !!a.value;
-  const okM = !m || !!m.value;
-  return okG && okA && okM;
-}
-
-function validateAll() {
-  const form = document.getElementById('survey-form');
-  if (!form) return false;
-  const totalQuestions = form.querySelectorAll('.question-card').length;
-  const answered = form.querySelectorAll('input[type="radio"]:checked').length;
-  const questionsOk = totalQuestions > 0 && answered >= totalQuestions;
-  return questionsOk && validateDemographics();
-}
-
-/* ================================ */
 function setHTML(elOrSel, htmlOrText) {
   const el = typeof elOrSel === 'string' ? document.querySelector(elOrSel) : elOrSel;
   if (!el) return;
@@ -484,7 +379,6 @@ function setList(elOrSel, value, { ordered = false } = {}) {
   el.innerHTML = ordered ? `<ol>${items}</ol>` : `<ul>${items}</ul>`;
 }
 
-/* ================================ */
 function findOrCreateSection(root, selectors, headingText, tag = 'div', className = '') {
   for (const sel of selectors) {
     const el = root.querySelector(sel);
@@ -502,7 +396,6 @@ function findOrCreateSection(root, selectors, headingText, tag = 'div', classNam
   return container;
 }
 
-/* ================================ */
 function deepExtractNarrativeFromApi(api) {
   if (!api || typeof api !== 'object') return null;
 
