@@ -1,17 +1,20 @@
-// /lib/ideal.v3.js
-// 理想12タイプ（約80文字・決めつけ口調）
-export const IDEAL_12 = Object.freeze({
-  leader:    '責任を引き受け前に立つ。正しさと結果で場をまとめ、迷いを力に変える存在。',
-  liberator: '常識を疑い新しい道を開く。枠を壊し、仲間に自由な選択肢を増やす起点。',
-  supporter: '人の感情に寄り添い続ける。そっと支え、安心を広げる潤滑油。',
-  scholar:   '観察と仮説で道筋を描く。知識を仕組みに変え、再現性で導く参謀。',
-  artist:    '感性を作品に落とし込む。世界の見え方を変え、共感を呼ぶ表現者。',
-  guardian:  '誠実さで土台を固める。約束を守り、継続で成果を積み上げる守り手。',
-  challenger:'変化に飛び込み先陣を切る。失敗を学びに変え、突破口を掘る推進力。',
-  connector: '人と人を結び合う。信頼の輪を広げ、チームの力を最大化する交点。',
-  charisma:  '情熱で空気を動かす。言葉と姿勢で火を点け、共鳴を連鎖させる発信者。',
-  builder:   '設計と効率で積む。しくみを磨き、継続可能な成果を量産する構築者。',
-  reformer:  '正義感で制度を変える。理不尽を放置せず、改善策を形にする改革者。',
-  healer:    '心と自然の調和を育む。安心をつくり、回復の場を生む癒やし手。'
+// filename: bot_server/lib/ideal.v3.js
+// v3 scorer 用：12理想タイプ × 9軸 {H,E,X,A,C,O,speech,emotion,action} の係数マップ
+// 値は 0..1 想定（初期値：合理的な仮ベクトル。後日ABで調整可）
+
+export const IDEAL_WEIGHTS = Object.freeze({
+  leader:     { H:0.65, E:0.55, X:0.70, A:0.50, C:0.70, O:0.50, speech:0.75, emotion:0.45, action:0.65 },
+  liberator:  { H:0.45, E:0.50, X:0.65, A:0.45, C:0.40, O:0.85, speech:0.55, emotion:0.55, action:0.75 },
+  supporter:  { H:0.70, E:0.65, X:0.45, A:0.85, C:0.55, O:0.45, speech:0.50, emotion:0.85, action:0.45 },
+  scholar:    { H:0.65, E:0.50, X:0.35, A:0.55, C:0.80, O:0.70, speech:0.75, emotion:0.45, action:0.40 },
+  artist:     { H:0.45, E:0.55, X:0.55, A:0.55, C:0.40, O:0.90, speech:0.45, emotion:0.80, action:0.55 },
+  guardian:   { H:0.80, E:0.65, X:0.40, A:0.75, C:0.75, O:0.45, speech:0.55, emotion:0.70, action:0.45 },
+  challenger: { H:0.45, E:0.50, X:0.75, A:0.45, C:0.50, O:0.65, speech:0.50, emotion:0.55, action:0.85 },
+  connector:  { H:0.55, E:0.55, X:0.75, A:0.80, C:0.50, O:0.55, speech:0.85, emotion:0.70, action:0.55 },
+  charisma:   { H:0.50, E:0.55, X:0.85, A:0.55, C:0.45, O:0.60, speech:0.90, emotion:0.75, action:0.60 },
+  builder:    { H:0.60, E:0.50, X:0.40, A:0.55, C:0.85, O:0.55, speech:0.75, emotion:0.45, action:0.55 },
+  reformer:   { H:0.80, E:0.55, X:0.55, A:0.55, C:0.65, O:0.75, speech:0.75, emotion:0.55, action:0.60 },
+  healer:     { H:0.65, E:0.80, X:0.45, A:0.80, C:0.55, O:0.55, speech:0.55, emotion:0.90, action:0.45 },
 });
-export default IDEAL_12;
+
+export default IDEAL_WEIGHTS;
