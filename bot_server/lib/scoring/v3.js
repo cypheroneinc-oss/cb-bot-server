@@ -3,8 +3,8 @@
 
 import { getQuestionDataset } from '../questions/index.js';
 import archetypeWeights from '../archetype-weights.v3.json' assert { type: 'json' };
-import { IDEAL_12 } from '../ideal.v3.js';
-import { INDUSTRY_24 } from '../industry.v3.js';
+import { IDEAL_WEIGHTS } from '../ideal.v3.js';        // ★ 重み辞書に変更
+import { INDUSTRY_WEIGHTS } from '../industry.v3.js';  // ★ 重み辞書に変更
 
 // 表示ラベル
 const ARCHETYPE_LABELS = {
@@ -26,15 +26,15 @@ const IDEAL_LABELS = {
   leader: '導く人',
   liberator: '自由を与える人',
   supporter: '支える人',
-  scholar: '知恵で導く人',
-  artist: '表現する人',
-  guardian: '守る人',
-  challenger: '挑戦する人',
+  scholar:   '知恵で導く人',
+  artist:    '表現する人',
+  guardian:  '守る人',
+  challenger:'挑戦する人',
   connector: '繋げる人',
-  charisma: '情熱で動かす人',
-  builder: '仕組みを作る人',
-  reformer: '社会を変える人',
-  healer: '癒す人',
+  charisma:  '情熱で動かす人',
+  builder:   '仕組みを作る人',
+  reformer:  '社会を変える人',
+  healer:    '癒す人',
 };
 
 const INDUSTRY_LABELS = {
@@ -64,7 +64,7 @@ const INDUSTRY_LABELS = {
   social_startup: 'スタートアップ・社会起業',
 };
 
-// 星のしきい値（weights を 0..1 想定の暫定値。分布を見て微調整OK）
+// 星のしきい値（weights を 0..1 想定の暫定値）
 const STAR_THRESHOLDS = [60, 75, 85, 92, 97];
 
 // subfactor の正規化（表記ゆれ対策）
@@ -73,10 +73,10 @@ function normFactorKey(s) {
   const raw = String(s).trim();
   const k = raw.toLowerCase();
 
-  // HEXACO（頭文字・フル名どちらも許容）
+  // HEXACO
   if (raw === 'H' || k.startsWith('honesty')) return 'H';
-  if (raw === 'E' || k.startsWith('emotional')) return 'E';      // Emotionality
-  if (raw === 'X' || k.startsWith('extra')) return 'X';          // Extraversion
+  if (raw === 'E' || k.startsWith('emotional')) return 'E';
+  if (raw === 'X' || k.startsWith('extra')) return 'X';
   if (raw === 'A' || k.startsWith('agree')) return 'A';
   if (raw === 'C' || k.startsWith('consc')) return 'C';
   if (raw === 'O' || k.startsWith('open')) return 'O';
@@ -86,15 +86,14 @@ function normFactorKey(s) {
   if (k === 'emotion' || k === 'm') return 'emotion';
   if (k === 'action' || k === 'act' || k === 'do') return 'action';
 
-  // 既知以外は生で返す（将来拡張）
   return raw;
 }
 
 // 1..6 → 0..100（線形）
 function toPercent(v) {
   const n = Number(v);
-  if (!Number.isFinite(n)) return null; // 未回答扱い
-  if (n < 1 || n > 6) return null;      // 範囲外は未回答扱い
+  if (!Number.isFinite(n)) return null;
+  if (n < 1 || n > 6) return null;
   const p = ((n - 1) / 5) * 100;
   return Math.round(Math.max(0, Math.min(100, p)));
 }
@@ -103,8 +102,8 @@ function toPercent(v) {
 function dot(vec, weights) {
   let s = 0;
   for (const k in weights) {
-    const w = Number(weights[k] ?? 0);   // 0..1 想定
-    const v = Number(vec[k] ?? 0);       // 0..100
+    const w = Number(weights[k] ?? 0);
+    const v = Number(vec[k] ?? 0);
     s += w * v;
   }
   return s;
@@ -115,14 +114,13 @@ function topNByScore(items, n) {
 }
 
 export function scoreDiagnosisV3(answers, { version = '3' } = {}) {
-  // 1) 設問メタ（subfactor / reverse）取得
-  const qset = getQuestionDataset(version); // lib/questions/index.js が '3'→v3 を解決
+  const qset = getQuestionDataset(version);
   const buckets = {
     H: [], E: [], X: [], A: [], C: [], O: [],
     speech: [], emotion: [], action: [],
   };
 
-  // 2) 回答正規化 → 反転適用 → バケット投入（未回答はスキップ）
+  // 回答正規化 → 反転適用 → バケット投入（未回答はスキップ）
   for (const q of qset) {
     const id = q.code;
     const sf = normFactorKey(q.subfactor ?? q.factor);
@@ -135,16 +133,14 @@ export function scoreDiagnosisV3(answers, { version = '3' } = {}) {
     let v = Number(raw);
     if (!Number.isFinite(v)) continue;
 
-    // 左ポジ前提。ネガティブ設問のみ反転。
     const isReverse = (q?.reverse === true) || (q?.tags && q.tags.reverse === true);
-    if (isReverse) v = (max + 1) - v;  // 6件法 → 7 - v
+    if (isReverse) v = (max + 1) - v; // 6件法 → 7 - v
 
     const p = toPercent(v);
     if (p === null) continue;
     buckets[sf].push(p);
   }
 
-  // 3) 因子平均（バケット空は0）
   const avg = (arr) => (arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0);
 
   const hexaco = {
@@ -162,10 +158,9 @@ export function scoreDiagnosisV3(answers, { version = '3' } = {}) {
     action: avg(buckets.action),
   };
 
-  // 4) 9軸ベクトル（weights はこのキーに合わせる）
   const vector = { ...hexaco, ...balance };
 
-  // 5) Archetype（12）
+  // Archetype（12）
   const archetypeScores = Object.keys(archetypeWeights).map((key) => ({
     id: key,
     label: ARCHETYPE_LABELS[key] ?? key,
@@ -173,9 +168,8 @@ export function scoreDiagnosisV3(answers, { version = '3' } = {}) {
   }));
   const bestArche = topNByScore(archetypeScores, 1)[0] ?? { id: 'everyman', label: ARCHETYPE_LABELS.everyman, score: 0 };
 
-  // 6) Ideal（12）Top3
-  const idealWeights =
-    IDEAL_12?.WEIGHTS || IDEAL_12?.weights || IDEAL_12; // どのエクスポート形でも拾う
+  // Ideal（12）Top3
+  const idealWeights = IDEAL_WEIGHTS;
   const idealScores = Object.keys(idealWeights).map((key) => ({
     id: key,
     label: IDEAL_LABELS[key] ?? key,
@@ -183,9 +177,8 @@ export function scoreDiagnosisV3(answers, { version = '3' } = {}) {
   }));
   const idealTop3 = topNByScore(idealScores, 3);
 
-  // 7) Industry（24）Top5（星付与＋短評はプレース）
-  const industryWeights =
-    INDUSTRY_24?.WEIGHTS || INDUSTRY_24?.weights || INDUSTRY_24;
+  // Industry（24）Top5
+  const industryWeights = INDUSTRY_WEIGHTS;
   const industryScores = Object.keys(industryWeights).map((key) => {
     const score = dot(vector, industryWeights[key]);
     let star = 1;
@@ -202,11 +195,10 @@ export function scoreDiagnosisV3(answers, { version = '3' } = {}) {
   });
   const industryTop5 = topNByScore(industryScores, 5);
 
-  // 8) 返却（表示向けは整数）
   return {
     version: '3',
-    hexaco,   // 0..100
-    balance,  // 0..100
+    hexaco,
+    balance,
     archetype: {
       key: bestArche.id,
       label: bestArche.label,
@@ -216,7 +208,7 @@ export function scoreDiagnosisV3(answers, { version = '3' } = {}) {
     industryTop5: industryTop5.map((x) => ({
       id: x.id, label: x.label, score: Math.round(x.score), star: x.star, blurb: x.blurb,
     })),
-    raw: { vector }, // 内積に使った9軸（デバッグ/ABに利用）
+    raw: { vector },
   };
 }
 
