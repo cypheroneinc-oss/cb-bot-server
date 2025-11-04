@@ -1,5 +1,8 @@
 // filename: bot_server/liff/assets/app.js
-import { diagnose, quickQC } from '../../lib/scoring.js';
+// v3 local fallback ready: use scoreDiagnosisV3 (not legacy diagnose)
+
+import { quickQC } from '../../lib/scoring.js';
+import scoreDiagnosisV3 from '../../lib/scoring/v3.js';
 import { getHeroNarrative } from '../../lib/result-content.js'; // ← 追加
 
 /* ----------------------------- */
@@ -29,6 +32,7 @@ async function loadQuestions() {
 
 let WEIGHTS = null;
 async function loadWeights() {
+  // 留意: v3ローカル推定では未使用だが、将来のUIで参照する可能性があるため残置
   if (WEIGHTS) return WEIGHTS;
   const candidates = [
     '../../lib/archetype-weights.v3.json', '/lib/archetype-weights.v3.json',
@@ -197,11 +201,11 @@ function wireFooterSubmit() {
 async function onSubmit() {
   const answers = collectAnswers();
   const qc = quickQC(answers);
-  const weights = await loadWeights();
-  if (!weights) { toast('重みデータの読み込みに失敗しました'); return; }
 
-  // ローカル推定（※ v1レガシーは使わず）
-  const diag = diagnose(answers, { weights });
+  // v3 ローカル推定（API失敗時のフォールバック本流）
+  const dict = {};
+  for (const a of answers) dict[a.id] = a.value;
+  const diag = scoreDiagnosisV3(dict, { version: '3' });
 
   // API送信（失敗しても続行）
   let api = null;
