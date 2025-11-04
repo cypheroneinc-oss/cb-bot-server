@@ -2,7 +2,7 @@
 // Ver3: 30問 (Likert 1..6) → HEXACO(6)・Balance(3)・Archetype12・Ideal12 Top3・Industry24 Top5
 
 import { getQuestionDataset } from '../questions/index.js';
-import archetypeWeights from '../archetype-weights.v3.json' assert { type: 'json' };
+import archetypeWeights from '../archetype-weights.v3.json' with { type: 'json' }; // ← 将来互換
 import { IDEAL_WEIGHTS } from '../ideal.v3.js';        // ★ 重み辞書に変更
 import { INDUSTRY_WEIGHTS } from '../industry.v3.js';  // ★ 重み辞書に変更
 
